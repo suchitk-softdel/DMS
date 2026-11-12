@@ -1,13 +1,14 @@
 import ComingSoon from '@/components/ui/ComingSoon'
 import PageHeader from '@/components/ui/PageHeader'
 
+// SRS v1.0 section 3.6 (FR-INC-1 to 6)
 export default function Incentives() {
   return (
     <>
-      <PageHeader title="Incentives" subtitle="Rebates, spiffs and program earnings" />
+      <PageHeader title="Incentives & Training" subtitle="Program earnings, milestones and certifications" />
       <ComingSoon
-        title="Incentives"
-        note="Active incentive programs, progress toward tiers and payout history will appear here."
+        title="Incentives & Training"
+        note="Incentive progress, your peer rank, certifications, training courses and upcoming events will appear here."
       />
     </>
   )

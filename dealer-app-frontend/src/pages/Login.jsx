@@ -25,7 +25,6 @@ import {
 
 // Shown to help testers; remove once real authentication exists.
 const DEMO_ACCOUNTS = [
-  { email: 'admin@demo.com', label: 'Administrator' },
   { email: 'principal@demo.com', label: 'Dealer Principal' },
   { email: 'sales@demo.com', label: 'Sales Representative' },
   { email: 'tech@demo.com', label: 'Service Technician' },

@@ -1,6 +1,10 @@
 // The ONLY module that reads from src/data. Every function returns a Promise,
 // so components and slices stay the same when the mock branch is replaced
 // by real API calls.
+//
+// Per SRS v1.0 section 5 the app is a thin presentation layer: all data,
+// AI results (forecasts, scores, Copilot answers) and enterprise-system access
+// come from the backend. The app never computes AI results itself.
 import { env } from '@/config/env'
 import { dealers } from '@/data/dealers'
 import { roles } from '@/data/roles'
@@ -80,17 +84,8 @@ export function getRoles() {
 }
 
 // ---------------------------------------------------------------------------
-// Dealers
+// Dealer profile (the signed-in user's own dealership: name, tier, region)
 // ---------------------------------------------------------------------------
-
-export function getDealers() {
-  if (!env.useMockData) {
-    // TODO(api): GET /dealers -> [{ id, name, city, state, tier, status, riskLevel, ... }]
-    return apiRequest('/dealers')
-  }
-
-  return mockResponse(dealers)
-}
 
 export function getDealerById(dealerId) {
   if (!env.useMockData) {
@@ -103,7 +98,7 @@ export function getDealerById(dealerId) {
 }
 
 // ---------------------------------------------------------------------------
-// Orders, sales, products, claims, tasks
+// Orders, sales, products, claims
 // Mock branches return empty arrays until scripts/generateData.js produces
 // the multi-year dataset in src/data/. Optional `dealerId` filters to one dealer.
 // ---------------------------------------------------------------------------
@@ -150,15 +145,5 @@ export function getClaims({ dealerId } = {}) {
   }
 
   // TODO(data): read from src/data/claims.js and filter by dealerId.
-  return mockResponse([])
-}
-
-export function getTasks({ dealerId } = {}) {
-  if (!env.useMockData) {
-    // TODO(api): GET /tasks?dealerId= -> [{ id, dealerId, assigneeId, title, dueDate, status }]
-    return apiRequest(`/tasks${toQuery({ dealerId })}`)
-  }
-
-  // TODO(data): read from src/data/tasks.js and filter by dealerId.
   return mockResponse([])
 }

@@ -24,7 +24,6 @@ import { useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { env } from '@/config/env'
 import { PUBLIC_PATHS } from '@/constants/modules'
-import { isDealerRole } from '@/constants/roles'
 import { usePermissions } from '@/lib/rbac'
 import { logout } from '@/store/slices/authSlice'
 import { toggleCopilot, toggleNav } from '@/store/slices/uiSlice'
@@ -93,16 +92,15 @@ export default function TopBar() {
           <Chip label={env.appEnv.toUpperCase()} color="warning" size="small" sx={{ fontWeight: 600 }} />
         )}
 
-        {isDealerRole(user?.roleId) && (
-          <Button
-            variant="outlined"
-            startIcon={<AutoAwesomeOutlinedIcon />}
-            onClick={() => dispatch(toggleCopilot())}
-            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            Copilot
-          </Button>
-        )}
+        {/* Copilot is available on every screen to every role (SRS FR-COP-1). */}
+        <Button
+          variant="outlined"
+          startIcon={<AutoAwesomeOutlinedIcon />}
+          onClick={() => dispatch(toggleCopilot())}
+          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+        >
+          Copilot
+        </Button>
 
         <Tooltip title="Notifications">
           <IconButton aria-label={`${UNREAD_NOTIFICATIONS} unread notifications`}>
@@ -138,20 +136,18 @@ export default function TopBar() {
             </Typography>
           </Box>
           <Divider />
-          {isDealerRole(user?.roleId) && (
-            <MenuItem
-              onClick={() => {
-                setAccountAnchor(null)
-                dispatch(toggleCopilot())
-              }}
-              sx={{ display: { sm: 'none' } }}
-            >
-              <ListItemIcon>
-                <AutoAwesomeOutlinedIcon fontSize="small" />
-              </ListItemIcon>
-              Copilot
-            </MenuItem>
-          )}
+          <MenuItem
+            onClick={() => {
+              setAccountAnchor(null)
+              dispatch(toggleCopilot())
+            }}
+            sx={{ display: { sm: 'none' } }}
+          >
+            <ListItemIcon>
+              <AutoAwesomeOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            Copilot
+          </MenuItem>
           <MenuItem onClick={handleLogout}>
             <ListItemIcon>
               <LogoutIcon fontSize="small" />

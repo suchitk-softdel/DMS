@@ -28,21 +28,9 @@ export const fetchRoles = createAsyncThunk(
 const rolesSlice = createSlice({
   name: 'roles',
   initialState,
-  reducers: {
-    // For the future admin permissions screen: grant/revoke a module for a role.
-    togglePermission(state, action) {
-      const { roleId, moduleKey } = action.payload
-      const role = state.items.find((r) => r.id === roleId)
-      if (!role) return
-
-      const index = role.permissions.indexOf(moduleKey)
-      if (index === -1) {
-        role.permissions.push(moduleKey)
-      } else {
-        role.permissions.splice(index, 1)
-      }
-    },
-  },
+  // Read-only: permissions are configured by the Manufacturer Administrator in
+  // separate admin tooling (SRS 2.3), not in this app.
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchRoles.pending, (state) => {
@@ -59,8 +47,6 @@ const rolesSlice = createSlice({
       })
   },
 })
-
-export const { togglePermission } = rolesSlice.actions
 
 export const selectRoles = (state) => state.roles.items
 export const selectRolesStatus = (state) => state.roles.status

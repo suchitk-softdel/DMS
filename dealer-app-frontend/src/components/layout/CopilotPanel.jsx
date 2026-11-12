@@ -22,7 +22,9 @@ const WELCOME_MESSAGE = {
   text: 'Hi! I am your dealer Copilot. Ask me about orders, incentives or warranty claims.',
 }
 
-// Placeholder chat. Replies are canned until a Copilot backend exists.
+// Dealer Copilot (SRS v1.0 section 3.2, FR-COP-1 to 7). Placeholder chat:
+// replies are canned until the backend exists. Real answers will come from the
+// backend's AI layer (RAG + guardrails), never generated in the browser.
 export default function CopilotPanel() {
   const dispatch = useDispatch()
   const open = useSelector(selectCopilotOpen)

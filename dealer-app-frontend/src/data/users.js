@@ -4,22 +4,6 @@ import { ROLES } from '@/constants/roles'
 // they are shipped in the client bundle and must never be real credentials.
 export const users = [
   {
-    id: 'u-001',
-    name: 'Demo Administrator',
-    email: 'admin@demo.com',
-    password: 'demo123',
-    roleId: ROLES.ADMIN,
-    dealerId: null,
-  },
-  {
-    id: 'u-005',
-    name: 'Demo Manufacturer',
-    email: 'manufacturer@demo.com',
-    password: 'demo123',
-    roleId: ROLES.MANUFACTURER,
-    dealerId: null,
-  },
-  {
     id: 'u-002',
     name: 'Demo Principal',
     email: 'principal@demo.com',

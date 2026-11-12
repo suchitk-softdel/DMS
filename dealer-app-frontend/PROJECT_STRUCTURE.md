@@ -5,7 +5,7 @@ limitations are in [README.md](README.md).
 
 ## At a glance
 
-- **What:** a portal for an HVAC manufacturer (manufacturer side) and its dealers (dealer side).
+- **What:** the dealer-facing app of IDEP. Scope is defined in [docs/SRS.md](../docs/SRS.md).
 - **Stack:** React 19 + Vite, Redux Toolkit, React Router, MUI. No custom CSS.
 - **Data:** hardcoded in `src/data/`, read only through `services/dataService.js`. No backend yet.
 - **Imports:** `@/` means `src/` (for example `@/lib/rbac`).
@@ -36,8 +36,8 @@ src/
 │
 ├── config/env.js             # Reads environment variables
 ├── constants/
-│   ├── roles.js              # ROLES, DEALER_ROLES
-│   └── modules.js            # MODULES, MODULE_PATHS, DEALER_DETAILS_PATH, PUBLIC_PATHS
+│   ├── roles.js              # ROLES (3 dealer roles)
+│   └── modules.js            # MODULES, MODULE_PATHS, PUBLIC_PATHS
 ├── theme/theme.js            # MUI theme + statusColors, riskColors
 │
 ├── data/                     # Hardcoded data (dealers, roles, users)
@@ -63,19 +63,10 @@ src/
 │   └── patterns/             # Composites: FilterBar, ChartCard, KpiGrid, SectionCard,
 │                             #   AsyncContent, EmptyState, ConfirmDialog
 │
-├── pages/
-│   ├── Login, Unauthorized, NotFound
-│   ├── dealer/               # Home, Tasks, Performance, Orders, Inventory,
-│   │                         #   Incentives, Warranty, SalesCoach
-│   ├── manufacturer/         # ManufacturerDashboard, DealerList, DealerDetails,
-│   │                         #   DealerSales, DealerOrders, Forecasting
-│   └── admin/                # AdminDashboard
-│
-└── ai/                       # (planned) in-app AI, placeholders only
-    ├── forecasting/          # seasonalNaive, holtWinters, backtest
-    ├── replenishment/        # replenishment
-    └── assistant/            # tokenizer, trainingPhrases, intentClassifier,
-                              #   entityExtractor, queryEngine, responder
+└── pages/
+    ├── Login, Unauthorized, NotFound
+    └── dealer/               # Home, Dealer360, Orders, Inventory, Incentives,
+                              #   Warranty, SalesCoach (one per SRS module)
 ```
 
 ## Roles and landing pages
@@ -84,8 +75,6 @@ Every demo account uses the password `demo123`.
 
 | Login                   | Role                 | Lands on        |
 | ----------------------- | -------------------- | --------------- |
-| `admin@demo.com`        | Administrator        | `/admin`        |
-| `manufacturer@demo.com` | Manufacturer         | `/manufacturer` |
 | `principal@demo.com`    | Dealer Principal     | `/`             |
 | `sales@demo.com`        | Sales Representative | `/`             |
 | `tech@demo.com`         | Service Technician   | `/`             |
@@ -102,10 +91,10 @@ src/data/  →  dataService.js  →  Redux slices  →  pages  →  components (
 
 | Adding…                          | Put it in                                         |
 | -------------------------------- | ------------------------------------------------- |
-| A new screen                     | `pages/dealer/`, `pages/manufacturer/` or `pages/admin/` |
+| A new screen                     | `pages/dealer/`                                   |
 | A new module (menu + permission) | `constants/modules.js` → `lib/navigation.js` → `App.jsx` → `data/roles.js` |
 | A generic UI building block      | `components/ui/`                                  |
 | A reusable layout combination    | `components/patterns/`                            |
 | A new data fetch                 | `services/dataService.js` (+ a slice if shared)   |
 | Number or date formatting        | `lib/format.js`                                   |
-| Forecasting / assistant logic    | `src/ai/...`                                      |
+| AI results (forecasts, scores)   | Backend AI layer; the app only displays them      |

@@ -1,11 +1,12 @@
-# Dealer App
+# Dealer App – Frontend
 
-A portal for an HVAC manufacturer and its dealer network. It has two sides:
+The dealer-facing app of Softdel's Intelligent Dealer Ecosystem Platform (IDEP). Dealers use it to
+manage orders and quotes, inventory, incentives and training, warranty claims and sales
+opportunities, with an AI Copilot available on every screen.
 
-- **Dealer side:** dealers track performance, orders, inventory, incentives, warranty and tasks,
-  and get help from a Sales Coach and Copilot.
-- **Manufacturer side:** manufacturer staff see the dealer list, sales and orders per dealer, and
-  a demand forecasting page.
+**Requirements:** [`docs/SRS.md`](../docs/SRS.md) (SRS v1.0) defines the scope. Manufacturer and
+executive screens (AI Channel Command Center, Digital Twin) and admin tools are out of scope for
+this app and are built separately.
 
 **Current stage:** application architecture only. The pages are placeholders (`ComingSoon`). There
 is no backend yet: all data is hardcoded in `src/data/` and the app state lives in Redux.
@@ -40,72 +41,61 @@ Other scripts:
 
 All variables are read in `src/config/env.js`. Don't read `import.meta.env` anywhere else.
 
-## Demo accounts
+## Roles and demo accounts
 
-All accounts use the password **`demo123`**.
+The three login roles are the dealer user classes from SRS section 2.3. All accounts use the
+password **`demo123`**.
 
-| Email                   | Role                 | Accessible modules                                              | Lands on        |
-| ----------------------- | -------------------- | --------------------------------------------------------------- | --------------- |
-| `admin@demo.com`        | Administrator        | Admin                                                           | `/admin`        |
-| `manufacturer@demo.com` | Manufacturer         | Dashboard, Dealers (+ details), Dealer Sales, Dealer Orders, Forecasting | `/manufacturer` |
-| `principal@demo.com`    | Dealer Principal     | All dealer modules (Home, Tasks, Performance, Orders, Inventory, Incentives, Warranty, Sales Coach) | `/` |
-| `sales@demo.com`        | Sales Representative | Home, Tasks, Orders, Inventory, Incentives, Sales Coach         | `/`             |
-| `tech@demo.com`         | Service Technician   | Home, Tasks, Warranty, Incentives                               | `/`             |
+| Email                | Role                 | Accessible modules                                                           |
+| -------------------- | -------------------- | ---------------------------------------------------------------------------- |
+| `principal@demo.com` | Dealer Principal     | All modules                                                                  |
+| `sales@demo.com`     | Sales Representative | Home, Orders & Quotes, Inventory, Incentives & Training, Sales Coach         |
+| `tech@demo.com`      | Service Technician   | Home, Warranty & Claims, Incentives & Training (limited sales data, per SRS) |
 
-After login, each user goes to the first module in the menu that their role can access.
+Every role lands on Home after login, and every role can open the Copilot.
+
+The SRS doesn't define the full access matrix yet (open item in section 8.2), so the module
+access above is a working assumption. It is defined in `src/data/roles.js`.
 
 ## Routes
 
-| Path                              | Module key     | Page                    |
-| --------------------------------- | -------------- | ----------------------- |
-| `/`                               | `home`         | Dealer home             |
-| `/tasks`                          | `tasks`        | Tasks                   |
-| `/performance`                    | `performance`  | Performance             |
-| `/orders`                         | `orders`       | Orders                  |
-| `/inventory`                      | `inventory`    | Inventory               |
-| `/incentives`                     | `incentives`   | Incentives              |
-| `/warranty`                       | `warranty`     | Warranty                |
-| `/sales-coach`                    | `salesCoach`   | Sales Coach             |
-| `/manufacturer`                   | `mfgDashboard` | Manufacturer dashboard  |
-| `/manufacturer/dealers`           | `dealerList`   | Dealer list             |
-| `/manufacturer/dealers/:dealerId` | `dealerList`   | Dealer details          |
-| `/manufacturer/sales`             | `dealerSales`  | Sales per dealer        |
-| `/manufacturer/orders`            | `dealerOrders` | Orders per dealer       |
-| `/manufacturer/forecasting`       | `forecasting`  | Forecasting             |
-| `/admin`                          | `admin`        | Admin dashboard         |
+| Path           | Module key   | Page                   | SRS section |
+| -------------- | ------------ | ---------------------- | ----------- |
+| `/`            | `home`       | Home / Dashboard       | 3.1         |
+| `/dealer-360`  | `dealer360`  | Dealer 360             | 3.3         |
+| `/orders`      | `orders`     | Orders & Quotes        | 3.4         |
+| `/inventory`   | `inventory`  | Inventory Intelligence | 3.5         |
+| `/incentives`  | `incentives` | Incentives & Training  | 3.6         |
+| `/warranty`    | `warranty`   | Warranty & Claims      | 3.7         |
+| `/sales-coach` | `salesCoach` | Sales Coach            | 3.8         |
 
-Dealer details has no module key of its own. It uses the `dealerList` permission.
+The Dealer Copilot (SRS 3.2) is a side panel (`components/layout/CopilotPanel.jsx`), not a route.
 
 ## Folder structure
 
 ```
 scripts/
-└── generateData.js          # (planned) seeded generator for 3–4 years of dummy data
+└── generateData.js          # (planned) seeded generator for 3–4 years of mock data
 src/
 ├── main.jsx                 # Redux Provider, ThemeProvider, CssBaseline, BrowserRouter
 ├── App.jsx                  # All routes (lazy-loaded pages); dispatches fetchRoles on mount
-├── ai/                      # In-app AI (placeholders, see "AI modules (planned)")
-│   ├── forecasting/         # seasonalNaive, holtWinters, backtest
-│   ├── replenishment/       # replenishment (suggested order quantities)
-│   └── assistant/           # tokenizer, trainingPhrases, intentClassifier,
-│                            # entityExtractor, queryEngine, responder
 ├── config/
 │   └── env.js               # Reads VITE_* environment variables
 ├── constants/
-│   ├── modules.js           # MODULES keys, MODULE_PATHS, DEALER_DETAILS_PATH, PUBLIC_PATHS
-│   └── roles.js             # ROLES ids, DEALER_ROLES
+│   ├── modules.js           # MODULES keys, MODULE_PATHS, PUBLIC_PATHS
+│   └── roles.js             # ROLES ids
 ├── data/                    # Hardcoded data. Only services/dataService.js may import these files
-│   ├── dealers.js
+│   ├── dealers.js           # Dealer profiles (name, tier, region)
 │   ├── roles.js             # Role → permitted module keys
 │   └── users.js
 ├── services/
 │   └── dataService.js       # Promise-based data access (mock now, API later). getOrders,
-│                            # getSales, getProducts, getClaims, getTasks return [] for now
+│                            # getSales, getProducts, getClaims return [] for now
 ├── store/
 │   ├── store.js             # configureStore + localStorage persistence via store.subscribe
 │   └── slices/
 │       ├── authSlice.js     # login thunk, logout
-│       ├── rolesSlice.js    # fetchRoles thunk, togglePermission
+│       ├── rolesSlice.js    # fetchRoles thunk (read-only)
 │       └── uiSlice.js       # navOpen, copilotOpen
 ├── lib/
 │   ├── navigation.js        # Menu config: key, label, path, icon, end (exact-match highlight)
@@ -124,11 +114,8 @@ src/
 │                            # SectionCard, AsyncContent, EmptyState, ConfirmDialog
 ├── pages/
 │   ├── Login.jsx, Unauthorized.jsx, NotFound.jsx
-│   ├── dealer/              # Home, Tasks, Performance, Orders, Inventory, Incentives,
-│   │                        # Warranty, SalesCoach
-│   ├── manufacturer/        # ManufacturerDashboard, DealerList, DealerDetails,
-│   │                        # DealerSales, DealerOrders, Forecasting
-│   └── admin/               # AdminDashboard
+│   └── dealer/              # Home, Dealer360, Orders, Inventory, Incentives, Warranty,
+│                            # SalesCoach
 └── theme/
     └── theme.js             # MUI theme + statusColors and riskColors maps
 ```
@@ -137,6 +124,12 @@ Imports use the `@` alias for `src/` (for example `import { ROLES } from '@/cons
 The alias is set in `vite.config.js` and `jsconfig.json`, so VS Code can follow it too.
 
 ## Architecture decisions
+
+### A thin presentation layer (SRS section 5)
+
+The app only displays data and collects input. All data, AI results and enterprise-system access
+come from the backend, which sits in front of the platform's Integration Layer. The app never
+talks to ERP, CRM or other enterprise systems directly, and never computes AI results itself.
 
 ### A `dataService` layer between the UI and the data
 
@@ -167,16 +160,16 @@ Access is described by data, not by `if (role === ...)` checks scattered through
 The same rules control the navigation menu, the route guards (`ProtectedRoute`) and the
 post-login redirect, so these can't fall out of sync. To add a module, add a key to
 `constants/modules.js`, add an entry to `navigation.js`, add a page route in `App.jsx`, and grant
-the module to roles. Because permissions are already Redux state, the planned admin permission
-matrix can use the existing `togglePermission` reducer.
+the module to roles. Permissions are read-only in this app: the Manufacturer Administrator
+manages them in separate admin tooling (SRS 2.3), and the backend must enforce them too.
 
 ### MUI wrapper components
 
 Screens are built from small wrappers in `components/ui/` (`PageHeader`, `KpiTile`,
 `StatusChip`, `RiskBadge`, `ProgressBar`, `DataTable`) instead of raw MUI each time. This keeps
 the look consistent (for example, status and risk colors always come from `statusColors` and
-`riskColors` in the theme), keeps page code short, and lets the upcoming UI design be applied in
-one place instead of on every screen.
+`riskColors` in the theme, as FR-ORD-4 and FR-INV-6 require), keeps page code short, and lets the
+shared Design System (SRS 2.5) be applied in one place instead of on every screen.
 
 #### Where a reusable component goes
 
@@ -184,7 +177,7 @@ one place instead of on every screen.
 | ----------------------------------------------------------------- | ---------------------------------------------- |
 | is generic with no business terms (chip, tile, table)             | `components/ui/`                               |
 | combines ui pieces into a common layout (filters, chart card)     | `components/patterns/`                         |
-| knows about dealers, orders, forecasts (e.g. `DealerSelect`)      | `features/<feature>/components/` (planned)     |
+| knows about orders, claims, incentives (e.g. `ClaimCard`)         | `features/<feature>/components/` (planned)     |
 | is used by only one page                                          | next to that page until a second page needs it |
 
 Rules for `ui/` and `patterns/`:
@@ -210,68 +203,42 @@ Rules for `ui/` and `patterns/`:
   page shows a "Reload page" message while the navigation stays usable. The page boundary resets
   when you navigate to another route.
 
-## AI modules (planned)
+## AI features
 
-Both AI features will run entirely in the browser on the app's own data. No external AI services
-or APIs are used. Today `src/ai/` contains only placeholders: each file exports its final
-function signature with a `TODO` describing the algorithm and returns an empty/neutral value, so
-the app builds and nothing breaks if it's called early.
+Per the SRS, all AI runs in the platform's AI Intelligence Layer (Azure OpenAI with RAG,
+forecasting, scoring and a Guardrails service), reached through the backend. The app only
+displays the results. Every AI result must show the evidence behind it (SRS 6.8), and core
+features must keep working if the AI layer is down (SRS 6.3).
 
-### 1. Forecasting + replenishment (`src/ai/forecasting/`, `src/ai/replenishment/`)
-
-Goal: forecast each dealer's required quantity for next **November and December** from past
-years' monthly data, then suggest order quantities.
-
-| File                             | Function                   | Planned approach                                                  |
-| -------------------------------- | -------------------------- | ----------------------------------------------------------------- |
-| `forecasting/seasonalNaive.js`   | `seasonalNaiveForecast`    | Same month last year (optionally growth-adjusted); the baseline   |
-| `forecasting/holtWinters.js`     | `holtWintersForecast`      | Triple exponential smoothing (level + trend + 12-month season)    |
-| `forecasting/backtest.js`        | `backtest`                 | Hold out last year's Nov–Dec; MAE / MAPE / RMSE to pick a model   |
-| `replenishment/replenishment.js` | `suggestOrderQuantities`   | Forecast + safety stock − on hand − on order, rounded to pack size |
-
-Pipeline: `getSales()` → monthly series per dealer/product → backtest both models → forecast
-Nov–Dec with the more accurate one → `suggestOrderQuantities()` → Forecasting page.
-
-### 2. Q&A assistant (`src/ai/assistant/`)
-
-Goal: answer questions about profit, sales, claims and orders using intent classification and
-calculations on the hardcoded data. This will power the Copilot panel.
-
-| File                  | Function             | Role in the pipeline                                            |
-| --------------------- | -------------------- | --------------------------------------------------------------- |
-| `tokenizer.js`        | `tokenize`           | Normalise text: lowercase, strip punctuation, stop words, synonyms |
-| `trainingPhrases.js`  | `getTrainingPhrases` | Example questions per intent                                    |
-| `intentClassifier.js` | `classifyIntent`     | Naive Bayes / TF-IDF classifier trained on the phrases          |
-| `entityExtractor.js`  | `extractEntities`    | Dealer, product, time period, metric, top-N                     |
-| `queryEngine.js`      | `runQuery`           | Filter + aggregate the data for the intent, scoped to the user's role |
-| `responder.js`        | `composeResponse`    | Template-based natural-language answer                          |
-
-Pipeline: question → `tokenize` → `classifyIntent` + `extractEntities` → `runQuery` →
-`composeResponse`.
-
-### Data needed
-
-Both features need several years of history. `scripts/generateData.js` will generate 3–4 years
-of seeded (reproducible) data in `src/data/`, with HVAC seasonality: summer and winter peaks and
-a strong November–December pre-season. The `getOrders`, `getSales`, `getProducts`, `getClaims`
-and `getTasks` functions in `dataService.js` will then return that data instead of `[]`.
+| Feature in the app                         | Comes from the AI layer        | SRS            |
+| ------------------------------------------ | ------------------------------ | -------------- |
+| Copilot answers, suggested prompts         | RAG over the dealer's own data | FR-COP-2, 3, 5 |
+| Home AI insight banner                     | Insight generation             | FR-HOME-3      |
+| Health Score and its recommendations       | Scoring                        | FR-D360-3, 4   |
+| Likely-to-close quotes                     | Scoring                        | FR-ORD-5       |
+| Demand forecast, reorder recommendations   | Forecasting                    | FR-INV-2 to 4  |
+| Incentive earnings forecast                | Forecasting                    | FR-INC-1, 3    |
+| Customer brief, bundles, win probability   | Agents / scoring               | FR-SC-1 to 3   |
 
 ## Known limitations / next steps
 
 - **Hardcoded login.** Demo credentials are part of the client bundle and there is no real
-  authentication, token or session expiry. Replace this with backend auth (and preferably
-  httpOnly cookies) before any real use. The persisted user in `localStorage` is not a security
-  boundary, and the backend must enforce permissions too.
-- **Permissions reset on reload.** Roles are loaded from hardcoded data on every start, so
-  changes made with `togglePermission` are not saved.
+  authentication, token or session expiry. The SRS requires OAuth2 / OIDC through the
+  manufacturer's identity provider (section 4.4). The persisted user in `localStorage` is not a
+  security boundary, and the backend must enforce permissions too.
+- **RBAC matrix not final.** Module access per role is an assumption until SRS open item 8.2 is
+  resolved. Action-level rules (for example, who may approve a reorder) aren't modelled yet.
 - **No tests yet.** Next steps: Vitest + React Testing Library for `rbac.js`, the slices,
   `dataService.js` and `ProtectedRoute`, then Playwright for login and role-based navigation.
-- **Placeholder screens.** All module pages use `ComingSoon` until the UI design arrives. The
+- **Placeholder screens.** All module pages use `ComingSoon` until the UI design is applied. The
   search field, notification count and Copilot replies are placeholders too.
-- **No transactional data yet.** Orders, sales, products, claims and tasks return empty arrays
-  until `scripts/generateData.js` is implemented. The AI modules are placeholders.
+- **No transactional data yet.** Orders, sales, products and claims return empty arrays until
+  `scripts/generateData.js` is implemented.
 - **API endpoints are assumptions.** The `TODO(api)` paths in `dataService.js` must be matched
   to the real API contract.
+- **Tech stack.** The SRS lists Next.js; this app uses Vite. Confirm with the architecture team.
+- **Not yet covered:** WCAG 2.1 AA review (SRS 4.1), the mobile app (SRS 2.4) and audit logging
+  of write actions (done by the backend, SRS 6.2).
 - **Folder structure.** Folders are currently grouped by type (`pages/`, `components/`,
   `store/slices/`). As modules grow, this may move to feature-based folders (for example
   `features/orders/` holding the page, slice, service calls and components for that feature).

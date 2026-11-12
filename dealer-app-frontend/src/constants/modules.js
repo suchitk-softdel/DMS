@@ -1,45 +1,26 @@
+// Modules of the Dealer App, matching SRS v1.0 section 3. Manufacturer and
+// admin modules are out of scope for this app (SRS 1.2 and 2.3).
+// The Dealer Copilot (FR-COP) is not a module: it is a panel available on
+// every screen, so it has no key or route here.
 export const MODULES = Object.freeze({
-  // Dealer side
-  HOME: 'home',
-  TASKS: 'tasks',
-  PERFORMANCE: 'performance',
-  ORDERS: 'orders',
-  INVENTORY: 'inventory',
-  INCENTIVES: 'incentives',
-  WARRANTY: 'warranty',
-  SALES_COACH: 'salesCoach',
-  // Manufacturer side
-  MFG_DASHBOARD: 'mfgDashboard',
-  DEALER_LIST: 'dealerList',
-  DEALER_SALES: 'dealerSales',
-  DEALER_ORDERS: 'dealerOrders',
-  FORECASTING: 'forecasting',
-  // Platform
-  ADMIN: 'admin',
+  HOME: 'home', // FR-HOME
+  DEALER_360: 'dealer360', // FR-D360
+  ORDERS: 'orders', // FR-ORD (orders and quotes)
+  INVENTORY: 'inventory', // FR-INV
+  INCENTIVES: 'incentives', // FR-INC (incentives and training)
+  WARRANTY: 'warranty', // FR-WAR (warranty and claims)
+  SALES_COACH: 'salesCoach', // FR-SC
 })
 
 export const MODULE_PATHS = Object.freeze({
   [MODULES.HOME]: '/',
-  [MODULES.TASKS]: '/tasks',
-  [MODULES.PERFORMANCE]: '/performance',
+  [MODULES.DEALER_360]: '/dealer-360',
   [MODULES.ORDERS]: '/orders',
   [MODULES.INVENTORY]: '/inventory',
   [MODULES.INCENTIVES]: '/incentives',
   [MODULES.WARRANTY]: '/warranty',
   [MODULES.SALES_COACH]: '/sales-coach',
-  [MODULES.MFG_DASHBOARD]: '/manufacturer',
-  [MODULES.DEALER_LIST]: '/manufacturer/dealers',
-  [MODULES.DEALER_SALES]: '/manufacturer/sales',
-  [MODULES.DEALER_ORDERS]: '/manufacturer/orders',
-  [MODULES.FORECASTING]: '/manufacturer/forecasting',
-  [MODULES.ADMIN]: '/admin',
 })
-
-// Detail routes that reuse a parent module's permission.
-export const DEALER_DETAILS_PATH = '/manufacturer/dealers/:dealerId'
-
-export const getDealerDetailsPath = (dealerId) =>
-  `${MODULE_PATHS[MODULES.DEALER_LIST]}/${encodeURIComponent(dealerId)}`
 
 // Routes that are not tied to a permission-controlled module.
 export const PUBLIC_PATHS = Object.freeze({
