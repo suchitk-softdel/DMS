@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom'
 import { env } from '@/config/env'
 import { PUBLIC_PATHS } from '@/constants/modules'
 import { usePermissions } from '@/lib/rbac'
-import { logout } from '@/store/slices/authSlice'
+import { signOut } from '@/store/slices/authSlice'
 import { toggleCopilot, toggleNav } from '@/store/slices/uiSlice'
 
 // Placeholder until notifications come from the data service.
@@ -48,7 +48,7 @@ export default function TopBar() {
 
   const handleLogout = () => {
     setAccountAnchor(null)
-    dispatch(logout())
+    dispatch(signOut())
     navigate(PUBLIC_PATHS.LOGIN, { replace: true })
   }
 

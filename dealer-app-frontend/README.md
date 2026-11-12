@@ -8,21 +8,24 @@ opportunities, with an AI Copilot available on every screen.
 executive screens (AI Channel Command Center, Digital Twin) and admin tools are out of scope for
 this app and are built separately.
 
-**Current stage:** application architecture only. The pages are placeholders (`ComingSoon`). There
-is no backend yet: all data is hardcoded in `src/data/` and the app state lives in Redux.
+**Current stage:** application architecture and backend connection are done. Login and all data
+come from [`dealer-app-backend`](../dealer-app-backend/) (3 years of demo data). The pages are
+still placeholders (`ComingSoon`).
 
 Tech stack: React 19, Vite, Redux Toolkit, React Router, MUI (Material UI). Styling uses MUI
 components and the `sx` prop only. There is no custom CSS.
 
 ## Setup
 
-Prerequisites: Node.js 20.19+ (or 22.12+) and npm.
+Prerequisites: Node.js 22+ and npm. Start the backend first (see its README), then:
 
 ```bash
 npm install
-cp .env.example .env   # optional: the app defaults to mock data without it
-npm run dev            # http://localhost:5173
+npm run dev            # http://localhost:5173 (forwards /api to the backend on port 4000)
 ```
+
+To work on the UI without the backend, create `.env` with `VITE_USE_MOCK_DATA=true`. The app
+then uses the small hardcoded data in `src/data/`, and module data comes back empty.
 
 Other scripts:
 
@@ -34,10 +37,12 @@ Other scripts:
 
 ### Environment variables
 
-| Variable             | Default | Description                                                    |
-| -------------------- | ------- | -------------------------------------------------------------- |
-| `VITE_USE_MOCK_DATA` | `true`  | `true` reads hardcoded data; `false` calls the API             |
-| `VITE_API_BASE_URL`  | (empty) | Base URL of the backend API, used when mock data is turned off |
+| Variable             | Default (dev / prod) | Description                                             |
+| -------------------- | -------------------- | ------------------------------------------------------- |
+| `VITE_USE_MOCK_DATA` | `false` / `true`     | `true` reads hardcoded data; `false` calls the backend  |
+| `VITE_API_BASE_URL`  | `/api` / (empty)     | Backend API base URL. `/api` is proxied in development  |
+
+Production still defaults to mock data until a deployed backend exists (`src/config/prod.js`).
 
 All variables are read in `src/config/env.js`. Don't read `import.meta.env` anywhere else.
 
@@ -74,27 +79,25 @@ The Dealer Copilot (SRS 3.2) is a side panel (`components/layout/CopilotPanel.js
 ## Folder structure
 
 ```
-scripts/
-└── generateData.js          # (planned) seeded generator for 3–4 years of mock data
 src/
 ├── main.jsx                 # Redux Provider, ThemeProvider, CssBaseline, BrowserRouter
-├── App.jsx                  # All routes (lazy-loaded pages); dispatches fetchRoles on mount
+├── App.jsx                  # All routes (lazy-loaded pages); on start: fetchRoles, verifySession
 ├── config/
 │   └── env.js               # Reads VITE_* environment variables
 ├── constants/
 │   ├── modules.js           # MODULES keys, MODULE_PATHS, PUBLIC_PATHS
 │   └── roles.js             # ROLES ids
-├── data/                    # Hardcoded data. Only services/dataService.js may import these files
-│   ├── dealers.js           # Dealer profiles (name, tier, region)
-│   ├── roles.js             # Role → permitted module keys
+├── data/                    # Small hardcoded data for mock mode only. Only
+│   ├── dealers.js           # services/dataService.js may import these files
+│   ├── roles.js
 │   └── users.js
 ├── services/
-│   └── dataService.js       # Promise-based data access (mock now, API later). getOrders,
-│                            # getSales, getProducts, getClaims return [] for now
+│   └── dataService.js       # All data access: backend API calls, or mock data when
+│                            # VITE_USE_MOCK_DATA=true
 ├── store/
 │   ├── store.js             # configureStore + localStorage persistence via store.subscribe
 │   └── slices/
-│       ├── authSlice.js     # login thunk, logout
+│       ├── authSlice.js     # login, signOut, verifySession thunks
 │       ├── rolesSlice.js    # fetchRoles thunk (read-only)
 │       └── uiSlice.js       # navOpen, copilotOpen
 ├── lib/
@@ -133,12 +136,18 @@ talks to ERP, CRM or other enterprise systems directly, and never computes AI re
 
 ### A `dataService` layer between the UI and the data
 
-`services/dataService.js` is the only module that touches `src/data/`. Every function returns a
-Promise, even for hardcoded data, so callers are already written for asynchronous data. When the
-backend is ready, only the `!env.useMockData` branches in this one file need to change (they are
-marked `TODO(api)` and already have `fetch` calls). Slices and components stay the same. Mock
-responses are deep-copied and slightly delayed, so loading states show up and nothing can change
-the source data by accident.
+`services/dataService.js` is the only module that calls the backend or touches `src/data/`. Every
+function returns a Promise, so slices and components work the same with mock or real data.
+Mock responses are deep-copied and slightly delayed, so loading states show up and nothing can
+change the source data by accident.
+
+### Session handling
+
+The backend sets an httpOnly session cookie on login, which browser JavaScript can't read. The
+browser sends it automatically because the API is on the same origin (Vite proxies `/api` in
+development). The user object is kept in `localStorage` only so the UI knows who is signed in
+after a reload. On start-up, `verifySession` asks the backend (`/auth/me`), and if the session
+has expired the user is signed out locally. `signOut` ends the session on the backend too.
 
 ### Redux Toolkit for app state
 
@@ -222,20 +231,22 @@ features must keep working if the AI layer is down (SRS 6.3).
 
 ## Known limitations / next steps
 
-- **Hardcoded login.** Demo credentials are part of the client bundle and there is no real
-  authentication, token or session expiry. The SRS requires OAuth2 / OIDC through the
-  manufacturer's identity provider (section 4.4). The persisted user in `localStorage` is not a
-  security boundary, and the backend must enforce permissions too.
+- **Demo login.** Email and password are checked by the backend (session cookie, 8-hour expiry).
+  The SRS requires OAuth2 / OIDC through the manufacturer's identity provider (section 4.4).
+  The demo accounts in `src/data/users.js` are only used in mock mode.
+- **Expired session while using the app.** It is only checked on start-up; a request after
+  expiry shows an error until the user signs in again.
 - **RBAC matrix not final.** Module access per role is an assumption until SRS open item 8.2 is
   resolved. Action-level rules (for example, who may approve a reorder) aren't modelled yet.
 - **No tests yet.** Next steps: Vitest + React Testing Library for `rbac.js`, the slices,
   `dataService.js` and `ProtectedRoute`, then Playwright for login and role-based navigation.
 - **Placeholder screens.** All module pages use `ComingSoon` until the UI design is applied. The
   search field, notification count and Copilot replies are placeholders too.
-- **No transactional data yet.** Orders, sales, products and claims return empty arrays until
-  `scripts/generateData.js` is implemented.
-- **API endpoints are assumptions.** The `TODO(api)` paths in `dataService.js` must be matched
-  to the real API contract.
+- **Screens don't use the data yet.** `dataService.js` has a function for every backend
+  endpoint (orders, sales, inventory, claims, incentives, training, opportunities), but the
+  placeholder pages don't call them yet.
+- **API contract is ours, not the platform's.** When the IDEP platform APIs are defined, the
+  backend adapts to them; the frontend's API stays the same.
 - **Tech stack.** The SRS lists Next.js; this app uses Vite. Confirm with the architecture team.
 - **Not yet covered:** WCAG 2.1 AA review (SRS 4.1), the mobile app (SRS 2.4) and audit logging
   of write actions (done by the backend, SRS 6.2).

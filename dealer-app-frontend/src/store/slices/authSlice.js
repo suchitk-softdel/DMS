@@ -18,10 +18,32 @@ export const login = createAsyncThunk(
   },
 )
 
+// Ends the session on the backend, then clears the local state. The local
+// state is cleared even if the request fails, so the user is never stuck.
+export const signOut = createAsyncThunk('auth/signOut', async (_, { dispatch }) => {
+  try {
+    await dataService.logout()
+  } finally {
+    dispatch(authSlice.actions.logout())
+  }
+})
+
+// On start-up: the user saved in localStorage may belong to a session that
+// has expired on the backend. If so, sign out locally.
+export const verifySession = createAsyncThunk('auth/verifySession', async (_, { dispatch, getState }) => {
+  if (!getState().auth.user) return
+  try {
+    await dataService.getCurrentUser()
+  } catch (error) {
+    if (error.status === 401) dispatch(authSlice.actions.logout())
+  }
+})
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: authInitialState,
   reducers: {
+    // Clears the local session only. Components dispatch signOut() instead.
     logout() {
       return authInitialState
     },

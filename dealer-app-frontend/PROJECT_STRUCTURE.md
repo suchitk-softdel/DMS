@@ -7,7 +7,7 @@ limitations are in [README.md](README.md).
 
 - **What:** the dealer-facing app of IDEP. Scope is defined in [docs/SRS.md](../docs/SRS.md).
 - **Stack:** React 19 + Vite, Redux Toolkit, React Router, MUI. No custom CSS.
-- **Data:** hardcoded in `src/data/`, read only through `services/dataService.js`. No backend yet.
+- **Data:** from dealer-app-backend through `services/dataService.js` (small mock data in `src/data/` for `VITE_USE_MOCK_DATA=true`).
 - **Imports:** `@/` means `src/` (for example `@/lib/rbac`).
 
 ## Root
@@ -15,15 +15,13 @@ limitations are in [README.md](README.md).
 ```
 dealer-app-frontend/
 ├── index.html            # HTML entry
-├── vite.config.js        # Vite + "@" alias
+├── vite.config.js        # Vite + "@" alias + /api proxy to the backend
 ├── jsconfig.json         # "@" alias for VS Code
 ├── eslint.config.js      # Lint rules
-├── .env.example          # VITE_API_BASE_URL, VITE_USE_MOCK_DATA
+├── .env.example          # VITE_USE_MOCK_DATA, VITE_API_BASE_URL (both optional)
 ├── .gitignore            # Excludes node_modules, dist, logs, .env files (keeps .env.example)
 ├── README.md             # Setup, architecture decisions, limitations
 ├── PROJECT_STRUCTURE.md  # This file
-├── scripts/
-│   └── generateData.js   # (planned) seeded multi-year dummy data
 └── src/                  # Application code
 ```
 

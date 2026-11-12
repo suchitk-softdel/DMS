@@ -1,0 +1,313 @@
+// Database schema for the Dealer App backend.
+//
+// SQLite for development and demos. Per SRS v1.0 section 7 the production app
+// reads from the IDEP Unified Dealer Data Layer instead; this database stands
+// in for it until the platform APIs exist. To move to PostgreSQL, change the
+// provider below and the driver adapter in src/db/prisma.js.
+//
+// Status / stage / type fields are plain strings because SQLite has no enums.
+// The allowed values are listed in src/constants/domain.js.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Dealers, users and access
+// ---------------------------------------------------------------------------
+
+model Dealer {
+  id                String   @id
+  name              String
+  city              String
+  state             String
+  region            String
+  tier              String // Platinum | Gold | Silver
+  status            String // active | pending | onHold
+  territoryCoverage Float // 0..1 share of the assigned territory served (FR-D360-1)
+  createdAt         DateTime @default(now())
+
+  users              User[]
+  customers          Customer[]
+  orders             Order[]
+  sales              Sale[]
+  inventory          Inventory[]
+  claims             Claim[]
+  registrations      WarrantyRegistration[]
+  incentiveProgress  IncentiveProgress[]
+  opportunities      Opportunity[]
+}
+
+// Role permissions are data, not code, so the Manufacturer Administrator can
+// change them without a release (SRS 2.3, 6.7).
+model Role {
+  id          String @id // principal | salesRep | technician
+  name        String
+  permissions String // JSON array of module keys, e.g. ["home","orders"]
+
+  users User[]
+}
+
+model User {
+  id           String   @id
+  name         String
+  email        String   @unique
+  passwordHash String
+  roleId       String
+  dealerId     String
+  createdAt    DateTime @default(now())
+
+  role             Role               @relation(fields: [roleId], references: [id])
+  dealer           Dealer             @relation(fields: [dealerId], references: [id])
+  orders           Order[]
+  trainingProgress TrainingProgress[]
+  auditLogs        AuditLog[]
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue and customers
+// ---------------------------------------------------------------------------
+
+model Product {
+  id        String @id
+  sku       String @unique
+  name      String
+  category  String // airConditioner | furnace | heatPump | airHandler | thermostat | indoorAirQuality | parts
+  unitPrice Float
+  unitCost  Float
+  packSize  Int    @default(1)
+
+  orderItems    OrderItem[]
+  sales         Sale[]
+  inventory     Inventory[]
+  claims        Claim[]
+  registrations WarrantyRegistration[]
+}
+
+model Customer {
+  id       String @id
+  dealerId String
+  name     String
+  type     String // residential | commercial
+  city     String
+
+  dealer        Dealer                 @relation(fields: [dealerId], references: [id])
+  orders        Order[]
+  claims        Claim[]
+  registrations WarrantyRegistration[]
+  opportunities Opportunity[]
+
+  @@index([dealerId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders & Quotes (SRS 3.4)
+// ---------------------------------------------------------------------------
+
+model Order {
+  id          String   @id // e.g. ORD-100231 or QT-100232
+  dealerId    String
+  customerId  String
+  createdById String?
+  type        String // quote | order
+  status      String // draft | submitted | approved | fulfilled
+  total       Float
+  createdAt   DateTime
+  updatedAt   DateTime
+
+  dealer    Dealer      @relation(fields: [dealerId], references: [id])
+  customer  Customer    @relation(fields: [customerId], references: [id])
+  createdBy User?       @relation(fields: [createdById], references: [id])
+  items     OrderItem[]
+
+  @@index([dealerId, createdAt])
+  @@index([dealerId, status])
+}
+
+model OrderItem {
+  id        Int    @id @default(autoincrement())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Float
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+// Monthly sales per dealer and product, derived from fulfilled orders.
+// Feeds revenue KPIs, trend charts and forecasting (SRS 3.1, 3.3, 3.5).
+model Sale {
+  id        Int    @id @default(autoincrement())
+  dealerId  String
+  productId String
+  month     String // YYYY-MM
+  units     Int
+  revenue   Float
+  cost      Float
+
+  dealer  Dealer  @relation(fields: [dealerId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([dealerId, productId, month])
+  @@index([dealerId, month])
+}
+
+// ---------------------------------------------------------------------------
+// Inventory (SRS 3.5)
+// ---------------------------------------------------------------------------
+
+model Inventory {
+  id           Int      @id @default(autoincrement())
+  dealerId     String
+  productId    String
+  onHand       Int
+  onOrder      Int
+  reorderPoint Int
+  updatedAt    DateTime
+
+  dealer  Dealer  @relation(fields: [dealerId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([dealerId, productId])
+}
+
+// ---------------------------------------------------------------------------
+// Warranty & Claims (SRS 3.7)
+// ---------------------------------------------------------------------------
+
+model WarrantyRegistration {
+  id           String   @id
+  dealerId     String
+  productId    String
+  customerId   String
+  serialNumber String   @unique
+  installDate  DateTime
+  createdAt    DateTime
+
+  dealer   Dealer   @relation(fields: [dealerId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([dealerId])
+}
+
+model Claim {
+  id             String    @id // e.g. CLM-20431
+  dealerId       String
+  productId      String
+  customerId     String
+  serialNumber   String
+  amount         Float
+  description    String
+  stage          String // submitted | underReview | approved | reimbursed | rejected
+  filedAt        DateTime
+  stageChangedAt DateTime // "Age" on the kanban card = days since this (FR-WAR-3)
+  resolvedAt     DateTime?
+
+  dealer   Dealer   @relation(fields: [dealerId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([dealerId, stage])
+}
+
+// ---------------------------------------------------------------------------
+// Incentives & Training (SRS 3.6)
+// ---------------------------------------------------------------------------
+
+model IncentiveProgram {
+  id          String   @id
+  name        String
+  description String
+  metric      String // revenue | units | trainingHours
+  startDate   DateTime
+  endDate     DateTime
+  milestones  String // JSON array: [{ "target": 500000, "payout": 5000 }, ...]
+
+  progress IncentiveProgress[]
+}
+
+model IncentiveProgress {
+  id        Int    @id @default(autoincrement())
+  dealerId  String
+  programId String
+  current   Float // progress so far, in the program's metric
+  earned    Float // payout earned so far
+
+  dealer  Dealer           @relation(fields: [dealerId], references: [id])
+  program IncentiveProgram @relation(fields: [programId], references: [id])
+
+  @@unique([dealerId, programId])
+}
+
+model TrainingCourse {
+  id            String    @id
+  title         String
+  category      String // product | installation | service | sales | safety
+  durationHours Float
+  certification String? // certification earned on completion, if any
+  scheduledAt   DateTime? // set for live events and webinars (FR-INC-5)
+
+  progress TrainingProgress[]
+}
+
+model TrainingProgress {
+  id            Int       @id @default(autoincrement())
+  userId        String
+  courseId      String
+  completionPct Int
+  completedAt   DateTime?
+
+  user   User           @relation(fields: [userId], references: [id])
+  course TrainingCourse @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, courseId])
+}
+
+// ---------------------------------------------------------------------------
+// Sales Coach (SRS 3.8)
+// ---------------------------------------------------------------------------
+
+model Opportunity {
+  id           String   @id
+  dealerId     String
+  customerId   String
+  title        String
+  need         String
+  budget       Float
+  decisionDate DateTime
+  stage        String // new | qualified | proposal | negotiation | won | lost
+  competitor   String?
+  createdAt    DateTime
+
+  dealer   Dealer   @relation(fields: [dealerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([dealerId, stage])
+}
+
+// ---------------------------------------------------------------------------
+// Audit log (SRS 6.2: all write actions are audit-logged)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    String?
+  action    String // e.g. auth.login, order.create, claim.submit
+  entity    String?
+  entityId  String?
+  details   String? // JSON
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+}

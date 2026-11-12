@@ -5,6 +5,7 @@ import PageLoader from '@/components/common/PageLoader'
 import { MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
 import MainLayout from '@/layouts/MainLayout'
 import ProtectedRoute from '@/routes/ProtectedRoute'
+import { verifySession } from '@/store/slices/authSlice'
 import { fetchRoles } from '@/store/slices/rolesSlice'
 
 const Login = lazy(() => import('@/pages/Login'))
@@ -35,6 +36,7 @@ export default function App() {
 
   useEffect(() => {
     dispatch(fetchRoles())
+    dispatch(verifySession())
   }, [dispatch])
 
   return (

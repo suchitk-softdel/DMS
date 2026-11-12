@@ -6,22 +6,31 @@ opportunities, with an AI Copilot on every screen.
 
 Requirements: [`docs/SRS.md`](docs/SRS.md) (SRS v1.0).
 
-| Folder                                         | What it is                                         | Status                       |
-| ---------------------------------------------- | -------------------------------------------------- | ---------------------------- |
-| [`dealer-app-frontend/`](dealer-app-frontend/) | React 19 + Vite + Redux Toolkit + MUI web app      | Architecture done, mock data |
-| [`dealer-app-backend/`](dealer-app-backend/)   | Node.js backend-for-frontend to the IDEP platform  | Folder structure only        |
-| [`docs/`](docs/)                               | Requirements and project documents                 |                              |
+| Folder                                         | What it is                                          | Status                                  |
+| ---------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| [`dealer-app-frontend/`](dealer-app-frontend/) | React 19 + Vite + Redux Toolkit + MUI web app       | Architecture done; screens are placeholders |
+| [`dealer-app-backend/`](dealer-app-backend/)   | Node.js API: Express + Prisma + SQLite              | Login and read APIs with 3 years of demo data |
+| [`docs/`](docs/)                               | Requirements and project documents                  |                                         |
 
 Each app folder is its own project with its own `package.json`, `.env` and `node_modules`. See
-the README inside each folder for setup.
+the README inside each folder for details.
 
-## Quick start (frontend)
+## Quick start
+
+Prerequisites: Node.js 22+. Use two terminals.
 
 ```bash
+# Terminal 1: backend
+cd dealer-app-backend
+npm install
+cp .env.example .env      # then set SESSION_SECRET
+npm run db:setup          # creates the database with ~3 years of demo data
+npm run dev               # http://localhost:4000/api
+
+# Terminal 2: frontend
 cd dealer-app-frontend
 npm install
-npm run dev   # http://localhost:5173
+npm run dev               # http://localhost:5173
 ```
 
-The frontend runs on hardcoded data until the backend exists (`VITE_USE_MOCK_DATA=true`).
-Demo logins: `principal@demo.com`, `sales@demo.com`, `tech@demo.com` (password `demo123`).
+Demo logins (password `demo123`): `principal@demo.com`, `sales@demo.com`, `tech@demo.com`.
