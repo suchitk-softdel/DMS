@@ -13,7 +13,7 @@ limitations are in [README.md](README.md).
 ## Root
 
 ```
-dealers-app/
+frontend/
 ├── index.html            # HTML entry
 ├── vite.config.js        # Vite + "@" alias
 ├── jsconfig.json         # "@" alias for VS Code
