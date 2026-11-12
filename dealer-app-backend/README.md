@@ -5,12 +5,12 @@ database haven't been chosen yet, so there is no `package.json` or code. Each fo
 `.gitkeep` file so Git tracks it while it is empty.
 
 The frontend already expects this API at `http://localhost:4000/api`. Set
-`VITE_USE_MOCK_DATA=false` in `frontend/.env` to call it instead of the hardcoded data.
+`VITE_USE_MOCK_DATA=false` in `dealer-app-frontend/.env` to call it instead of the hardcoded data.
 
 ## Folder structure
 
 ```
-backend/
+dealer-app-backend/
 ├── src/
 │   ├── server.js          # (planned) entry point: starts the HTTP server on PORT
 │   ├── app.js             # (planned) app setup: CORS, JSON body parsing, routes, error handler
@@ -34,7 +34,7 @@ A request flows through: **route → middleware → controller → service → m
 
 ## API endpoints the frontend already calls
 
-These come from `frontend/src/services/dataService.js` (marked `TODO(api)` there). They are
+These come from `dealer-app-frontend/src/services/dataService.js` (marked `TODO(api)` there). They are
 placeholders, so agree on the final contract before building them.
 
 | Method | Path                    | Purpose                              |
