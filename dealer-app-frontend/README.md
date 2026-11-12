@@ -214,20 +214,21 @@ Rules for `ui/` and `patterns/`:
 
 ## AI features
 
-Per the SRS, all AI runs in the platform's AI Intelligence Layer (Azure OpenAI with RAG,
-forecasting, scoring and a Guardrails service), reached through the backend. The app only
-displays the results. Every AI result must show the evidence behind it (SRS 6.8), and core
-features must keep working if the AI layer is down (SRS 6.3).
+**Project decision:** the AI is our own code, running in the backend on our own database. No
+third-party AI service, API, API key or AI/ML library is used (this replaces the Azure OpenAI
+approach described in the SRS). The app only displays the results. Every AI result must show the
+evidence behind it (SRS 6.8), and core features must keep working if the AI engine fails
+(SRS 6.3).
 
-| Feature in the app                         | Comes from the AI layer        | SRS            |
-| ------------------------------------------ | ------------------------------ | -------------- |
-| Copilot answers, suggested prompts         | RAG over the dealer's own data | FR-COP-2, 3, 5 |
-| Home AI insight banner                     | Insight generation             | FR-HOME-3      |
-| Health Score and its recommendations       | Scoring                        | FR-D360-3, 4   |
-| Likely-to-close quotes                     | Scoring                        | FR-ORD-5       |
-| Demand forecast, reorder recommendations   | Forecasting                    | FR-INV-2 to 4  |
-| Incentive earnings forecast                | Forecasting                    | FR-INC-1, 3    |
-| Customer brief, bundles, win probability   | Agents / scoring               | FR-SC-1 to 3   |
+| Feature in the app                         | Built in the backend with                                   | SRS            |
+| ------------------------------------------ | ----------------------------------------------------------- | -------------- |
+| Copilot answers, suggested prompts         | Question engine: intent + entity detection, query, template | FR-COP-2, 3, 5 |
+| Home AI insight banner                     | Business rules over the dealer's data                       | FR-HOME-3      |
+| Health Score and its recommendations       | Weighted formula with configurable weights                  | FR-D360-3, 4   |
+| Likely-to-close quotes                     | Scoring rules (age, value, customer history)                | FR-ORD-5       |
+| Demand forecast, reorder recommendations   | Seasonal forecasting formulas + reorder calculation         | FR-INV-2 to 4  |
+| Incentive earnings forecast                | Trend projection to the end of the program                  | FR-INC-1, 3    |
+| Customer brief, bundles, win probability   | Rules and scoring over opportunity and product data         | FR-SC-1 to 3   |
 
 ## Known limitations / next steps
 

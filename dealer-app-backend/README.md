@@ -121,7 +121,7 @@ dealer-app-backend/
 │   ├── services/          # Database queries per module, auth, audit log
 │   ├── middlewares/       # requireAuth, requireModule (RBAC), error handler
 │   ├── utils/             # HTTP errors, password hashing, query checks
-│   ├── clients/           # (later) calls to the IDEP platform: API Gateway, AI layer
+│   ├── clients/           # (later) calls to the IDEP platform API Gateway
 │   ├── events/            # (later) Event Bus subscribers
 │   └── generated/prisma/  # Generated Prisma client (not committed; npm install creates it)
 ├── .env.example
@@ -145,13 +145,25 @@ A request flows through: **route → requireAuth → requireModule → service �
   cookie stays the same.
 - **Moving to PostgreSQL:** change `provider` in `schema.prisma`, swap the adapter in
   `src/db/prisma.js` for `@prisma/adapter-pg`, and set `DATABASE_URL`.
+- **AI is our own code (project decision).** The SRS describes Azure OpenAI; instead, all AI
+  features run in this backend as our own logic on our own database. No third-party AI service,
+  API, API key or AI/ML library is used. See "AI engine (planned)" below.
+
+## AI engine (planned)
+
+| Feature                         | Approach                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| Copilot questions (FR-COP-2)    | Detect the intent (sales, orders, claims...) and details (product, period, top-N) from the question, run the matching query, calculate, answer from a template with the evidence |
+| Forecast and reorder (FR-INV)   | Seasonal formulas on the monthly sales history (same period last year + trend, and a seasonal trend model), tested on past data; reorder = forecast + safety stock − on hand − on order |
+| Health Score (FR-D360-3)        | Weighted score from revenue growth, order velocity, warranty compliance and training; weights stored in the database |
+| Home insight (FR-HOME-3)        | Rules over the dealer's data, e.g. stock below reorder point before the season |
+| Sales Coach (FR-SC-1 to 3)      | Rules and scoring over opportunity, customer and product data            |
 
 ## Not done yet
 
 - **Write endpoints:** create quotes and orders, submit claims, register warranties, approve
   reorders, invite to training. Each must be audit-logged.
-- **AI endpoints:** Copilot chat (GPT through Azure OpenAI with guardrails), Home insight, Health
-  Score, forecasts and reorder recommendations, Sales Coach briefs.
+- **AI engine:** the features in the table above (no endpoints yet).
 - **Tests:** an automated test suite (the endpoints were checked manually with a smoke-test
   script).
 - **Login hardening:** rate limiting on `/auth/login`.

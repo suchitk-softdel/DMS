@@ -23,8 +23,8 @@ const WELCOME_MESSAGE = {
 }
 
 // Dealer Copilot (SRS v1.0 section 3.2, FR-COP-1 to 7). Placeholder chat:
-// replies are canned until the backend exists. Real answers will come from the
-// backend's AI layer (RAG + guardrails), never generated in the browser.
+// replies are canned for now. Real answers will come from the backend's own
+// question engine (no third-party AI service), never generated in the browser.
 export default function CopilotPanel() {
   const dispatch = useDispatch()
   const open = useSelector(selectCopilotOpen)

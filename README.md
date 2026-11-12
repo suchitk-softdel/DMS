@@ -4,7 +4,9 @@ The dealer-facing app of Softdel's Intelligent Dealer Ecosystem Platform (IDEP).
 manage orders and quotes, inventory, incentives and training, warranty claims and sales
 opportunities, with an AI Copilot on every screen.
 
-Requirements: [`docs/SRS.md`](docs/SRS.md) (SRS v1.0).
+Requirements: [`docs/SRS.md`](docs/SRS.md) (SRS v1.0) is the main document, with one project
+decision: **all AI features are our own code in the backend. No third-party AI service, API or
+key is used** (approach from [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md), sections 7–9).
 
 | Folder                                         | What it is                                          | Status                                  |
 | ---------------------------------------------- | --------------------------------------------------- | --------------------------------------- |

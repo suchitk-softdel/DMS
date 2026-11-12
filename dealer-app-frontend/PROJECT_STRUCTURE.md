@@ -95,4 +95,4 @@ src/data/  →  dataService.js  →  Redux slices  →  pages  →  components (
 | A reusable layout combination    | `components/patterns/`                            |
 | A new data fetch                 | `services/dataService.js` (+ a slice if shared)   |
 | Number or date formatting        | `lib/format.js`                                   |
-| AI results (forecasts, scores)   | Backend AI layer; the app only displays them      |
+| AI results (forecasts, scores)   | Backend AI engine (own code); the app displays them |
