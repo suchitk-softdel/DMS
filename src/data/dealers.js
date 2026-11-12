@@ -1,0 +1,48 @@
+// Hardcoded dealer network. `status` keys match statusColors and
+// `riskLevel` keys match riskColors in theme/theme.js.
+export const dealers = [
+  {
+    id: 'd-1001',
+    name: 'Summit Comfort Heating & Air',
+    city: 'Denver',
+    state: 'CO',
+    tier: 'Platinum',
+    status: 'active',
+    riskLevel: 'low',
+    ytdSales: 1840000,
+    salesTarget: 2200000,
+  },
+  {
+    id: 'd-1002',
+    name: 'Coastal Climate Solutions',
+    city: 'Tampa',
+    state: 'FL',
+    tier: 'Gold',
+    status: 'active',
+    riskLevel: 'medium',
+    ytdSales: 960000,
+    salesTarget: 1400000,
+  },
+  {
+    id: 'd-1003',
+    name: 'Prairie Air Systems',
+    city: 'Omaha',
+    state: 'NE',
+    tier: 'Silver',
+    status: 'onHold',
+    riskLevel: 'high',
+    ytdSales: 310000,
+    salesTarget: 750000,
+  },
+  {
+    id: 'd-1004',
+    name: 'Lakeside HVAC Services',
+    city: 'Madison',
+    state: 'WI',
+    tier: 'Gold',
+    status: 'pending',
+    riskLevel: 'low',
+    ytdSales: 0,
+    salesTarget: 900000,
+  },
+]
