@@ -27,3 +27,10 @@ export const PUBLIC_PATHS = Object.freeze({
   LOGIN: '/login',
   UNAUTHORIZED: '/unauthorized',
 })
+
+// Destinations in the navigation rail that are not separate modules:
+// - Copilot is available to every role (SRS FR-COP-1), so it has no module key.
+// - Training is part of the Incentives & Training module (SRS 3.6) but has its
+//   own entry in the rail, as in the UI Design Concept.
+export const COPILOT_PATH = '/copilot'
+export const TRAINING_PATH = '/training'

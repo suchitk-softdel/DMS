@@ -123,6 +123,19 @@ export function getDealerById(dealerId) {
 }
 
 // ---------------------------------------------------------------------------
+// Home dashboard (SRS 3.1). The backend leaves out KPIs, insight and activity
+// from modules the user's role can't open.
+// -> { dealer, kpis: { revenueYtd?, healthScore?, openOrders?, pendingClaims? },
+//      insight: { kind, message, evidence: [string], action: { label, module } } | null,
+//      activity: [{ date, type: order|claimSubmitted|claimResolved|trainingCompleted, ref, amount, stage? }] }
+// ---------------------------------------------------------------------------
+
+export function getHome() {
+  if (!env.useMockData) return apiRequest('/home')
+  return mockResponse({ dealer: dealers[0], kpis: {}, insight: null, activity: [] })
+}
+
+// ---------------------------------------------------------------------------
 // Module data. In mock mode these return empty results: the full 3-year
 // dataset lives in the backend database.
 // ---------------------------------------------------------------------------

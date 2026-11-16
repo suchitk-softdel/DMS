@@ -1,20 +1,17 @@
 import { useState } from 'react'
-import AcUnitIcon from '@mui/icons-material/AcUnit'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
-import List from '@mui/material/List'
-import ListItemButton from '@mui/material/ListItemButton'
-import ListItemText from '@mui/material/ListItemText'
-import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useDispatch, useSelector } from 'react-redux'
 import { Navigate } from 'react-router-dom'
 import PageLoader from '@/components/common/PageLoader'
+import PasswordField from '@/components/ui/PasswordField'
 import { env } from '@/config/env'
+import AuthLayout from '@/layouts/AuthLayout'
 import { usePermissions } from '@/lib/rbac'
 import {
   clearAuthError,
@@ -25,9 +22,9 @@ import {
 
 // Shown to help testers; remove once real authentication exists.
 const DEMO_ACCOUNTS = [
-  { email: 'principal@demo.com', label: 'Dealer Principal' },
-  { email: 'sales@demo.com', label: 'Sales Representative' },
-  { email: 'tech@demo.com', label: 'Service Technician' },
+  { email: 'principal@demo.com', label: 'Principal' },
+  { email: 'sales@demo.com', label: 'Sales Rep' },
+  { email: 'tech@demo.com', label: 'Technician' },
 ]
 const DEMO_PASSWORD = 'demo123'
 
@@ -65,78 +62,71 @@ export default function Login() {
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2,
-      }}
-    >
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 420 }}>
-        <Stack spacing={1} sx={{ alignItems: 'center', mb: 3 }}>
-          <AcUnitIcon color="primary" sx={{ fontSize: 40 }} />
-          <Typography variant="h5" component="h1">
-            Dealer App
-          </Typography>
-          <Typography color="text.secondary">Sign in to your dealer portal</Typography>
-        </Stack>
+    <AuthLayout>
+      <Typography variant="h4" component="h1" sx={{ color: 'brand.navy', fontWeight: 700 }}>
+        Welcome back
+      </Typography>
+      <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
+        Sign in to your dealer account
+      </Typography>
 
-        <Stack component="form" spacing={2} onSubmit={handleSubmit} noValidate>
-          {error && <Alert severity="error">{error}</Alert>}
-          <TextField
-            label="Email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            required
-            fullWidth
-            value={email}
-            onChange={handleChange(setEmail)}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            required
-            fullWidth
-            value={password}
-            onChange={handleChange(setPassword)}
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            loading={status === 'loading'}
-            disabled={!email || !password}
-          >
-            Sign in
-          </Button>
-        </Stack>
+      <Stack component="form" spacing={2.5} onSubmit={handleSubmit} noValidate>
+        {error && <Alert severity="error">{error}</Alert>}
+        <TextField
+          label="Email"
+          type="email"
+          autoComplete="email"
+          autoFocus
+          required
+          fullWidth
+          value={email}
+          onChange={handleChange(setEmail)}
+        />
+        <PasswordField
+          autoComplete="current-password"
+          required
+          fullWidth
+          value={password}
+          onChange={handleChange(setPassword)}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          fullWidth
+          loading={status === 'loading'}
+          disabled={!email || !password}
+          sx={{ py: 1.5, borderRadius: 2 }}
+        >
+          Sign in
+        </Button>
+      </Stack>
 
-        {env.showDemoAccounts && (
-          <>
-            <Divider sx={{ my: 3 }}>
-              <Typography variant="caption" color="text.secondary">
-                Demo accounts (password {DEMO_PASSWORD})
-              </Typography>
-            </Divider>
-            <List dense disablePadding>
-              {DEMO_ACCOUNTS.map((account) => (
-                <ListItemButton
-                  key={account.email}
-                  onClick={() => fillDemoAccount(account.email)}
-                  sx={{ borderRadius: 1 }}
-                >
-                  <ListItemText primary={account.label} secondary={account.email} />
-                </ListItemButton>
-              ))}
-            </List>
-          </>
-        )}
-      </Paper>
-    </Box>
+      {env.showDemoAccounts && (
+        <Box sx={{ mt: 4 }}>
+          <Divider>
+            <Typography variant="caption" color="text.secondary">
+              Demo accounts · password {DEMO_PASSWORD}
+            </Typography>
+          </Divider>
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            {DEMO_ACCOUNTS.map((account) => (
+              <Button
+                key={account.email}
+                variant="outlined"
+                color="secondary"
+                size="small"
+                fullWidth
+                onClick={() => fillDemoAccount(account.email)}
+                title={account.email}
+                sx={{ borderRadius: 5 }}
+              >
+                {account.label}
+              </Button>
+            ))}
+          </Stack>
+        </Box>
+      )}
+    </AuthLayout>
   )
 }

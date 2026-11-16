@@ -9,11 +9,12 @@
   "scripts": {
     "dev": "tsx watch src/server.js",
     "start": "tsx src/server.js",
+    "db:reset": "tsx scripts/reset-demo.js",
     "postinstall": "prisma generate",
-    "db:setup": "prisma migrate deploy && tsx prisma/seed.js",
-    "db:seed": "tsx prisma/seed.js",
+    "db:verify": "tsx scripts/verify-dataset.js",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:view": "tsx scripts/db-view.js"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.1",

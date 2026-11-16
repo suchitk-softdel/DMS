@@ -4,18 +4,19 @@ import KpiTile from '@/components/ui/KpiTile'
 
 /**
  * Responsive row of KpiTiles.
- * items: [{ key?, label, value, delta?, caption?, icon? }]
+ * items: [{ key?, label, value, accent?, trend? }] (see KpiTile)
  * columns: tiles per row on desktop (1, 2, 3, 4 or 6).
  */
-export default function KpiGrid({ items = [], columns = 4, loading = false, skeletonCount }) {
+export default function KpiGrid({ items = [], columns = 4, spacing = 2, loading = false, skeletonCount }) {
   const desktopSize = 12 / columns
   const tabletSize = Math.max(desktopSize, 6)
-  const size = { xs: 12, sm: tabletSize, md: desktopSize }
+  // Next to the navigation rail, 4 tiles only fit side by side on large screens.
+  const size = { xs: 12, sm: tabletSize, lg: desktopSize }
 
   if (loading) {
     const count = skeletonCount ?? (items.length || columns)
     return (
-      <Grid container spacing={2}>
+      <Grid container spacing={spacing}>
         {Array.from({ length: count }, (_, index) => (
           <Grid key={index} size={size}>
             <Skeleton variant="rounded" height={128} />
@@ -26,7 +27,7 @@ export default function KpiGrid({ items = [], columns = 4, loading = false, skel
   }
 
   return (
-    <Grid container spacing={2}>
+    <Grid container spacing={spacing}>
       {items.map(({ key, ...tile }) => (
         <Grid key={key ?? tile.label} size={size}>
           <KpiTile {...tile} />

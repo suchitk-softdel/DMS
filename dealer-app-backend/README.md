@@ -1,7 +1,7 @@
 # Dealer App – Backend
 
-Node.js API for the Dealer App: Express 5, Prisma 7 and SQLite, with ~3 years of generated demo
-data. Requirements: [`docs/SRS.md`](../docs/SRS.md) (SRS v1.0).
+Node.js API for the Dealer App: Express 5, Prisma 7 and SQLite, with 2 years of fixed demo data
+(manufacturer + 6 dealers, in `prisma/demo.db`). Requirements: [`docs/SRS.md`](../docs/SRS.md) (SRS v1.0).
 
 ## Setup
 
@@ -10,9 +10,10 @@ Prerequisites: Node.js 22+.
 ```bash
 npm install            # also generates the Prisma client
 cp .env.example .env   # then set SESSION_SECRET (see the comment in the file)
-npm run db:setup       # creates dev.db and loads ~3 years of data (~2 seconds)
 npm run dev            # http://localhost:4000/api, restarts on file changes
 ```
+
+No database setup is needed: the demo data is already in the project (see below).
 
 Then start the frontend (`cd ../dealer-app-frontend && npm run dev`) and sign in with a demo
 account. The frontend's dev server forwards `/api` requests here.
@@ -21,13 +22,23 @@ account. The frontend's dev server forwards `/api` requests here.
 | -------------------- | ---------------------------------------------------------------- |
 | `npm run dev`        | Start the API with auto-restart                                  |
 | `npm start`          | Start the API                                                    |
-| `npm run db:setup`   | Create or update the database tables, then load the demo data    |
-| `npm run db:seed`    | Reload the demo data (wipes all rows first)                      |
+| `npm run db:reset`   | Put the original demo data back (removes entries made in the app; stop the API first) |
+| `npm run db:verify`  | Check record links, aggregates and both models' expected outputs |
 | `npm run db:migrate` | After editing `prisma/schema.prisma`: create and apply a migration |
 | `npm run db:studio`  | Browse the database in the browser (Prisma Studio)               |
+| `npm run db:view`    | Write all tables to `db-view.html` and open it                   |
 
-`db:seed` options: `npm run db:seed -- --seed 7 --years 3 --end 2026-11-12`. The same seed and
-end date always produce identical data. The end date defaults to today.
+### The demo database
+
+**`prisma/demo.db` is a ready-made database with 2 years of fixed demo data, committed to git.**
+Nothing is generated on anyone's machine:
+
+- On first start, the API copies `prisma/demo.db` to `dev.db` (your working copy, not committed).
+- Everything you do in the app (new orders, claims) goes into `dev.db`. `demo.db` never changes.
+- `npm run db:reset` (or deleting `dev.db`) gives you the original demo data back, e.g. before a
+  client demo.
+
+The data is fixed: there is no data generator in the project.
 
 ## Demo accounts
 
@@ -41,33 +52,50 @@ All use the password `demo123`.
 | `principal2@demo.com` | Dealer Principal     | Coastal Climate Solutions        |
 
 `principal2` belongs to a different dealership, for testing that dealers can't see each other's
-data.
+data. Every dealership also has its own staff accounts (same password), in the `User` table.
 
-## The demo data
+## The demo dataset
 
-`prisma/seed/generate.js` creates 3 years of data for 4 dealers:
+`prisma/demo.db` holds 2 years of connected data, **1 Nov 2024 – 15 Nov 2026**, for the fictional
+manufacturer **Aerovance Climate Systems** and its 6 dealers:
 
-| Data                  | Amount (approx.) | Notes                                                       |
-| --------------------- | ---------------- | ----------------------------------------------------------- |
-| Products              | 40               | AC, heat pumps, furnaces, air handlers, thermostats, IAQ, parts |
-| Customers             | 440              | Residential and commercial                                  |
-| Orders and quotes     | 2,500            | 4,000 order lines; Draft, Submitted, Approved, Fulfilled     |
-| Monthly sales         | 2,000 rows       | Per dealer, product and month, from fulfilled orders         |
-| Warranty registrations| 2,300            |                                                             |
-| Warranty claims       | 80               | Open claims in every kanban stage                           |
-| Inventory             | 160              | Stock per dealer and product                                |
-| Incentive programs    | 4                | With progress and peer rank per dealer                      |
-| Training courses      | 12               | Including 3 upcoming webinars                               |
-| Sales opportunities   | 130              | Some with a named (fictional) competitor                    |
+| Data                   | Amount | Notes                                                        |
+| ---------------------- | ------ | ------------------------------------------------------------ |
+| Dealers / staff users  | 6 / 35 | Different regions, tiers, sizes and growth                   |
+| Products               | 40     | AC, heat pumps, furnaces, air handlers, thermostats, IAQ, parts |
+| Customers              | 390    | Residential and commercial, in each dealer's own cities      |
+| Purchase orders        | ~1,045 | Plus ~350 quotes; 2,276 order lines                          |
+| Warranty registrations | 1,475  | One per equipment unit on a fulfilled order line             |
+| Warranty claims        | 100    | Each linked to its registered unit and the original order    |
+| Inventory              | 240    | Stock per dealer and product                                 |
+| Audit log              | 2,967  | Every order/quote created and moved on, every claim filed and moved on |
+| Incentives / training / opportunities | 4 / 12 / 186 |                                              |
 
-Built-in patterns for dashboards and AI to find:
+**How records link:** Manufacturer → Dealer → Customer; Order → Order line → Warranty
+registration → Claim. `db:verify` checks every link.
+
+**Source vs computed.** Monthly sales (`Sale`) and incentive progress are **computed** from the
+transactions by `src/services/aggregationService.js`, and computed again after every order change
+in the app. A new order therefore shows up straight away in
+revenue, trends, the forecast and incentives, exactly like the dataset's orders.
+
+**The two models** are checked against fixed results in `prisma/dataset/expected-outputs.json`
+(as of the dataset end date):
+- **Dealer Health Score** (`healthScoreService.js`): Summit 77, Coastal 78, Prairie 41, ...
+- **Demand Forecast** (`forecastService.js`): expected units for the next 30 days and stock-out
+  risk. Summit is flagged for furnaces FN-H96-80 and FN-S80-80.
+
+If a logic change alters these, `db:verify` fails and lists the differences. Check that the change
+was intended, then save the new results with `npm run db:verify -- --update`.
+
+Built-in business patterns:
 - **Seasons:** air conditioners peak in summer; furnaces peak in winter, with a strong
   November–December pre-season.
-- **Dealers differ:** Summit (the demo dealer) grows, Prairie Air declines, Lakeside joined in
-  September 2025.
-- **Inventory risk:** Summit is low on furnaces and cold-climate heat pumps going into winter,
-  and overstocked on some air conditioners.
-- **Claims:** some have been under review for more than 10 days (FR-WAR-5 alert).
+- **Dealers differ:** Summit (the demo dealer) grows ~10% a year, Prairie Air declines ~15%,
+  Lakeside joined in September 2025.
+- **Inventory risk:** Summit is low on furnaces going into winter and overstocked on some air
+  conditioners.
+- **Claims:** open claims in every kanban stage, some waiting more than 10 days (FR-WAR-5 alert).
 
 All names are fictional.
 
@@ -91,13 +119,22 @@ request.
 | GET    | `/products`                  | signed in     | Product catalogue                               |
 | GET    | `/orders`                    | orders        | `{ total, items }`; filters `type`, `status`, `search`, `limit` (max 500), `offset` |
 | GET    | `/orders/:id`                | orders        | One order with lines and customer               |
+| POST   | `/orders`                    | orders        | New quote/order: `{ type, customerId, status?, items: [{ productId, quantity }] }` |
+| PATCH  | `/orders/:id/status`         | orders        | Next status `{ status }`; fulfilling registers the equipment units |
+| GET    | `/customers`                 | orders        | Own customers; `search`, `limit`               |
 | GET    | `/sales`                     | dealer360     | Monthly sales per product; `from`, `to` (YYYY-MM) |
 | GET    | `/sales/monthly`             | dealer360     | Monthly totals; `from`, `to`                    |
 | GET    | `/inventory`                 | inventory     | Stock per product                               |
 | GET    | `/claims`                    | warranty      | Claims with `ageDays`; filter `stage`           |
+| POST   | `/claims`                    | warranty      | File a claim `{ registrationId, amount, description }` |
+| PATCH  | `/claims/:id/stage`          | warranty      | Next kanban stage `{ stage }`                   |
+| GET    | `/registrations`             | warranty      | Registered units; `search` (serial or customer) |
 | GET    | `/incentives`                | incentives    | Programs, progress, next milestone, peer rank   |
 | GET    | `/training`                  | incentives    | Courses, upcoming events, certifications        |
 | GET    | `/opportunities`             | salesCoach    | Sales opportunities; filter `stage`             |
+
+Status changes only move forward (e.g. an order goes draft → submitted → approved → fulfilled).
+Every write is recorded in the audit log.
 
 Status codes: 400 invalid input, 401 not signed in, 403 role not allowed, 404 not found.
 
@@ -106,10 +143,11 @@ Status codes: 400 invalid input, 401 not signed in, 403 role not allowed, 404 no
 ```
 dealer-app-backend/
 ├── prisma/
-│   ├── schema.prisma      # Database tables (17 models)
+│   ├── schema.prisma      # Database tables (18 models)
 │   ├── migrations/        # Generated SQL migrations (committed)
-│   ├── seed.js            # npm run db:seed: wipes and loads demo data
-│   └── seed/generate.js   # The 3-year data generator
+│   ├── dataset/expected-outputs.json # Expected Health Score + Forecast results
+│   └── demo.db            # THE ready-made demo database (committed; copied to dev.db on first start)
+├── scripts/verify-dataset.js # npm run db:verify
 ├── prisma.config.ts       # Prisma CLI settings
 ├── src/
 │   ├── server.js          # Entry point
@@ -125,7 +163,7 @@ dealer-app-backend/
 │   ├── events/            # (later) Event Bus subscribers
 │   └── generated/prisma/  # Generated Prisma client (not committed; npm install creates it)
 ├── .env.example
-└── dev.db                 # The SQLite database (not committed; npm run db:setup creates it)
+└── dev.db                 # Your working database (not committed; copied from prisma/demo.db)
 ```
 
 A request flows through: **route → requireAuth → requireModule → service → Prisma → SQLite**.
@@ -138,8 +176,8 @@ A request flows through: **route → requireAuth → requireModule → service �
   switch from Prisma to calls in `src/clients/`, and the API the frontend uses stays the same.
 - **RBAC on the server** (SRS 6.2): every data route checks the role's modules. Role permissions
   are stored in the database, so they can change without a code change (SRS 6.7).
-- **Audit log** (SRS 6.2): logins are recorded in the `AuditLog` table. Every write action
-  (orders, claims, reorders) must be logged the same way once those endpoints exist.
+- **Audit log** (SRS 6.2): logins and every write (orders, order status, claims,
+  claim stage) are recorded in the `AuditLog` table.
 - **Login:** email and password for the demo. The SRS requires OAuth2 / OIDC with the
   manufacturer's identity provider (section 4.4); that replaces `/auth/login`, and the session
   cookie stays the same.
@@ -161,8 +199,8 @@ A request flows through: **route → requireAuth → requireModule → service �
 
 ## Not done yet
 
-- **Write endpoints:** create quotes and orders, submit claims, register warranties, approve
-  reorders, invite to training. Each must be audit-logged.
+- **More write endpoints:** approve reorders, invite to training. The frontend doesn't call the
+  new order and claim endpoints yet.
 - **AI engine:** the features in the table above (no endpoints yet).
 - **Tests:** an automated test suite (the endpoints were checked manually with a smoke-test
   script).

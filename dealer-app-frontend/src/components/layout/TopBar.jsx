@@ -1,50 +1,41 @@
 import { useState } from 'react'
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
-import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined'
-import SearchIcon from '@mui/icons-material/Search'
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined'
 import AppBar from '@mui/material/AppBar'
-import Avatar from '@mui/material/Avatar'
 import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
+import ButtonBase from '@mui/material/ButtonBase'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
-import InputAdornment from '@mui/material/InputAdornment'
+import InputBase from '@mui/material/InputBase'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
-import TextField from '@mui/material/TextField'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { env } from '@/config/env'
+import { usePageHeader } from '@/lib/pageHeader'
+import UserAvatar from '@/components/ui/UserAvatar'
 import { PUBLIC_PATHS } from '@/constants/modules'
 import { usePermissions } from '@/lib/rbac'
 import { signOut } from '@/store/slices/authSlice'
-import { toggleCopilot, toggleNav } from '@/store/slices/uiSlice'
+import { toggleNav } from '@/store/slices/uiSlice'
 
 // Placeholder until notifications come from the data service.
-const UNREAD_NOTIFICATIONS = 3
+const HAS_UNREAD_NOTIFICATIONS = true
 
-function getInitials(name = '') {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('')
-}
-
+// Top bar from the UI Design Concept: page title and subtitle on the left,
+// global search, notifications and the signed-in user on the right.
 export default function TopBar() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const { user, role } = usePermissions()
+  const { header } = usePageHeader()
   const [accountAnchor, setAccountAnchor] = useState(null)
+  const firstName = user?.name?.split(' ')[0] ?? ''
 
   const handleLogout = () => {
     setAccountAnchor(null)
@@ -57,9 +48,9 @@ export default function TopBar() {
       position="sticky"
       color="inherit"
       elevation={0}
-      sx={{ borderBottom: 1, borderColor: 'divider' }}
+      sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}
     >
-      <Toolbar sx={{ gap: 1 }}>
+      <Toolbar sx={{ minHeight: { xs: 72, md: 96 }, gap: { xs: 1.5, md: 4 }, px: { xs: 2, md: 4.5 } }}>
         <IconButton
           edge="start"
           aria-label="Open navigation"
@@ -69,58 +60,66 @@ export default function TopBar() {
           <MenuIcon />
         </IconButton>
 
-        <TextField
-          size="small"
-          placeholder="Search…"
-          aria-label="Search"
-          sx={{ flexGrow: 1, maxWidth: 420 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            },
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+          <Typography
+            variant="h1"
+            noWrap
+            sx={{ fontSize: { xs: 22, md: 32 }, lineHeight: 1.1, color: 'text.primary' }}
+          >
+            {header.title}
+          </Typography>
+          {header.subtitle && (
+            <Typography noWrap sx={{ mt: 0.25, color: 'text.secondary', fontSize: { xs: 13, md: 16 } }}>
+              {header.subtitle}
+            </Typography>
+          )}
+        </Box>
+
+        <Box
+          component="form"
+          role="search"
+          onSubmit={(event) => event.preventDefault()}
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            width: { md: 280, lg: 440 },
+            height: 52,
+            px: 3,
+            borderRadius: 26,
+            bgcolor: 'background.default',
+            border: 1,
+            borderColor: 'divider',
           }}
-        />
-
-        <Box sx={{ flexGrow: 1 }} />
-
-        {/* Makes non-production builds obvious so test data isn't mistaken for live data. */}
-        {!env.isProd && (
-          <Chip label={env.appEnv.toUpperCase()} color="warning" size="small" sx={{ fontWeight: 600 }} />
-        )}
-
-        {/* Copilot is available on every screen to every role (SRS FR-COP-1). */}
-        <Button
-          variant="outlined"
-          startIcon={<AutoAwesomeOutlinedIcon />}
-          onClick={() => dispatch(toggleCopilot())}
-          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
-          Copilot
-        </Button>
+          <InputBase
+            placeholder="Search dealers, orders, SKUs..."
+            inputProps={{ 'aria-label': 'Search dealers, orders, SKUs' }}
+            sx={{ flexGrow: 1, fontSize: 15 }}
+          />
+        </Box>
 
         <Tooltip title="Notifications">
-          <IconButton aria-label={`${UNREAD_NOTIFICATIONS} unread notifications`}>
-            <Badge badgeContent={UNREAD_NOTIFICATIONS} color="error">
-              <NotificationsOutlinedIcon />
+          <IconButton
+            aria-label={HAS_UNREAD_NOTIFICATIONS ? 'Notifications, unread' : 'Notifications'}
+            sx={{ width: 52, height: 52, bgcolor: 'background.default', color: 'secondary.main' }}
+          >
+            <Badge variant="dot" color="error" invisible={!HAS_UNREAD_NOTIFICATIONS} overlap="circular">
+              <NotificationsNoneOutlinedIcon />
             </Badge>
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="Account">
-          <IconButton
-            aria-label="Account menu"
-            aria-haspopup="menu"
-            onClick={(event) => setAccountAnchor(event.currentTarget)}
-          >
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
-              {getInitials(user?.name)}
-            </Avatar>
-          </IconButton>
-        </Tooltip>
+        <ButtonBase
+          aria-label="Account menu"
+          aria-haspopup="menu"
+          onClick={(event) => setAccountAnchor(event.currentTarget)}
+          sx={{ gap: 1.25, borderRadius: 30, pr: { sm: 1 } }}
+        >
+          <UserAvatar name={user?.name} color="secondary.main" size={56} />
+          <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 700, fontSize: 16 }}>
+            {firstName}
+          </Typography>
+        </ButtonBase>
 
         <Menu
           anchorEl={accountAnchor}
@@ -136,18 +135,6 @@ export default function TopBar() {
             </Typography>
           </Box>
           <Divider />
-          <MenuItem
-            onClick={() => {
-              setAccountAnchor(null)
-              dispatch(toggleCopilot())
-            }}
-            sx={{ display: { sm: 'none' } }}
-          >
-            <ListItemIcon>
-              <AutoAwesomeOutlinedIcon fontSize="small" />
-            </ListItemIcon>
-            Copilot
-          </MenuItem>
           <MenuItem onClick={handleLogout}>
             <ListItemIcon>
               <LogoutIcon fontSize="small" />

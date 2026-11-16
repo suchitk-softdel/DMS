@@ -8,6 +8,11 @@ coverage
 
 /src/generated/prisma
 
-# Local SQLite database (recreate with: npm run db:setup)
+# Local SQLite database: a working copy of prisma/demo.db, made on first start
 *.db
 *.db-journal
+# ...except the ready-made demo database, which IS committed
+!prisma/demo.db
+
+# Database snapshot from npm run db:view (contains data)
+db-view.html

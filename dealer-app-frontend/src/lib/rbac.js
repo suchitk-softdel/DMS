@@ -15,7 +15,8 @@ export function canAccess(roles, roleId, moduleKey) {
 
 // First menu item the role can open; falls back to /unauthorized if none.
 export function getHomePath(roles, roleId) {
-  const firstAllowed = NAV_ITEMS.find((item) => canAccess(roles, roleId, item.key))
+  // Items without a module key (Copilot) are never a landing page.
+  const firstAllowed = NAV_ITEMS.find((item) => item.key && canAccess(roles, roleId, item.key))
   return firstAllowed?.path ?? PUBLIC_PATHS.UNAUTHORIZED
 }
 
@@ -31,7 +32,8 @@ export function usePermissions() {
       roles,
       rolesStatus,
       role: getRole(roles, roleId),
-      can: (moduleKey) => canAccess(roles, roleId, moduleKey),
+      // A null module key (e.g. Copilot) is open to every signed-in role.
+      can: (moduleKey) => moduleKey === null || canAccess(roles, roleId, moduleKey),
       homePath: getHomePath(roles, roleId),
     }
   }, [user, roles, rolesStatus])

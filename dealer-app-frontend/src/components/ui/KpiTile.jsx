@@ -1,52 +1,51 @@
-import TrendingDownIcon from '@mui/icons-material/TrendingDown'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 
-// `delta` is a percentage change, e.g. 4.2 or -1.5.
-export default function KpiTile({ label, value, delta, caption, icon }) {
-  const hasDelta = typeof delta === 'number'
-  const isPositive = hasDelta && delta >= 0
-  const DeltaIcon = isPositive ? TrendingUpIcon : TrendingDownIcon
+const TONE_COLORS = {
+  positive: 'brand.tealDark',
+  negative: 'error.main',
+  warning: 'warning.dark',
+  neutral: 'text.secondary',
+}
 
+const ARROWS = { up: '▲', down: '▼' }
+
+/**
+ * KPI card from the UI design: thick colored left edge, uppercase label, big
+ * value and an optional trend line.
+ *
+ * accent: theme color for the left edge, e.g. 'primary.main', 'warning.main'.
+ * trend:  { text, direction?: 'up' | 'down', tone?: 'positive' | 'negative' | 'warning' | 'neutral' }
+ *         Direction and tone are separate because "down" can be good
+ *         (e.g. fewer stock-outs).
+ */
+export default function KpiTile({ label, value, accent = 'primary.main', trend }) {
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Typography variant="body2" color="text.secondary">
-            {label}
-          </Typography>
-          {icon && <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>}
-        </Stack>
-        <Typography variant="h4" component="p" sx={{ mt: 1 }}>
+    <Card sx={{ height: '100%', borderLeft: 8, borderLeftColor: accent }}>
+      <Box sx={{ px: 3, pt: 3, pb: 2.75 }}>
+        <Typography
+          component="p"
+          sx={{ fontSize: 14, color: 'text.secondary', fontWeight: 600, letterSpacing: 1.4, textTransform: 'uppercase' }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          component="p"
+          variant="h1"
+          sx={{ mt: 1.5, fontSize: { xs: 34, lg: 42 }, color: 'text.primary', lineHeight: 1.1 }}
+        >
           {value}
         </Typography>
-        {(hasDelta || caption) && (
-          <Stack direction="row" spacing={0.5} sx={{ mt: 1, alignItems: 'center' }}>
-            {hasDelta && (
-              <Stack
-                direction="row"
-                spacing={0.25}
-                sx={{ alignItems: 'center', color: isPositive ? 'success.main' : 'error.main' }}
-              >
-                <DeltaIcon fontSize="small" />
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {isPositive ? '+' : ''}
-                  {delta}%
-                </Typography>
-              </Stack>
-            )}
-            {caption && (
-              <Typography variant="body2" color="text.secondary">
-                {caption}
-              </Typography>
-            )}
-          </Stack>
-        )}
-      </CardContent>
+        <Typography sx={{ mt: 1.75, minHeight: 24, fontSize: 16, fontWeight: 700, color: TONE_COLORS[trend?.tone ?? 'neutral'] }}>
+          {trend?.direction && (
+            <Box component="span" aria-hidden sx={{ mr: 0.75, fontSize: 14 }}>
+              {ARROWS[trend.direction]}
+            </Box>
+          )}
+          {trend?.text}
+        </Typography>
+      </Box>
     </Card>
   )
 }

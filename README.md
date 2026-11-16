@@ -26,7 +26,7 @@ Prerequisites: Node.js 22+. Use two terminals.
 cd dealer-app-backend
 npm install
 cp .env.example .env      # then set SESSION_SECRET
-npm run db:setup          # creates the database with ~3 years of demo data
+                          # demo data is ready: copied from prisma/demo.db on first start
 npm run dev               # http://localhost:4000/api
 
 # Terminal 2: frontend

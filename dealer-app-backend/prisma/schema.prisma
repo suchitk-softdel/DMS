@@ -18,11 +18,23 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Dealers, users and access
+// Manufacturer, dealers, users and access
 // ---------------------------------------------------------------------------
+
+// The OEM whose dealer network uses the app. Every dealer belongs to one.
+model Manufacturer {
+  id            String @id
+  name          String
+  headquarters  String
+  productLines  String // JSON array, e.g. ["Air Conditioners","Furnaces"]
+  warrantyYears Int // standard parts warranty on equipment
+
+  dealers Dealer[]
+}
 
 model Dealer {
   id                String   @id
+  manufacturerId    String
   name              String
   city              String
   state             String
@@ -30,17 +42,18 @@ model Dealer {
   tier              String // Platinum | Gold | Silver
   status            String // active | pending | onHold
   territoryCoverage Float // 0..1 share of the assigned territory served (FR-D360-1)
-  createdAt         DateTime @default(now())
+  createdAt         DateTime @default(now()) // date the dealer joined the network
 
-  users              User[]
-  customers          Customer[]
-  orders             Order[]
-  sales              Sale[]
-  inventory          Inventory[]
-  claims             Claim[]
-  registrations      WarrantyRegistration[]
-  incentiveProgress  IncentiveProgress[]
-  opportunities      Opportunity[]
+  manufacturer      Manufacturer           @relation(fields: [manufacturerId], references: [id])
+  users             User[]
+  customers         Customer[]
+  orders            Order[]
+  sales             Sale[]
+  inventory         Inventory[]
+  claims            Claim[]
+  registrations     WarrantyRegistration[]
+  incentiveProgress IncentiveProgress[]
+  opportunities     Opportunity[]
 }
 
 // Role permissions are data, not code, so the Manufacturer Administrator can
@@ -120,10 +133,12 @@ model Order {
   createdAt   DateTime
   updatedAt   DateTime
 
-  dealer    Dealer      @relation(fields: [dealerId], references: [id])
-  customer  Customer    @relation(fields: [customerId], references: [id])
-  createdBy User?       @relation(fields: [createdById], references: [id])
-  items     OrderItem[]
+  dealer        Dealer                 @relation(fields: [dealerId], references: [id])
+  customer      Customer               @relation(fields: [customerId], references: [id])
+  createdBy     User?                  @relation(fields: [createdById], references: [id])
+  items         OrderItem[]
+  registrations WarrantyRegistration[]
+  claims        Claim[]
 
   @@index([dealerId, createdAt])
   @@index([dealerId, status])
@@ -136,13 +151,16 @@ model OrderItem {
   quantity  Int
   unitPrice Float
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order         Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product                @relation(fields: [productId], references: [id])
+  registrations WarrantyRegistration[]
 
   @@index([orderId])
 }
 
-// Monthly sales per dealer and product, derived from fulfilled orders.
+// Monthly sales per dealer and product. AGGREGATE TABLE: never written by
+// hand. src/services/aggregationService.js rebuilds it from fulfilled orders
+// at seed time and after every order change, so it always matches the orders.
 // Feeds revenue KPIs, trend charts and forecasting (SRS 3.1, 3.3, 3.5).
 model Sale {
   id        Int    @id @default(autoincrement())
@@ -183,25 +201,37 @@ model Inventory {
 // Warranty & Claims (SRS 3.7)
 // ---------------------------------------------------------------------------
 
+// One row per installed equipment unit, traced back to the order line it was
+// sold on: Order -> OrderItem -> WarrantyRegistration -> Claim.
 model WarrantyRegistration {
   id           String   @id
   dealerId     String
+  orderId      String
+  orderItemId  Int
   productId    String
   customerId   String
   serialNumber String   @unique
   installDate  DateTime
   createdAt    DateTime
 
-  dealer   Dealer   @relation(fields: [dealerId], references: [id])
-  product  Product  @relation(fields: [productId], references: [id])
-  customer Customer @relation(fields: [customerId], references: [id])
+  dealer    Dealer    @relation(fields: [dealerId], references: [id])
+  order     Order     @relation(fields: [orderId], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  claims    Claim[]
 
   @@index([dealerId])
+  @@index([orderId])
 }
 
+// A claim is always against a registered unit, so it links to the
+// registration and to the original order.
 model Claim {
   id             String    @id // e.g. CLM-20431
   dealerId       String
+  registrationId String
+  orderId        String
   productId      String
   customerId     String
   serialNumber   String
@@ -212,11 +242,14 @@ model Claim {
   stageChangedAt DateTime // "Age" on the kanban card = days since this (FR-WAR-3)
   resolvedAt     DateTime?
 
-  dealer   Dealer   @relation(fields: [dealerId], references: [id])
-  product  Product  @relation(fields: [productId], references: [id])
-  customer Customer @relation(fields: [customerId], references: [id])
+  dealer       Dealer               @relation(fields: [dealerId], references: [id])
+  registration WarrantyRegistration @relation(fields: [registrationId], references: [id])
+  order        Order                @relation(fields: [orderId], references: [id])
+  product      Product              @relation(fields: [productId], references: [id])
+  customer     Customer             @relation(fields: [customerId], references: [id])
 
   @@index([dealerId, stage])
+  @@index([orderId])
 }
 
 // ---------------------------------------------------------------------------
@@ -224,17 +257,20 @@ model Claim {
 // ---------------------------------------------------------------------------
 
 model IncentiveProgram {
-  id          String   @id
-  name        String
-  description String
-  metric      String // revenue | units | trainingHours
-  startDate   DateTime
-  endDate     DateTime
-  milestones  String // JSON array: [{ "target": 500000, "payout": 5000 }, ...]
+  id              String   @id
+  name            String
+  description     String
+  metric          String // revenue | units | trainingHours
+  productCategory String? // for metric "units": which category counts
+  startDate       DateTime
+  endDate         DateTime
+  milestones      String // JSON array: [{ "target": 500000, "payout": 5000 }, ...]
 
   progress IncentiveProgress[]
 }
 
+// AGGREGATE TABLE: rebuilt by src/services/aggregationService.js from sales
+// and completed training, never written by hand.
 model IncentiveProgress {
   id        Int    @id @default(autoincrement())
   dealerId  String

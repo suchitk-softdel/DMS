@@ -50,3 +50,11 @@ export function formatDate(value, { style = 'medium' } = {}) {
   if (Number.isNaN(date.getTime())) return EMPTY_VALUE
   return new Intl.DateTimeFormat(LOCALE, { dateStyle: style }).format(date)
 }
+
+// Day and short month, e.g. "12 Oct" (timelines and activity lists).
+export function formatDayMonth(value) {
+  if (!value) return EMPTY_VALUE
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return EMPTY_VALUE
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date)
+}

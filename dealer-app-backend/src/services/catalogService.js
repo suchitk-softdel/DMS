@@ -27,3 +27,13 @@ export function listProducts() {
     select: { id: true, sku: true, name: true, category: true, unitPrice: true, packSize: true },
   })
 }
+
+// This dealer's customers (for choosing one on a new quote or order).
+export function listCustomers(dealerId, { search, limit }) {
+  return prisma.customer.findMany({
+    where: { dealerId, ...(search && { name: { contains: search } }) },
+    orderBy: { name: 'asc' },
+    take: limit,
+    select: { id: true, name: true, type: true, city: true },
+  })
+}

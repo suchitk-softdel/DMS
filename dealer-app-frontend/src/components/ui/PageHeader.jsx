@@ -1,29 +1,25 @@
-import Box from '@mui/material/Box'
+import { useEffect } from 'react'
 import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
+import { usePageHeader } from '@/lib/pageHeader'
 
-export default function PageHeader({ title, subtitle, actions }) {
+// Sets the page title and subtitle shown in the top bar. `actions` (buttons,
+// filters) are rendered at the top of the page content.
+export default function PageHeader({ title, subtitle = '', actions }) {
+  const context = usePageHeader()
+  const setHeader = context?.setHeader
+
+  useEffect(() => {
+    setHeader?.({ title, subtitle })
+  }, [setHeader, title, subtitle])
+
+  useEffect(() => {
+    if (title) document.title = `${title} · IDEP Dealer App`
+  }, [title])
+
+  if (!actions) return null
   return (
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={2}
-      sx={{ mb: 3, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
-    >
-      <Box>
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      {actions && (
-        <Stack direction="row" spacing={1}>
-          {actions}
-        </Stack>
-      )}
+    <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap', rowGap: 1.5, alignItems: 'center' }}>
+      {actions}
     </Stack>
   )
 }

@@ -1,0 +1,122 @@
+{
+  "asOf": "2026-11-15",
+  "dealers": {
+    "d-1001": {
+      "dealer": "Summit Comfort Heating & Air",
+      "healthScore": {
+        "score": 77,
+        "components": {
+          "revenueGrowth": 81,
+          "orderVelocity": 100,
+          "warrantyCompliance": 68,
+          "trainingCompletion": 55
+        }
+      },
+      "forecast": {
+        "unitGrowth": 1.095,
+        "expectedUnitsNext30Days": 38,
+        "atRisk": [
+          {
+            "sku": "FN-H96-80",
+            "expected": 3,
+            "onHand": 1,
+            "onOrder": 0,
+            "shortfall": 2
+          },
+          {
+            "sku": "FN-S80-80",
+            "expected": 2,
+            "onHand": 0,
+            "onOrder": 0,
+            "shortfall": 2
+          }
+        ]
+      }
+    },
+    "d-1002": {
+      "dealer": "Coastal Climate Solutions",
+      "healthScore": {
+        "score": 78,
+        "components": {
+          "revenueGrowth": 72,
+          "orderVelocity": 100,
+          "warrantyCompliance": 77,
+          "trainingCompletion": 59
+        }
+      },
+      "forecast": {
+        "unitGrowth": 1.069,
+        "expectedUnitsNext30Days": 28,
+        "atRisk": []
+      }
+    },
+    "d-1003": {
+      "dealer": "Prairie Air Systems",
+      "healthScore": {
+        "score": 41,
+        "components": {
+          "revenueGrowth": 21,
+          "orderVelocity": 29,
+          "warrantyCompliance": 58,
+          "trainingCompletion": 63
+        }
+      },
+      "forecast": {
+        "unitGrowth": 0.929,
+        "expectedUnitsNext30Days": 19,
+        "atRisk": []
+      }
+    },
+    "d-1004": {
+      "dealer": "Lakeside HVAC Services",
+      "healthScore": {
+        "score": 82,
+        "components": {
+          "revenueGrowth": 100,
+          "orderVelocity": 100,
+          "warrantyCompliance": 56,
+          "trainingCompletion": 63
+        }
+      },
+      "forecast": {
+        "unitGrowth": 1.5,
+        "expectedUnitsNext30Days": 33,
+        "atRisk": []
+      }
+    },
+    "d-1005": {
+      "dealer": "Lone Star Air & Heat",
+      "healthScore": {
+        "score": 62,
+        "components": {
+          "revenueGrowth": 65,
+          "orderVelocity": 50,
+          "warrantyCompliance": 75,
+          "trainingCompletion": 54
+        }
+      },
+      "forecast": {
+        "unitGrowth": 1.189,
+        "expectedUnitsNext30Days": 56,
+        "atRisk": []
+      }
+    },
+    "d-1006": {
+      "dealer": "Cascade Comfort Systems",
+      "healthScore": {
+        "score": 43,
+        "components": {
+          "revenueGrowth": 34,
+          "orderVelocity": 50,
+          "warrantyCompliance": 29,
+          "trainingCompletion": 64
+        }
+      },
+      "forecast": {
+        "unitGrowth": 1.258,
+        "expectedUnitsNext30Days": 16,
+        "atRisk": []
+      }
+    }
+  }
+}
