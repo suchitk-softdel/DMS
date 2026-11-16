@@ -1,4 +1,4 @@
-# DMS – IDEP Dealer App
+# Dealers App
 
 The dealer-facing web app of Softdel's **Intelligent Dealer Ecosystem Platform (IDEP)**. HVAC
 dealers use it to manage orders and quotes, inventory, warranty claims, incentives and training,
