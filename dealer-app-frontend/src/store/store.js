@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { env } from '@/config/env'
 import authReducer, { authInitialState } from '@/store/slices/authSlice'
+import copilotReducer from '@/store/slices/copilotSlice'
 import rolesReducer from '@/store/slices/rolesSlice'
 import uiReducer from '@/store/slices/uiSlice'
 
@@ -34,6 +35,7 @@ export const store = configureStore({
     auth: authReducer,
     roles: rolesReducer,
     ui: uiReducer,
+    copilot: copilotReducer,
   },
   // Redux DevTools expose the whole app state, so keep them out of production.
   devTools: env.enableReduxDevTools,

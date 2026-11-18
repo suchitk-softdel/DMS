@@ -6,29 +6,29 @@
       "healthScore": {
         "score": 77,
         "components": {
-          "revenueGrowth": 81,
+          "revenueGrowth": 80,
           "orderVelocity": 100,
           "warrantyCompliance": 68,
           "trainingCompletion": 55
         }
       },
       "forecast": {
-        "unitGrowth": 1.095,
-        "expectedUnitsNext30Days": 38,
+        "unitGrowth": 0.979,
+        "expectedUnitsNext30Days": 189,
         "atRisk": [
           {
             "sku": "FN-H96-80",
-            "expected": 3,
-            "onHand": 1,
+            "expected": 12,
+            "onHand": 4,
             "onOrder": 0,
-            "shortfall": 2
+            "shortfall": 8
           },
           {
             "sku": "FN-S80-80",
-            "expected": 2,
+            "expected": 8,
             "onHand": 0,
             "onOrder": 0,
-            "shortfall": 2
+            "shortfall": 8
           }
         ]
       }
@@ -38,15 +38,15 @@
       "healthScore": {
         "score": 78,
         "components": {
-          "revenueGrowth": 72,
+          "revenueGrowth": 73,
           "orderVelocity": 100,
           "warrantyCompliance": 77,
           "trainingCompletion": 59
         }
       },
       "forecast": {
-        "unitGrowth": 1.069,
-        "expectedUnitsNext30Days": 28,
+        "unitGrowth": 1.252,
+        "expectedUnitsNext30Days": 37,
         "atRisk": []
       }
     },
@@ -55,15 +55,15 @@
       "healthScore": {
         "score": 41,
         "components": {
-          "revenueGrowth": 21,
+          "revenueGrowth": 22,
           "orderVelocity": 29,
           "warrantyCompliance": 58,
           "trainingCompletion": 63
         }
       },
       "forecast": {
-        "unitGrowth": 0.929,
-        "expectedUnitsNext30Days": 19,
+        "unitGrowth": 0.756,
+        "expectedUnitsNext30Days": 17,
         "atRisk": []
       }
     },
@@ -89,15 +89,15 @@
       "healthScore": {
         "score": 62,
         "components": {
-          "revenueGrowth": 65,
+          "revenueGrowth": 66,
           "orderVelocity": 50,
           "warrantyCompliance": 75,
           "trainingCompletion": 54
         }
       },
       "forecast": {
-        "unitGrowth": 1.189,
-        "expectedUnitsNext30Days": 56,
+        "unitGrowth": 1.287,
+        "expectedUnitsNext30Days": 262,
         "atRisk": []
       }
     },
@@ -113,8 +113,8 @@
         }
       },
       "forecast": {
-        "unitGrowth": 1.258,
-        "expectedUnitsNext30Days": 16,
+        "unitGrowth": 1.328,
+        "expectedUnitsNext30Days": 28,
         "atRisk": []
       }
     }

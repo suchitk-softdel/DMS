@@ -32,8 +32,10 @@ export function usePermissions() {
       roles,
       rolesStatus,
       role: getRole(roles, roleId),
-      // A null module key (e.g. Copilot) is open to every signed-in role.
-      can: (moduleKey) => moduleKey === null || canAccess(roles, roleId, moduleKey),
+      // A null module key (Copilot) is open to every dealer user; the
+      // manufacturer's order desk has no dealer data to ask about.
+      can: (moduleKey) => (moduleKey === null ? Boolean(user?.dealerId) : canAccess(roles, roleId, moduleKey)),
+      isDealer: Boolean(user?.dealerId),
       homePath: getHomePath(roles, roleId),
     }
   }, [user, roles, rolesStatus])

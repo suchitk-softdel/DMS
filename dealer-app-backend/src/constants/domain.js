@@ -10,19 +10,29 @@ export const MODULES = Object.freeze({
   INCENTIVES: 'incentives',
   WARRANTY: 'warranty',
   SALES_COACH: 'salesCoach',
+  // Manufacturer side: approve or reject dealer orders. Only the
+  // manufacturer role has it.
+  ORDER_APPROVALS: 'orderApprovals',
 })
 
 export const ORDER_TYPES = Object.freeze(['quote', 'order'])
-export const ORDER_STATUSES = Object.freeze(['draft', 'submitted', 'approved', 'fulfilled']) // FR-ORD-3
+export const ORDER_STATUSES = Object.freeze(['draft', 'submitted', 'approved', 'rejected', 'fulfilled']) // FR-ORD-3
 export const CLAIM_STAGES = Object.freeze(['submitted', 'underReview', 'approved', 'reimbursed', 'rejected']) // FR-WAR-2
 export const OPPORTUNITY_STAGES = Object.freeze(['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'])
 
 // Allowed next statuses / stages, so records only move forward the way they
 // would in the real process.
 export const ORDER_TRANSITIONS = Object.freeze({
-  order: { draft: ['submitted'], submitted: ['approved'], approved: ['fulfilled'], fulfilled: [] },
+  // submitted -> approved / rejected is the manufacturer's decision (MANUFACTURER_DECISIONS).
+  order: { draft: ['submitted'], submitted: ['approved', 'rejected'], approved: ['fulfilled'], rejected: [], fulfilled: [] },
   quote: { draft: ['submitted'], submitted: ['approved'], approved: [] },
 })
+// How a customer accepted a quote (recorded by the dealer as proof).
+export const ACCEPTANCE_METHODS = Object.freeze(['email', 'phone', 'signedCopy', 'inPerson'])
+
+// Order statuses only the manufacturer can set; the dealer submits and fulfils.
+export const MANUFACTURER_DECISIONS = Object.freeze(['approved', 'rejected'])
+
 export const CLAIM_TRANSITIONS = Object.freeze({
   submitted: ['underReview'],
   underReview: ['approved', 'rejected'],

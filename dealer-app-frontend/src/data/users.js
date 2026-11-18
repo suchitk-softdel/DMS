@@ -5,7 +5,7 @@ import { ROLES } from '@/constants/roles'
 export const users = [
   {
     id: 'u-002',
-    name: 'Demo Principal',
+    name: 'Daniel Morgan',
     email: 'principal@demo.com',
     password: 'demo123',
     roleId: ROLES.PRINCIPAL,
@@ -13,7 +13,7 @@ export const users = [
   },
   {
     id: 'u-003',
-    name: 'Demo Sales Rep',
+    name: 'Priya Sharma',
     email: 'sales@demo.com',
     password: 'demo123',
     roleId: ROLES.SALES_REP,
@@ -21,7 +21,7 @@ export const users = [
   },
   {
     id: 'u-004',
-    name: 'Demo Technician',
+    name: 'Carlos Rivera',
     email: 'tech@demo.com',
     password: 'demo123',
     roleId: ROLES.TECHNICIAN,

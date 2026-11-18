@@ -25,6 +25,7 @@ const DEMO_ACCOUNTS = [
   { email: 'principal@demo.com', label: 'Principal' },
   { email: 'sales@demo.com', label: 'Sales Rep' },
   { email: 'tech@demo.com', label: 'Technician' },
+  { email: 'manufacturer@demo.com', label: 'Manufacturer' },
 ]
 const DEMO_PASSWORD = 'demo123'
 
@@ -109,7 +110,7 @@ export default function Login() {
               Demo accounts · password {DEMO_PASSWORD}
             </Typography>
           </Divider>
-          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 2, flexWrap: 'wrap' }}>
             {DEMO_ACCOUNTS.map((account) => (
               <Button
                 key={account.email}
@@ -119,7 +120,7 @@ export default function Login() {
                 fullWidth
                 onClick={() => fillDemoAccount(account.email)}
                 title={account.email}
-                sx={{ borderRadius: 5 }}
+                sx={{ borderRadius: 5, flex: '1 1 0', minWidth: { xs: 'calc(50% - 8px)', sm: 0 } }}
               >
                 {account.label}
               </Button>

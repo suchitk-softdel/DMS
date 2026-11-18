@@ -20,6 +20,7 @@ const Inventory = lazy(() => import('@/pages/dealer/Inventory'))
 const Incentives = lazy(() => import('@/pages/dealer/Incentives'))
 const Warranty = lazy(() => import('@/pages/dealer/Warranty'))
 const SalesCoach = lazy(() => import('@/pages/dealer/SalesCoach'))
+const OrderApprovals = lazy(() => import('@/pages/manufacturer/OrderApprovals'))
 
 // Permission-controlled pages, each guarded by its module key.
 const MODULE_ROUTES = [
@@ -32,6 +33,8 @@ const MODULE_ROUTES = [
   { path: TRAINING_PATH, moduleKey: MODULES.INCENTIVES, Page: Incentives },
   { path: MODULE_PATHS[MODULES.WARRANTY], moduleKey: MODULES.WARRANTY, Page: Warranty },
   { path: MODULE_PATHS[MODULES.SALES_COACH], moduleKey: MODULES.SALES_COACH, Page: SalesCoach },
+  // Manufacturer login only.
+  { path: MODULE_PATHS[MODULES.ORDER_APPROVALS], moduleKey: MODULES.ORDER_APPROVALS, Page: OrderApprovals },
 ]
 
 export default function App() {
@@ -65,8 +68,15 @@ export default function App() {
               }
             />
           ))}
-          {/* Copilot is open to every signed-in role (SRS FR-COP-1). */}
-          <Route path={COPILOT_PATH} element={<Copilot />} />
+          {/* Copilot is open to every dealer role (SRS FR-COP-1). */}
+          <Route
+            path={COPILOT_PATH}
+            element={
+              <ProtectedRoute dealerOnly>
+                <Copilot />
+              </ProtectedRoute>
+            }
+          />
           <Route path={PUBLIC_PATHS.UNAUTHORIZED} element={<Unauthorized />} />
         </Route>
 

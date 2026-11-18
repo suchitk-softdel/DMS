@@ -18,20 +18,23 @@ export default function ActivityTimeline({ items }) {
           component="li"
           sx={{
             display: 'grid',
-            gridTemplateColumns: withDots ? '18px 90px 1fr' : '90px 1fr',
+            gridTemplateColumns: withDots ? '12px 72px 1fr' : '72px 1fr',
             columnGap: { xs: 2, md: 3 },
             alignItems: 'center',
-            py: 1.75,
+            py: 1.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            '&:last-of-type': { borderBottom: 0 },
           }}
         >
           {withDots && (
-            <Box aria-hidden sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: color ?? 'transparent' }} />
+            <Box aria-hidden sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: color ?? 'transparent', boxShadow: '0 0 0 4px rgba(0, 0, 0, 0.04)' }} />
           )}
-          <Typography sx={{ fontSize: 16, fontWeight: 700, color: 'text.secondary' }}>{date}</Typography>
-          <Typography sx={{ fontSize: 18, minWidth: 0 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.secondary' }}>{date}</Typography>
+          <Typography sx={{ fontSize: 15.5, minWidth: 0 }}>
             {text}
             {detail && (
-              <Typography component="span" sx={{ ml: 1.5, fontSize: 14, color: 'text.disabled' }}>
+              <Typography component="span" sx={{ ml: 1.25, fontSize: 13.5, color: 'text.secondary', opacity: 0.75 }}>
                 {detail}
               </Typography>
             )}

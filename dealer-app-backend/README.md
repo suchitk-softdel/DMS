@@ -24,6 +24,7 @@ account. The frontend's dev server forwards `/api` requests here.
 | `npm start`          | Start the API                                                    |
 | `npm run db:reset`   | Put the original demo data back (removes entries made in the app; stop the API first) |
 | `npm run db:verify`  | Check record links, aggregates and both models' expected outputs |
+| `npm test`           | Copilot and Dealer 360 tests: answers and figures checked against independently calculated values for every dealer |
 | `npm run db:migrate` | After editing `prisma/schema.prisma`: create and apply a migration |
 | `npm run db:studio`  | Browse the database in the browser (Prisma Studio)               |
 | `npm run db:view`    | Write all tables to `db-view.html` and open it                   |
@@ -50,6 +51,7 @@ All use the password `demo123`.
 | `sales@demo.com`      | Sales Representative | Summit Comfort Heating & Air     |
 | `tech@demo.com`       | Service Technician   | Summit Comfort Heating & Air     |
 | `principal2@demo.com` | Dealer Principal     | Coastal Climate Solutions        |
+| `manufacturer@demo.com` | Manufacturer Order Desk | Aerovance Climate Systems (no dealer; Order Approvals only) |
 
 `principal2` belongs to a different dealership, for testing that dealers can't see each other's
 data. Every dealership also has its own staff accounts (same password), in the `User` table.
@@ -61,11 +63,11 @@ manufacturer **Aerovance Climate Systems** and its 6 dealers:
 
 | Data                   | Amount | Notes                                                        |
 | ---------------------- | ------ | ------------------------------------------------------------ |
-| Dealers / staff users  | 6 / 35 | Different regions, tiers, sizes and growth                   |
+| Dealers / staff users  | 6 / 35 | Different regions, tiers, sizes and growth; plus 1 manufacturer user (order desk) |
 | Products               | 40     | AC, heat pumps, furnaces, air handlers, thermostats, IAQ, parts |
 | Customers              | 390    | Residential and commercial, in each dealer's own cities      |
 | Purchase orders        | ~1,045 | Plus ~350 quotes; 2,276 order lines                          |
-| Warranty registrations | 1,475  | One per equipment unit on a fulfilled order line             |
+| Warranty registrations | 6,432  | One per equipment unit on a fulfilled order line             |
 | Warranty claims        | 100    | Each linked to its registered unit and the original order    |
 | Inventory              | 240    | Stock per dealer and product                                 |
 | Audit log              | 2,967  | Every order/quote created and moved on, every claim filed and moved on |
@@ -115,13 +117,21 @@ request.
 | POST   | `/auth/logout`               | (public)      | 204; clears the cookie                          |
 | GET    | `/auth/me`                   | signed in     | The signed-in user, or 401                      |
 | GET    | `/roles`                     | (public)      | Roles and their modules                         |
+| GET    | `/notifications`             | signed in     | Bell notifications: manufacturer = orders waiting for approval; dealer = orders approved/rejected in the last 7 days, aging claims, products about to run short (only for modules the role can open) |
+| GET    | `/manufacturer/orders/summary` | orderApprovals (manufacturer) | Waiting count and value, oldest waiting, approved/rejected in 30 days, counts per queue, waiting per dealer |
+| GET    | `/manufacturer/orders`       | orderApprovals (manufacturer) | Orders of the manufacturer's dealers; `queue` (pending, approved, rejected, fulfilled), `dealerId`, `search`, `limit`, `offset` |
+| GET    | `/manufacturer/orders/:id`   | orderApprovals (manufacturer) | One dealer order with lines, dealer and customer |
+| POST   | `/manufacturer/orders/:id/approve` | orderApprovals (manufacturer) | Approve a submitted order |
+| POST   | `/manufacturer/orders/:id/reject`  | orderApprovals (manufacturer) | Reject a submitted order: `{ reason }` (required, shown to the dealer) |
 | GET    | `/dealers/:id`               | signed in     | Own dealer profile (403 for other dealers)      |
 | GET    | `/products`                  | signed in     | Product catalogue                               |
-| GET    | `/orders`                    | orders        | `{ total, items }`; filters `type`, `status`, `search`, `limit` (max 500), `offset` |
+| GET    | `/orders`                    | orders        | `{ total, items }`; filters `type`, `status`, `search`, `limit` (max 500), `offset`; sort `sort` (createdAt, total, id, customer, status) and `dir` (asc, desc) |
+| GET    | `/orders/summary`            | orders        | Counts per status, open orders, orders awaiting approval, and the Order Insight: open quotes likely to close, each with its chance and evidence |
 | GET    | `/orders/:id`                | orders        | One order with lines and customer               |
 | POST   | `/orders`                    | orders        | New quote/order: `{ type, customerId, status?, items: [{ productId, quantity }] }` |
-| PATCH  | `/orders/:id/status`         | orders        | Next status `{ status }`; fulfilling registers the equipment units |
+| PATCH  | `/orders/:id/status`         | orders        | Next status `{ status }`; fulfilling registers the equipment units. Accepting a quote also needs `acceptance: { method: email/phone/signedCopy/inPerson, contact, note? }` (proof of the customer's acceptance). Approving or rejecting an order is the manufacturer's (403 for dealers). |
 | GET    | `/customers`                 | orders        | Own customers; `search`, `limit`               |
+| GET    | `/dealer360`                 | dealer360     | Dealer 360 page in one call: tiles, 24-month revenue trend, Health Score breakdown, recommendations with evidence, timeline |
 | GET    | `/sales`                     | dealer360     | Monthly sales per product; `from`, `to` (YYYY-MM) |
 | GET    | `/sales/monthly`             | dealer360     | Monthly totals; `from`, `to`                    |
 | GET    | `/inventory`                 | inventory     | Stock per product                               |
@@ -132,6 +142,7 @@ request.
 | GET    | `/incentives`                | incentives    | Programs, progress, next milestone, peer rank   |
 | GET    | `/training`                  | incentives    | Courses, upcoming events, certifications        |
 | GET    | `/opportunities`             | salesCoach    | Sales opportunities; filter `stage`             |
+| POST   | `/copilot/ask`               | signed in     | Copilot answer: `{ question, context? }` → text, table, evidence, actions, suggestions, context (each answer checks the module its data comes from) |
 
 Status changes only move forward (e.g. an order goes draft → submitted → approved → fulfilled).
 Every write is recorded in the audit log.
@@ -187,21 +198,61 @@ A request flows through: **route → requireAuth → requireModule → service �
   features run in this backend as our own logic on our own database. No third-party AI service,
   API, API key or AI/ML library is used. See "AI engine (planned)" below.
 
-## AI engine (planned)
+## Dealer Copilot (in-house AI)
+
+The Copilot (`src/copilot/`, `src/services/copilotService.js`) answers questions in the user's
+own words from the dealer's own data. No third-party AI service, API key or AI library is used.
+
+```
+question → clean + fix spelling ("sles" → "sales", "yr" → "year")
+         → understand: business dictionary + trained Naive Bayes classifier
+         → recipe { metric, groupBy, filters, period, compare, sort, limit }
+         → one generic engine runs the recipe on the database
+         → answer: text + table + evidence + actions + follow-up suggestions
+```
+
+| File | Role |
+| ---- | ---- |
+| `copilot/vocabulary.js`   | Business dictionary: metrics, breakdowns, categories, statuses (data, not logic) |
+| `copilot/trainingData.js` | Example questions the classifier learns from |
+| `copilot/classifier.js`   | Naive Bayes text classifier (our own code) |
+| `copilot/period.js`       | "last year", "Q3 2025", "last 6 months", "March" → exact dates |
+| `copilot/parser.js`       | Question → recipe; follow-ups, comparisons, rankings, filters |
+| `copilot/facts.js` + `engine.js` | Loads records and runs any recipe (filter, total, group, compare) |
+| `copilot/answers.js`      | Plain-English answers with evidence; Health Score, Forecast, Incentives answers |
+
+**What it can answer:** sales, profit, units, orders, order quantity, quotes, claims and claim
+value, by any combination of product, category, customer, city, customer type, month or status,
+for any period, with "compare with last year", "top N", "lowest" and follow-ups ("and the year
+before?", "what about heat pumps?", "by month"). It also answers health score, stock forecast and
+incentive questions.
+
+**Teaching it more:** add words to `vocabulary.js` or example questions to `trainingData.js`.
+Products, cities and customers are read from the database, so new ones are understood
+automatically.
+
+**Safety:** answers use only the signed-in dealer's data and check the role's modules (a
+technician gets no sales figures). Off-topic questions are declined, never guessed. Questions are
+logged in the audit log without the question text.
+
+**Tested:** `npm test` asks the Copilot natural-language questions for all 6 dealers and checks
+each answer against values calculated independently from the raw orders and claims.
+
+## Other in-house AI
 
 | Feature                         | Approach                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------ |
-| Copilot questions (FR-COP-2)    | Detect the intent (sales, orders, claims...) and details (product, period, top-N) from the question, run the matching query, calculate, answer from a template with the evidence |
-| Forecast and reorder (FR-INV)   | Seasonal formulas on the monthly sales history (same period last year + trend, and a seasonal trend model), tested on past data; reorder = forecast + safety stock − on hand − on order |
-| Health Score (FR-D360-3)        | Weighted score from revenue growth, order velocity, warranty compliance and training; weights stored in the database |
-| Home insight (FR-HOME-3)        | Rules over the dealer's data, e.g. stock below reorder point before the season |
-| Sales Coach (FR-SC-1 to 3)      | Rules and scoring over opportunity, customer and product data            |
+| Forecast and reorder (FR-INV)   | Same month last year × the dealer's unit growth, compared with stock (`forecastService.js`) |
+| Health Score (FR-D360-3, 6)     | Weighted score from revenue growth, order velocity, warranty compliance and training (`healthScoreService.js`). Weights are stored per manufacturer in the `HealthScoreWeight` table (default 30 / 25 / 25 / 20) and can be changed there without a code change |
+| Order Insight (FR-ORD-5)        | For an open quote D days old: of the dealer's past quotes still open at D days, the share approved later (falls back to the whole network with fewer than 20). Shown with those numbers (`orderInsightService.js`) |
+| Dealer 360 recommendations (FR-D360-4) | Rules over the dealer's data (aging claims, unfinished training, open quotes, lapsed customers, stock-out risk), each tied to a Health Score component with its evidence, ordered by how many points that component is missing (`dealer360Service.js`) |
+| Home insight (FR-HOME-3)        | Rules over the dealer's data, e.g. stock-out risk, aging claims (`homeService.js`) |
+| Sales Coach (FR-SC-1 to 3)      | Planned: rules and scoring over opportunity, customer and product data   |
 
 ## Not done yet
 
 - **More write endpoints:** approve reorders, invite to training. The frontend doesn't call the
   new order and claim endpoints yet.
-- **AI engine:** the features in the table above (no endpoints yet).
-- **Tests:** an automated test suite (the endpoints were checked manually with a smoke-test
-  script).
+- **Sales Coach AI** (FR-SC-1 to 3).
+- **Tests:** `npm test` covers the Copilot and Dealer 360; other endpoints were checked with smoke-test scripts.
 - **Login hardening:** rate limiting on `/auth/login`.

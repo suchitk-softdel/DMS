@@ -135,6 +135,20 @@ export function getHome() {
   return mockResponse({ dealer: dealers[0], kpis: {}, insight: null, activity: [] })
 }
 
+// Dealer 360 (SRS 3.3) in one call.
+// -> { dealer, asOf,
+//      kpis: { revenue: { value, previous, changePct }, growth: { value, changeThisMonth },
+//              healthScore: { value, changeThisMonth }, territoryCoverage: { value (0..1) } },
+//      trend: [{ month: 'YYYY-MM', revenue, lastYear, partial }]   (last 24 months; null = no data),
+//      health: { score, components: [{ key, label, weight, score, evidence }] },
+//      recommendations: [{ key, title, detail, evidence: [string], component: { key, label, score },
+//                          pointsMissing, action: { label, module } | null }],
+//      timeline: [{ date, type, ref, amount, stage? }] }   (same events as Home activity)
+export function getDealer360() {
+  if (!env.useMockData) return apiRequest('/dealer360')
+  return mockResponse({ dealer: dealers[0], kpis: null, trend: [], health: null, recommendations: [], timeline: [], asOf: new Date() })
+}
+
 // ---------------------------------------------------------------------------
 // Module data. In mock mode these return empty results: the full 3-year
 // dataset lives in the backend database.
@@ -146,17 +160,100 @@ export function getProducts() {
   return mockResponse([])
 }
 
-// Orders & Quotes (SRS 3.4). Filters: { type, status, search, limit, offset }
+// Orders & Quotes (SRS 3.4).
+// Filters: { type, status, search, limit, offset, sort: createdAt|total|id|customer|status, dir: asc|desc }
 // -> { total, items: [{ id, type, status, total, createdAt, updatedAt, customer, itemCount }] }
 export function getOrders(filters) {
   if (!env.useMockData) return apiRequest(`/orders${toQuery(filters)}`)
   return mockResponse({ total: 0, items: [] })
 }
 
+// -> { counts: { order: { draft, submitted, approved, fulfilled }, quote: { draft, submitted, approved } },
+//      openOrders, awaitingApproval,
+//      insight: { message, evidence: [string], likely: [{ id, customer, total, ageDays, probability }],
+//                 cold: { count, value }, action: { label, module } } | null }
+export function getOrdersSummary() {
+  if (!env.useMockData) return apiRequest('/orders/summary')
+  return mockResponse({
+    counts: { order: { draft: 0, submitted: 0, approved: 0, fulfilled: 0 }, quote: { draft: 0, submitted: 0, approved: 0 } },
+    openOrders: 0,
+    awaitingApproval: 0,
+    insight: null,
+  })
+}
+
 // One order with its lines and customer.
 export function getOrder(orderId) {
   if (!env.useMockData) return apiRequest(`/orders/${encodeURIComponent(orderId)}`)
   return mockError(`Order ${orderId} not found.`)
+}
+
+// New quote or order at list price.
+// input: { type: quote|order, customerId, status: draft|submitted, items: [{ productId, quantity }] }
+export function createOrder(input) {
+  if (!env.useMockData) return apiRequest('/orders', { method: 'POST', body: JSON.stringify(input) })
+  return mockError('Creating orders needs the backend.')
+}
+
+// Moves an order or quote to its next status (draft -> submitted -> approved -> fulfilled).
+// Accepting a quote needs acceptance: { method: email|phone|signedCopy|inPerson, contact, note? }.
+export function updateOrderStatus(orderId, status, acceptance) {
+  if (!env.useMockData) {
+    return apiRequest(`/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...(acceptance && { acceptance }) }),
+    })
+  }
+  return mockError('Updating orders needs the backend.')
+}
+
+// Bell notifications for the signed-in user (dealer or manufacturer).
+// -> { count, items: [{ id, kind: success|info|warning|error, title, detail, at, link }] }
+export function getNotifications() {
+  if (!env.useMockData) return apiRequest('/notifications')
+  return mockResponse({ count: 0, items: [] })
+}
+
+// ---------------------------------------------------------------------------
+// Manufacturer order desk (Order Approvals). Manufacturer login only.
+// ---------------------------------------------------------------------------
+
+// -> { manufacturer: { id, name }, pending: { count, value, oldestDays }, approvedRecent, rejectedRecent,
+//      recentDays, counts: { pending, approved, rejected, fulfilled }, dealers: [{ id, name, pending }] }
+export function getApprovalSummary() {
+  if (!env.useMockData) return apiRequest('/manufacturer/orders/summary')
+  return mockError('Order Approvals needs the backend.')
+}
+
+// Filters: { queue: pending|approved|rejected|fulfilled, dealerId, search, limit, offset }
+// -> { total, items: [{ id, status, total, createdAt, reviewedAt, rejectionReason, dealer, customer, itemCount }] }
+export function getNetworkOrders(filters) {
+  if (!env.useMockData) return apiRequest(`/manufacturer/orders${toQuery(filters)}`)
+  return mockResponse({ total: 0, items: [] })
+}
+
+export function getNetworkOrder(orderId) {
+  if (!env.useMockData) return apiRequest(`/manufacturer/orders/${encodeURIComponent(orderId)}`)
+  return mockError(`Order ${orderId} not found.`)
+}
+
+export function approveOrder(orderId) {
+  if (!env.useMockData) return apiRequest(`/manufacturer/orders/${encodeURIComponent(orderId)}/approve`, { method: 'POST' })
+  return mockError('Approving orders needs the backend.')
+}
+
+// reason: shown to the dealer (required)
+export function rejectOrder(orderId, reason) {
+  if (!env.useMockData) {
+    return apiRequest(`/manufacturer/orders/${encodeURIComponent(orderId)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+  }
+  return mockError('Rejecting orders needs the backend.')
+}
+
+// The dealership's customers. { search?, limit? } -> [{ id, name, type, city }]
+export function getCustomers(filters) {
+  if (!env.useMockData) return apiRequest(`/customers${toQuery(filters)}`)
+  return mockResponse([])
 }
 
 // Monthly sales per product. Range: { from: 'YYYY-MM', to: 'YYYY-MM' }
@@ -195,6 +292,24 @@ export function getIncentives() {
 export function getTraining() {
   if (!env.useMockData) return apiRequest('/training')
   return mockResponse({ courses: [], upcomingEvents: [], certifications: [] })
+}
+
+// Dealer Copilot (SRS 3.2): the backend's in-house question engine.
+// context = the previous answer's `context`, for follow-ups ("and last year?").
+// -> { text, table?: { columns, rows }, evidence: [string], understood?, actions: [{ label, module }],
+//      suggestions: [string], corrections: [string], context }
+export function askCopilot(question, context = null) {
+  if (!env.useMockData) {
+    return apiRequest('/copilot/ask', { method: 'POST', body: JSON.stringify({ question, context }) })
+  }
+  return mockResponse({
+    text: 'The Copilot needs the backend: start dealer-app-backend and set VITE_USE_MOCK_DATA=false.',
+    evidence: [],
+    actions: [],
+    suggestions: [],
+    corrections: [],
+    context: null,
+  })
 }
 
 // Sales Coach opportunities (SRS 3.8). Filter: { stage }

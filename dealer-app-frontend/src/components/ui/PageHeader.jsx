@@ -12,10 +12,6 @@ export default function PageHeader({ title, subtitle = '', actions }) {
     setHeader?.({ title, subtitle })
   }, [setHeader, title, subtitle])
 
-  useEffect(() => {
-    if (title) document.title = `${title} · IDEP Dealer App`
-  }, [title])
-
   if (!actions) return null
   return (
     <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap', rowGap: 1.5, alignItems: 'center' }}>

@@ -50,7 +50,7 @@ async function revenueGrowth(dealerId, asOf) {
 async function orderVelocity(dealerId, asOf) {
   const countOrders = (from, to) =>
     prisma.order.count({
-      where: { dealerId, type: 'order', status: { not: 'draft' }, createdAt: { gte: from, lt: to } },
+      where: { dealerId, type: 'order', status: { notIn: ['draft', 'rejected'] }, createdAt: { gte: from, lt: to } },
     })
   const lastYear = yearBefore(asOf)
   const [current, previous] = await Promise.all([
@@ -106,15 +106,30 @@ const COMPONENTS = [
   { key: 'trainingCompletion', label: 'Training Completion', compute: trainingCompletion },
 ]
 
+// Component weights set by the dealer's manufacturer (FR-D360-6), or the
+// defaults when the manufacturer has none. -> { revenueGrowth: 0.3, ... }
+export async function getHealthScoreWeights(dealerId) {
+  const rows = await prisma.healthScoreWeight.findMany({
+    where: { manufacturer: { dealers: { some: { id: dealerId } } } },
+    select: { component: true, weight: true },
+  })
+  const configured = Object.fromEntries(rows.map((row) => [row.component, row.weight]))
+  return Object.fromEntries(
+    Object.keys(HEALTH_SCORE_WEIGHTS).map((key) => [key, configured[key] ?? HEALTH_SCORE_WEIGHTS[key]]),
+  )
+}
+
 // -> { score, components: [{ key, label, weight, score, evidence }] }
 // Components without enough data (score null) are left out and the other
 // weights are scaled up, so a new dealer is not penalised for missing history.
+// The weights are normalised, so they need not add up to exactly 1.
 export async function computeHealthScore(dealerId, asOf = new Date()) {
+  const weights = await getHealthScoreWeights(dealerId)
   const components = await Promise.all(
     COMPONENTS.map(async ({ key, label, compute }) => ({
       key,
       label,
-      weight: HEALTH_SCORE_WEIGHTS[key],
+      weight: weights[key],
       ...(await compute(dealerId, asOf)),
     })),
   )

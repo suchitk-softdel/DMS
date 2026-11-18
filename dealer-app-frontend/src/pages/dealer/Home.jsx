@@ -1,3 +1,7 @@
+import MonitorHeartOutlined from '@mui/icons-material/MonitorHeartOutlined'
+import PaidOutlined from '@mui/icons-material/PaidOutlined'
+import PendingActionsOutlined from '@mui/icons-material/PendingActionsOutlined'
+import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Stack from '@mui/material/Stack'
@@ -10,7 +14,8 @@ import QuickActions from '@/components/patterns/QuickActions'
 import PageHeader from '@/components/ui/PageHeader'
 import SectionTitle from '@/components/ui/SectionTitle'
 import { COPILOT_PATH, MODULE_PATHS, MODULES } from '@/constants/modules'
-import { formatCurrency, formatDayMonth } from '@/lib/format'
+import { toTimelineItems } from '@/lib/activity'
+import { formatCurrency } from '@/lib/format'
 import { usePermissions } from '@/lib/rbac'
 import { useAsyncData } from '@/lib/useAsyncData'
 import { getHome } from '@/services/dataService'
@@ -25,14 +30,6 @@ const QUICK_ACTIONS = [
   { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },
 ]
-
-// How each activity event reads and the color of its dot.
-const ACTIVITY = {
-  order: { color: 'primary.main', text: (e) => `Order ${formatCurrency(e.amount, { compact: true })} placed` },
-  claimSubmitted: { color: 'warning.main', text: () => 'Claim submitted' },
-  claimResolved: { color: 'brand.tealDark', text: (e) => `Claim ${e.stage}` },
-  trainingCompleted: { color: 'secondary.main', text: () => 'Training completed' },
-}
 
 function greeting(date = new Date()) {
   const hour = date.getHours()
@@ -56,6 +53,8 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
       label: 'Revenue (YTD)',
       value: formatCurrency(revenueYtd.value, { compact: true }),
       accent: 'primary.main',
+      icon: PaidOutlined,
+      sparkline: revenueYtd.trend,
       trend: revenueYtd.changePct === null ? null : signedTrend(revenueYtd.changePct, '% vs last year'),
     })
   }
@@ -66,6 +65,7 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
       label: 'Health Score',
       value: healthScore.value === null ? '—' : `${healthScore.value} / 100`,
       accent: 'secondary.main',
+      icon: MonitorHeartOutlined,
       trend: change === null ? null : change === 0 ? { text: 'No change this month' } : signedTrend(change, ' pts this month'),
     })
   }
@@ -75,6 +75,7 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
       label: 'Open Orders',
       value: openOrders.value,
       accent: 'warning.main',
+      icon: PendingActionsOutlined,
       trend: openOrders.awaitingApproval
         ? { text: `${openOrders.awaitingApproval} awaiting approval`, tone: 'negative', direction: 'down' }
         : { text: 'None awaiting approval' },
@@ -86,6 +87,7 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
       label: 'Pending Claims',
       value: pendingClaims.value,
       accent: 'error.main',
+      icon: ReportProblemOutlined,
       trend: pendingClaims.aging
         ? { text: `${pendingClaims.aging} aging > ${pendingClaims.agingDays} days`, tone: 'negative', direction: 'down' }
         : { text: 'None aging', tone: 'positive' },
@@ -117,19 +119,13 @@ export default function Home() {
     label: action.label,
     to: `${MODULE_PATHS[action.module]}?action=${action.key}`,
   }))
-  const activity = (data?.activity ?? []).map((event, index) => ({
-    key: `${event.type}-${event.ref}-${index}`,
-    date: formatDayMonth(event.date),
-    text: ACTIVITY[event.type]?.text(event) ?? event.type,
-    detail: event.ref,
-    color: ACTIVITY[event.type]?.color,
-  }))
+  const activity = toTimelineItems(data?.activity)
 
   return (
     <>
       <PageHeader title={`${greeting()}, ${firstName}`} subtitle={subtitle} />
 
-      <AsyncContent loading={loading} error={error} onRetry={reload}>
+      <AsyncContent loading={loading} error={error} onRetry={reload} skeleton="dashboard">
         <Stack spacing={4.5}>
           {kpis.length > 0 && <KpiGrid items={kpis} columns={4} spacing={3.5} />}
 

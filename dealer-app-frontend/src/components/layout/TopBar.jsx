@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import CancelOutlined from '@mui/icons-material/CancelOutlined'
+import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
+import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined'
+import SearchIcon from '@mui/icons-material/Search'
+import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined'
 import AppBar from '@mui/material/AppBar'
 import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
@@ -16,16 +21,42 @@ import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useDispatch } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
-import { usePageHeader } from '@/lib/pageHeader'
+import { useLocation, useNavigate } from 'react-router-dom'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { PUBLIC_PATHS } from '@/constants/modules'
+import { usePageHeader } from '@/lib/pageHeader'
 import { usePermissions } from '@/lib/rbac'
+import { getNotifications } from '@/services/dataService'
 import { signOut } from '@/store/slices/authSlice'
 import { toggleNav } from '@/store/slices/uiSlice'
 
-// Placeholder until notifications come from the data service.
-const HAS_UNREAD_NOTIFICATIONS = true
+// Notifications are refreshed on every page change and once a minute.
+const REFRESH_MS = 60_000
+const KIND_ICON = {
+  success: { Icon: CheckCircleOutlined, color: 'primary.main' },
+  error: { Icon: CancelOutlined, color: 'error.main' },
+  warning: { Icon: WarningAmberOutlined, color: 'warning.dark' },
+  info: { Icon: InfoOutlined, color: 'secondary.main' },
+}
+
+function useNotifications() {
+  const { pathname } = useLocation()
+  const [data, setData] = useState({ count: 0, items: [] })
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      getNotifications()
+        .then((result) => !cancelled && setData(result))
+        .catch(() => {}) // the bell is not worth an error message
+    load()
+    const timer = setInterval(load, REFRESH_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [pathname])
+  return data
+}
 
 // Top bar from the UI Design Concept: page title and subtitle on the left,
 // global search, notifications and the signed-in user on the right.
@@ -34,7 +65,9 @@ export default function TopBar() {
   const navigate = useNavigate()
   const { user, role } = usePermissions()
   const { header } = usePageHeader()
+  const notifications = useNotifications()
   const [accountAnchor, setAccountAnchor] = useState(null)
+  const [bellAnchor, setBellAnchor] = useState(null)
   const firstName = user?.name?.split(' ')[0] ?? ''
 
   const handleLogout = () => {
@@ -43,33 +76,29 @@ export default function TopBar() {
     navigate(PUBLIC_PATHS.LOGIN, { replace: true })
   }
 
+  const openNotification = (link) => {
+    setBellAnchor(null)
+    navigate(link)
+  }
+
   return (
     <AppBar
       position="sticky"
       color="inherit"
       elevation={0}
-      sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}
+      sx={{ bgcolor: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(8px)', borderBottom: 1, borderColor: 'divider' }}
     >
-      <Toolbar sx={{ minHeight: { xs: 72, md: 96 }, gap: { xs: 1.5, md: 4 }, px: { xs: 2, md: 4.5 } }}>
-        <IconButton
-          edge="start"
-          aria-label="Open navigation"
-          onClick={() => dispatch(toggleNav())}
-          sx={{ display: { md: 'none' } }}
-        >
+      <Toolbar sx={{ minHeight: { xs: 68, md: 84 }, gap: { xs: 1.5, md: 3 }, px: { xs: 2, md: 4.5 } }}>
+        <IconButton edge="start" aria-label="Open navigation" onClick={() => dispatch(toggleNav())} sx={{ display: { md: 'none' } }}>
           <MenuIcon />
         </IconButton>
 
         <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-          <Typography
-            variant="h1"
-            noWrap
-            sx={{ fontSize: { xs: 22, md: 32 }, lineHeight: 1.1, color: 'text.primary' }}
-          >
+          <Typography variant="h1" noWrap sx={{ fontSize: { xs: 21, md: 28 }, lineHeight: 1.15, color: 'text.primary' }}>
             {header.title}
           </Typography>
           {header.subtitle && (
-            <Typography noWrap sx={{ mt: 0.25, color: 'text.secondary', fontSize: { xs: 13, md: 16 } }}>
+            <Typography noWrap sx={{ mt: 0.25, color: 'text.secondary', fontSize: { xs: 13, md: 15 } }}>
               {header.subtitle}
             </Typography>
           )}
@@ -82,15 +111,19 @@ export default function TopBar() {
           sx={{
             display: { xs: 'none', md: 'flex' },
             alignItems: 'center',
-            width: { md: 280, lg: 440 },
-            height: 52,
-            px: 3,
-            borderRadius: 26,
+            gap: 1,
+            width: { md: 260, lg: 380 },
+            height: 44,
+            px: 2,
+            borderRadius: 22,
             bgcolor: 'background.default',
             border: 1,
             borderColor: 'divider',
+            transition: 'border-color 120ms ease, box-shadow 120ms ease',
+            '&:focus-within': { borderColor: 'primary.main', boxShadow: '0 0 0 3px rgba(0, 168, 150, 0.15)' },
           }}
         >
+          <SearchIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
           <InputBase
             placeholder="Search dealers, orders, SKUs..."
             inputProps={{ 'aria-label': 'Search dealers, orders, SKUs' }}
@@ -100,25 +133,65 @@ export default function TopBar() {
 
         <Tooltip title="Notifications">
           <IconButton
-            aria-label={HAS_UNREAD_NOTIFICATIONS ? 'Notifications, unread' : 'Notifications'}
-            sx={{ width: 52, height: 52, bgcolor: 'background.default', color: 'secondary.main' }}
+            aria-label={notifications.count ? `Notifications, ${notifications.count} new` : 'Notifications'}
+            aria-haspopup="menu"
+            onClick={(event) => setBellAnchor(event.currentTarget)}
+            sx={{ width: 44, height: 44, bgcolor: 'background.default', color: 'secondary.main', border: 1, borderColor: 'divider' }}
           >
-            <Badge variant="dot" color="error" invisible={!HAS_UNREAD_NOTIFICATIONS} overlap="circular">
+            <Badge badgeContent={notifications.count} color="error" max={9} overlap="circular">
               <NotificationsNoneOutlinedIcon />
             </Badge>
           </IconButton>
         </Tooltip>
 
+        <Menu
+          anchorEl={bellAnchor}
+          open={Boolean(bellAnchor)}
+          onClose={() => setBellAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{ paper: { sx: { width: 380, maxWidth: 'calc(100vw - 32px)', mt: 1, borderRadius: 2.5, boxShadow: '0 12px 32px rgba(22, 27, 75, 0.16)' } } }}
+        >
+          <Box sx={{ px: 2.5, py: 1.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Notifications</Typography>
+          </Box>
+          <Divider />
+          {notifications.items.length === 0 && (
+            <Box sx={{ px: 2.5, py: 3, textAlign: 'center' }}>
+              <CheckCircleOutlined sx={{ color: 'primary.main', fontSize: 32 }} />
+              <Typography sx={{ mt: 1, fontWeight: 600 }}>You're all caught up</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Nothing needs your attention right now.
+              </Typography>
+            </Box>
+          )}
+          {notifications.items.map((n) => {
+            const { Icon, color } = KIND_ICON[n.kind] ?? KIND_ICON.info
+            return (
+              <MenuItem key={n.id} onClick={() => openNotification(n.link)} sx={{ alignItems: 'flex-start', gap: 1.5, py: 1.5, px: 2.5, whiteSpace: 'normal' }}>
+                <Icon sx={{ color, fontSize: 22, mt: 0.25 }} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: 14.5, lineHeight: 1.35 }}>{n.title}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                    {n.detail}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )
+          })}
+        </Menu>
+
         <ButtonBase
           aria-label="Account menu"
           aria-haspopup="menu"
           onClick={(event) => setAccountAnchor(event.currentTarget)}
-          sx={{ gap: 1.25, borderRadius: 30, pr: { sm: 1 } }}
+          sx={{ gap: 1.25, borderRadius: 30, pr: { sm: 1.25 }, flexShrink: 0, '&:hover': { bgcolor: 'background.default' } }}
         >
-          <UserAvatar name={user?.name} color="secondary.main" size={56} />
-          <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 700, fontSize: 16 }}>
-            {firstName}
-          </Typography>
+          <UserAvatar name={user?.name} color="secondary.main" size={44} />
+          <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left' }}>
+            <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>{firstName}</Typography>
+            <Typography noWrap sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.2 }}>{role?.name}</Typography>
+          </Box>
         </ButtonBase>
 
         <Menu
@@ -127,15 +200,19 @@ export default function TopBar() {
           onClose={() => setAccountAnchor(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{ paper: { sx: { mt: 1, borderRadius: 2.5, minWidth: 240, boxShadow: '0 12px 32px rgba(22, 27, 75, 0.16)' } } }}
         >
-          <Box sx={{ px: 2, py: 1, minWidth: 200 }}>
-            <Typography variant="subtitle2">{user?.name}</Typography>
+          <Box sx={{ px: 2.5, py: 1.5 }}>
+            <Typography sx={{ fontWeight: 700 }}>{user?.name}</Typography>
             <Typography variant="body2" color="text.secondary">
               {role?.name}
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {user?.email}
+            </Typography>
           </Box>
           <Divider />
-          <MenuItem onClick={handleLogout}>
+          <MenuItem onClick={handleLogout} sx={{ py: 1.25 }}>
             <ListItemIcon>
               <LogoutIcon fontSize="small" />
             </ListItemIcon>

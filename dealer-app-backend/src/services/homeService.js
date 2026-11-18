@@ -4,6 +4,7 @@ import { DAY_MS } from '../utils/query.js'
 import { getDealer } from './catalogService.js'
 import { forecastDemand } from './forecastService.js'
 import { computeHealthScore } from './healthScoreService.js'
+import { monthlySalesTotals } from './salesService.js'
 
 // Home dashboard (SRS 3.1). Each part is only included when the user's role
 // can open the module it comes from, so e.g. a technician never receives
@@ -31,14 +32,22 @@ async function fulfilledRevenue(dealerId, from, to) {
   return result._sum.total ?? 0
 }
 
-// FR-HOME-2: year-to-date revenue vs the same days last year.
+const monthKey = (date) => date.toISOString().slice(0, 7)
+const monthsBack = (date, n) => monthKey(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - n, 1)))
+
+// FR-HOME-2: year-to-date revenue vs the same days last year, plus monthly
+// revenue for the last 12 complete months (the small trend line on the tile;
+// the current month is left out so an unfinished month never looks like a drop).
 async function revenueYtd(dealerId, now) {
   const lastYearNow = yearBefore(now)
-  const [current, previous] = await Promise.all([
+  const [current, previous, months] = await Promise.all([
     fulfilledRevenue(dealerId, startOfYear(now), now),
     fulfilledRevenue(dealerId, startOfYear(lastYearNow), lastYearNow),
+    monthlySalesTotals(dealerId, { from: monthsBack(now, 12), to: monthsBack(now, 1) }),
   ])
-  return { value: Math.round(current), previous: Math.round(previous), changePct: changePct(current, previous) }
+  const byMonth = new Map(months.map((m) => [m.month, m.revenue]))
+  const trend = Array.from({ length: 12 }, (_, i) => Math.round(byMonth.get(monthsBack(now, 12 - i)) ?? 0))
+  return { value: Math.round(current), previous: Math.round(previous), changePct: changePct(current, previous), trend }
 }
 
 // FR-HOME-2: Health Score now and its change since the start of the month.
@@ -137,7 +146,11 @@ async function insight(dealerId, can, now) {
 // Recent Activity (FR-HOME-5): latest orders, claims and training completions.
 // ---------------------------------------------------------------------------
 
-async function recentActivity(dealerId, can) {
+// Also the Dealer 360 timeline (FR-D360-5), with a larger `limit`.
+// The defaults (limit 6) take 3 orders, 3 claims, 2 resolutions, 2 trainings.
+export async function recentActivity(dealerId, can, limit = ACTIVITY_LIMIT) {
+  const half = Math.ceil(limit / 2)
+  const third = Math.ceil(limit / 3)
   const sources = []
 
   if (can(MODULES.ORDERS)) {
@@ -146,7 +159,7 @@ async function recentActivity(dealerId, can) {
         .findMany({
           where: { dealerId, type: 'order', status: { not: 'draft' } },
           orderBy: { createdAt: 'desc' },
-          take: 3,
+          take: half,
           select: { id: true, total: true, createdAt: true },
         })
         .then((rows) =>
@@ -158,7 +171,7 @@ async function recentActivity(dealerId, can) {
   if (can(MODULES.WARRANTY)) {
     sources.push(
       prisma.claim
-        .findMany({ where: { dealerId }, orderBy: { filedAt: 'desc' }, take: 3, select: { id: true, amount: true, filedAt: true } })
+        .findMany({ where: { dealerId }, orderBy: { filedAt: 'desc' }, take: half, select: { id: true, amount: true, filedAt: true } })
         .then((rows) =>
           rows.map((row) => ({ date: row.filedAt, type: 'claimSubmitted', ref: row.id, amount: row.amount })),
         ),
@@ -166,7 +179,7 @@ async function recentActivity(dealerId, can) {
         .findMany({
           where: { dealerId, resolvedAt: { not: null } },
           orderBy: { resolvedAt: 'desc' },
-          take: 2,
+          take: third,
           select: { id: true, stage: true, amount: true, resolvedAt: true },
         })
         .then((rows) =>
@@ -187,7 +200,7 @@ async function recentActivity(dealerId, can) {
         .findMany({
           where: { user: { dealerId }, completedAt: { not: null } },
           orderBy: { completedAt: 'desc' },
-          take: 2,
+          take: third,
           select: { completedAt: true, course: { select: { title: true } } },
         })
         .then((rows) =>
@@ -197,7 +210,7 @@ async function recentActivity(dealerId, can) {
   }
 
   const events = (await Promise.all(sources)).flat()
-  return events.sort((a, b) => b.date - a.date).slice(0, ACTIVITY_LIMIT)
+  return events.sort((a, b) => b.date - a.date).slice(0, limit)
 }
 
 // ---------------------------------------------------------------------------

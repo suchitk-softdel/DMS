@@ -29,7 +29,22 @@ model Manufacturer {
   productLines  String // JSON array, e.g. ["Air Conditioners","Furnaces"]
   warrantyYears Int // standard parts warranty on equipment
 
-  dealers Dealer[]
+  dealers            Dealer[]
+  users              User[] // manufacturer staff, e.g. the order desk that approves dealer orders
+  healthScoreWeights HealthScoreWeight[]
+}
+
+// Health Score component weights, set per manufacturer (FR-D360-6). A
+// Manufacturer Administrator changes them here; no code change is needed.
+// Without rows, the defaults in src/constants/domain.js are used.
+model HealthScoreWeight {
+  manufacturerId String
+  component      String // revenueGrowth | orderVelocity | warrantyCompliance | trainingCompletion
+  weight         Float // share of the score, e.g. 0.3 (the weights are normalised, so they need not add up to 1)
+
+  manufacturer Manufacturer @relation(fields: [manufacturerId], references: [id])
+
+  @@id([manufacturerId, component])
 }
 
 model Dealer {
@@ -59,25 +74,30 @@ model Dealer {
 // Role permissions are data, not code, so the Manufacturer Administrator can
 // change them without a release (SRS 2.3, 6.7).
 model Role {
-  id          String @id // principal | salesRep | technician
+  id          String @id // principal | salesRep | technician | manufacturer
   name        String
   permissions String // JSON array of module keys, e.g. ["home","orders"]
 
   users User[]
 }
 
+// A user works either for a dealer (dealerId) or for the manufacturer
+// (manufacturerId, e.g. the order desk that approves dealer orders).
 model User {
-  id           String   @id
-  name         String
-  email        String   @unique
-  passwordHash String
-  roleId       String
-  dealerId     String
-  createdAt    DateTime @default(now())
+  id             String   @id
+  name           String
+  email          String   @unique
+  passwordHash   String
+  roleId         String
+  dealerId       String?
+  manufacturerId String?
+  createdAt      DateTime @default(now())
 
   role             Role               @relation(fields: [roleId], references: [id])
-  dealer           Dealer             @relation(fields: [dealerId], references: [id])
-  orders           Order[]
+  dealer           Dealer?            @relation(fields: [dealerId], references: [id])
+  manufacturer     Manufacturer?      @relation(fields: [manufacturerId], references: [id])
+  orders           Order[]            @relation("OrderCreator")
+  reviewedOrders   Order[]            @relation("OrderReviewer")
   trainingProgress TrainingProgress[]
   auditLogs        AuditLog[]
 }
@@ -128,14 +148,27 @@ model Order {
   customerId  String
   createdById String?
   type        String // quote | order
-  status      String // draft | submitted | approved | fulfilled
+  // Orders: draft -> submitted (sent to the manufacturer) -> approved or rejected
+  // by the manufacturer -> fulfilled by the dealer. Quotes: draft -> submitted
+  // (sent to the customer) -> approved (customer accepted).
+  status      String // draft | submitted | approved | rejected | fulfilled
   total       Float
   createdAt   DateTime
   updatedAt   DateTime
+  // Orders: the manufacturer's decision (approve or reject).
+  // Quotes: who recorded the customer's acceptance, and when.
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  // Quotes: proof of the customer's acceptance, recorded by the dealer.
+  acceptanceMethod  String? // email | phone | signedCopy | inPerson
+  acceptanceContact String? // customer contact who accepted, e.g. "John Lee, Facilities Manager"
+  acceptanceNote    String?
 
   dealer        Dealer                 @relation(fields: [dealerId], references: [id])
   customer      Customer               @relation(fields: [customerId], references: [id])
-  createdBy     User?                  @relation(fields: [createdById], references: [id])
+  createdBy     User?                  @relation("OrderCreator", fields: [createdById], references: [id])
+  reviewedBy    User?                  @relation("OrderReviewer", fields: [reviewedById], references: [id])
   items         OrderItem[]
   registrations WarrantyRegistration[]
   claims        Claim[]
