@@ -1,3 +1,5 @@
+import FactoryOutlined from '@mui/icons-material/FactoryOutlined'
+import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import Box from '@mui/material/Box'
 import Drawer, { drawerClasses } from '@mui/material/Drawer'
 import List from '@mui/material/List'
@@ -12,15 +14,62 @@ import { NAV_ITEMS, NAV_RAIL_WIDTH } from '@/lib/navigation'
 import { usePermissions } from '@/lib/rbac'
 import { selectNavOpen, setNavOpen } from '@/store/slices/uiSlice'
 
-// Persistent navy navigation rail from the UI Design Concept: logo, the nine
-// destinations (filtered by role). The signed-in user is shown in the TopBar.
+const menuLabelSx = {
+  px: 1.5,
+  mt: 1,
+  mb: 1,
+  fontSize: 11.5,
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  opacity: 0.45,
+}
+
+// Where the signed-in user works (dealership or manufacturer), at the bottom
+// of the menu. The user's own name and role stay in the top bar.
+function OrganizationCard({ organization }) {
+  if (!organization) return null
+  const isDealer = organization.type === 'dealer'
+  const Icon = isDealer ? StorefrontOutlined : FactoryOutlined
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 1.5,
+        borderRadius: 2,
+        bgcolor: 'rgba(255, 255, 255, 0.06)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+      }}
+    >
+      <Box
+        aria-hidden
+        sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(0, 168, 150, 0.18)', color: 'primary.main' }}
+      >
+        <Icon sx={{ fontSize: 20 }} />
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography noWrap title={organization.name} sx={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>
+          {organization.name}
+        </Typography>
+        <Typography noWrap sx={{ fontSize: 12.5, opacity: 0.6, lineHeight: 1.3 }}>
+          {isDealer ? `${organization.tier} · ${organization.region}` : 'Manufacturer'}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
+// Persistent navy navigation rail from the UI Design Concept: logo, the
+// destinations the role can open, and the user's organisation at the bottom.
 export default function NavRail() {
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true })
   const dispatch = useDispatch()
   const navOpen = useSelector(selectNavOpen)
   const { pathname } = useLocation()
-  const { can, homePath } = usePermissions()
+  const { user, can, homePath } = usePermissions()
 
   const items = NAV_ITEMS.filter((item) => can(item.key))
   const closeMobileNav = () => dispatch(setNavOpen(false))
@@ -47,16 +96,17 @@ export default function NavRail() {
         component={RouterLink}
         to={homePath}
         onClick={closeMobileNav}
-        sx={{ display: 'block', px: 3.5, pt: 3.5, pb: 3, color: 'inherit', textDecoration: 'none' }}
+        aria-label="Dealers App home"
+        sx={{ display: 'block', px: 3, pt: 3.25, pb: 1.5, color: 'inherit', textDecoration: 'none' }}
       >
-        <BrandLogo tone="light" showSubtitle={false} />
-        <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-          Dealer App
-        </Typography>
+        <BrandLogo tone="light" />
       </Box>
 
-      <List component="nav" aria-label="Main navigation" sx={{ px: 2, py: 0, flexGrow: 1, overflowY: 'auto' }}>
-        {items.map(({ id, label, badge, path, end }) => {
+      <List component="nav" aria-label="Main navigation" sx={{ px: 1.75, py: 0, flexGrow: 1, overflowY: 'auto' }}>
+        <Typography component="p" sx={menuLabelSx}>
+          Menu
+        </Typography>
+        {items.map(({ id, label, icon: Icon, path, end }) => {
           const active = isActive(path, end)
           return (
             <ListItemButton
@@ -68,39 +118,31 @@ export default function NavRail() {
               onClick={closeMobileNav}
               sx={{
                 gap: 1.75,
-                px: 1.25,
-                py: 1,
-                mb: 1,
-                borderRadius: 1,
+                px: 1.5,
+                py: 1.15,
+                mb: 0.5,
+                borderRadius: 2,
                 color: 'common.white',
-                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
-                '&.Mui-selected, &.Mui-selected:hover': { bgcolor: 'primary.main' },
+                transition: 'background-color 120ms ease',
+                '& .nav-icon': { opacity: active ? 1 : 0.72 },
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.07)' },
+                '&:hover .nav-icon': { opacity: 1 },
+                '&.Mui-selected, &.Mui-selected:hover': {
+                  bgcolor: 'primary.main',
+                  boxShadow: '0 4px 12px rgba(0, 168, 150, 0.35)',
+                },
               }}
             >
-              <Box
-                aria-hidden
-                sx={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontSize: badge.length > 2 ? 12 : 13,
-                  fontWeight: 700,
-                  bgcolor: active ? 'common.white' : 'rgba(255, 255, 255, 0.1)',
-                  color: active ? 'brand.navy' : 'common.white',
-                }}
-              >
-                {badge}
-              </Box>
-              <Typography sx={{ fontSize: 16, fontWeight: active ? 700 : 400, opacity: active ? 1 : 0.92 }}>
-                {label}
-              </Typography>
+              <Icon className="nav-icon" sx={{ fontSize: 22 }} />
+              <Typography sx={{ fontSize: 15.5, fontWeight: active ? 700 : 500, opacity: active ? 1 : 0.88 }}>{label}</Typography>
             </ListItemButton>
           )
         })}
       </List>
+
+      <Box sx={{ px: 1.75, pt: 2, pb: 2.5 }}>
+        <OrganizationCard organization={user?.organization} />
+      </Box>
     </Drawer>
   )
 }

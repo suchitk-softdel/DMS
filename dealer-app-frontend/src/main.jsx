@@ -6,6 +6,7 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import App from '@/App'
 import ErrorBoundary from '@/components/common/ErrorBoundary'
+import ToastProvider from '@/components/common/ToastProvider'
 import { store } from '@/store/store'
 import { theme } from '@/theme/theme'
 
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')).render(
         <CssBaseline />
         <BrowserRouter>
           <ErrorBoundary>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </ErrorBoundary>
         </BrowserRouter>
       </ThemeProvider>

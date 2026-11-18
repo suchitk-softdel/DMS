@@ -4,6 +4,8 @@ import { prisma } from './db/prisma.js'
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js'
 import { authRouter, rolesRouter } from './routes/auth.js'
 import { dealerDataRouter } from './routes/dealerData.js'
+import { manufacturerRouter } from './routes/manufacturer.js'
+import { notificationsRouter } from './routes/notifications.js'
 
 // The frontend reaches this API through the Vite dev-server proxy (same
 // origin), so no CORS setup is needed in development.
@@ -21,6 +23,9 @@ export function createApp() {
 
   app.use('/api/auth', authRouter)
   app.use('/api/roles', rolesRouter)
+  // Before the dealer routes, which are mounted on /api and accept dealer users only.
+  app.use('/api/manufacturer', manufacturerRouter)
+  app.use('/api/notifications', notificationsRouter)
   app.use('/api', dealerDataRouter)
 
   app.use(notFoundHandler)

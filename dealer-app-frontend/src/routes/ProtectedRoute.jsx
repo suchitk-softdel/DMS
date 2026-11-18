@@ -8,10 +8,11 @@ import { usePermissions } from '@/lib/rbac'
 import { selectRolesError } from '@/store/slices/rolesSlice'
 
 // Guards a route: requires login, waits for roles, then checks the module
-// permission (when moduleKey is given). Renders children, or the nested
-// <Outlet /> when used as a layout route.
-export default function ProtectedRoute({ moduleKey, children }) {
-  const { user, rolesStatus, can } = usePermissions()
+// permission (when moduleKey is given). `dealerOnly` routes (Copilot) are
+// closed to manufacturer users. Renders children, or the nested <Outlet />
+// when used as a layout route.
+export default function ProtectedRoute({ moduleKey, dealerOnly = false, children }) {
+  const { user, rolesStatus, can, isDealer } = usePermissions()
   const rolesError = useSelector(selectRolesError)
 
   if (!user) {
@@ -30,7 +31,7 @@ export default function ProtectedRoute({ moduleKey, children }) {
     )
   }
 
-  if (moduleKey && !can(moduleKey)) {
+  if ((moduleKey && !can(moduleKey)) || (dealerOnly && !isDealer)) {
     return <Navigate to={PUBLIC_PATHS.UNAUTHORIZED} replace />
   }
 

@@ -1,11 +1,16 @@
-import { EQUIPMENT_CATEGORIES, ORDER_TRANSITIONS } from '../constants/domain.js'
+import { EQUIPMENT_CATEGORIES, MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
-import { badRequest, notFound } from '../utils/httpError.js'
+import { badRequest, forbidden, notFound } from '../utils/httpError.js'
 import { refreshDealerAggregates } from './aggregationService.js'
 import { logAudit } from './auditLog.js'
 
-// Orders and quotes for one dealer (SRS 3.4), newest first.
-export async function listOrders(dealerId, { type, status, search, limit, offset }) {
+// Sortable list columns (FR-ORD-2).
+export const ORDER_SORT_FIELDS = Object.freeze(['createdAt', 'total', 'id', 'customer', 'status'])
+const orderBy = (sort, dir) =>
+  sort === 'customer' ? [{ customer: { name: dir } }, { createdAt: 'desc' }] : [{ [sort]: dir }, { createdAt: 'desc' }]
+
+// Orders and quotes for one dealer (SRS 3.4), newest first unless sorted.
+export async function listOrders(dealerId, { type, status, search, limit, offset, sort = 'createdAt', dir = 'desc' }) {
   const where = {
     dealerId,
     ...(type && { type }),
@@ -19,7 +24,7 @@ export async function listOrders(dealerId, { type, status, search, limit, offset
     prisma.order.count({ where }),
     prisma.order.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: orderBy(sort, dir),
       take: limit,
       skip: offset,
       include: {
@@ -43,6 +48,8 @@ export function getOrder(dealerId, orderId) {
     where: { id: orderId, dealerId },
     include: {
       customer: { select: { id: true, name: true, type: true, city: true } },
+      reviewedBy: { select: { name: true } },
+      dealerRespondedBy: { select: { name: true } },
       items: {
         select: {
           id: true,
@@ -135,9 +142,23 @@ async function registerFulfilledUnits(tx, order, now) {
 // Moves an order or quote to its next status. Fulfilling an order registers
 // its equipment units, and every change re-runs the dealer's aggregates so
 // KPIs, trends, forecast and incentives include it straight away.
-export async function updateOrderStatus(user, orderId, status) {
+// Approving or rejecting an ORDER is the manufacturer's decision
+// (manufacturerService.js); the dealer submits and fulfils.
+// Marking a QUOTE accepted records the customer's acceptance, so it needs
+// acceptance: { method, contact, note? } (how and by whom the customer accepted).
+// Declining the manufacturer's quote on an ORDER needs a reason.
+export async function updateOrderStatus(user, orderId, status, acceptance = null, reason = null) {
   const order = await prisma.order.findFirst({ where: { id: orderId, dealerId: user.dealerId } })
   if (!order) throw notFound('Order not found.')
+  if (order.type === 'order' && MANUFACTURER_DECISIONS.includes(status)) {
+    throw forbidden('Orders are approved or rejected by the manufacturer.')
+  }
+  const accepting = order.type === 'quote' && status === 'approved'
+  if (accepting && !acceptance) {
+    throw badRequest('Record how the customer accepted the quote and the customer contact.')
+  }
+  const responding = order.type === 'order' && (status === 'accepted' || status === 'declined')
+  if (status === 'declined' && !reason) throw badRequest('Give a reason for declining the quote.')
   const allowed = ORDER_TRANSITIONS[order.type][order.status] ?? []
   if (!allowed.includes(status)) {
     throw badRequest(
@@ -149,7 +170,25 @@ export async function updateOrderStatus(user, orderId, status) {
 
   const now = new Date()
   const registered = await prisma.$transaction(async (tx) => {
-    await tx.order.update({ where: { id: order.id }, data: { status, updatedAt: now } })
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status,
+        updatedAt: now,
+        ...(accepting && {
+          reviewedById: user.id,
+          reviewedAt: now,
+          acceptanceMethod: acceptance.method,
+          acceptanceContact: acceptance.contact,
+          acceptanceNote: acceptance.note ?? null,
+        }),
+        ...(responding && {
+          dealerRespondedById: user.id,
+          dealerRespondedAt: now,
+          declineReason: status === 'declined' ? reason : null,
+        }),
+      },
+    })
     return status === 'fulfilled' ? registerFulfilledUnits(tx, order, now) : 0
   })
 
@@ -159,7 +198,13 @@ export async function updateOrderStatus(user, orderId, status) {
     action: `${order.type}.status`,
     entity: 'Order',
     entityId: order.id,
-    details: { from: order.status, to: status, ...(registered && { unitsRegistered: registered }) },
+    details: {
+      from: order.status,
+      to: status,
+      ...(registered && { unitsRegistered: registered }),
+      ...(accepting && { acceptedBy: acceptance.contact, method: acceptance.method }),
+      ...(status === 'declined' && { reason }),
+    },
   })
   return getOrder(user.dealerId, order.id)
 }

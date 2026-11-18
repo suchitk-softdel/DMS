@@ -59,6 +59,7 @@ All use the password `demo123`.
 | `sales@demo.com`      | Sales Representative | Summit Comfort Heating & Air |
 | `tech@demo.com`       | Service Technician   | Summit Comfort Heating & Air |
 | `principal2@demo.com` | Dealer Principal     | Coastal Climate Solutions    |
+| `manufacturer@demo.com` | Manufacturer Order Desk | Aerovance (sees only **Order Approvals**) |
 
 Each role sees only its own modules, and each dealer sees only its own data.
 
@@ -69,10 +70,10 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 
 | Data                   | Amount  |
 | ---------------------- | ------- |
-| Dealers / users        | 6 / 35  |
+| Dealers / users        | 6 / 35 dealer users + 1 manufacturer user |
 | Products / customers   | 40 / 390 |
 | Purchase orders        | ~1,045 (plus ~350 quotes) |
-| Warranty registrations | 1,475   |
+| Warranty registrations | 6,432   |
 | Warranty claims        | 100     |
 | Audit log entries      | 2,967   |
 
@@ -90,16 +91,20 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 | -------------------------------- | -------------------------------------------------------------- |
 | Login and role-based access      | ✅ Done                                                        |
 | Home dashboard (3.1)             | ✅ Done: KPIs, AI insight, quick actions, recent activity      |
-| Orders & Quotes (3.4)            | Backend API done (list, create, status changes); screen pending |
+| Orders & Quotes (3.4)            | ✅ Done: filterable, sortable list with search, new quote/order, status steps, awaiting-approval alert, Order Insight on quotes likely to close; `npm test` |
 | Warranty & Claims (3.7)          | Backend API done (list, file claim, stage changes); screen pending |
 | Inventory (3.5)                  | Backend API and Forecast done; screen pending                   |
 | Incentives & Training (3.6)      | Backend API done; screen pending                                |
-| Dealer 360 (3.3)                 | Health Score done in the backend; screen pending                |
-| Dealer Copilot (3.2)             | Screen done; in-house question engine pending                   |
+| Dealer 360 (3.3)                 | ✅ Done: tiles, revenue trend, explainable Health Score (weights in the database), recommendations with evidence, timeline; `npm test` |
+| Dealer Copilot (3.2)             | ✅ Done: in-house question engine, answers from the 2-year data with evidence; `npm test` |
 | Sales Coach (3.8)                | Backend API done; screen pending                                |
+| Order Approvals (manufacturer)   | ✅ Done: the dealer sends an order request with quantities; the manufacturer approves it and sends a quote at catalogue prices (or rejects it with a reason); the dealer accepts or declines the quote, then fulfils. Only the manufacturer login sees this tab; `npm test` |
 
 ## More information
 
 - [Backend README](dealer-app-backend/README.md): API endpoints, database, demo data, scripts
 - [Frontend README](dealer-app-frontend/README.md): structure, configuration, roles
+- [Demo data](docs/DEMO_DATA.md): how the 2-year manufacturer and dealer data is built and linked
+- [Requirement traceability](docs/REQUIREMENT_TRACEABILITY.md): status of every SRS requirement and where it is implemented
+- [Demo script](docs/DEMO_SCRIPT.md): 10-minute client demo, step by step
 - [SRS v1.0](docs/SRS.md): full requirements

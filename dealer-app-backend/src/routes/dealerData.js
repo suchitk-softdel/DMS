@@ -1,19 +1,23 @@
 import { Router } from 'express'
 import {
+  ACCEPTANCE_METHODS,
   CLAIM_STAGES,
   MODULES,
   OPPORTUNITY_STAGES,
   ORDER_STATUSES,
   ORDER_TYPES,
 } from '../constants/domain.js'
-import { requireAuth, requireModule } from '../middlewares/auth.js'
+import { requireAuth, requireDealer, requireModule } from '../middlewares/auth.js'
 import { getDealer, listCustomers, listProducts } from '../services/catalogService.js'
 import { createClaim, listClaims, listRegistrations, updateClaimStage } from '../services/claimService.js'
+import { askCopilot } from '../services/copilotService.js'
+import { getDealer360 } from '../services/dealer360Service.js'
 import { getHomeSummary } from '../services/homeService.js'
 import { listIncentives } from '../services/incentiveService.js'
 import { listInventory } from '../services/inventoryService.js'
 import { listOpportunities } from '../services/opportunityService.js'
-import { createOrder, getOrder, listOrders, updateOrderStatus } from '../services/orderService.js'
+import { getOrdersSummary } from '../services/orderInsightService.js'
+import { createOrder, getOrder, listOrders, ORDER_SORT_FIELDS, updateOrderStatus } from '../services/orderService.js'
 import { listSales, monthlySalesTotals } from '../services/salesService.js'
 import { getTrainingOverview } from '../services/trainingService.js'
 import { requiredArray, requiredEnum, requiredNumber, requiredString } from '../utils/body.js'
@@ -24,7 +28,7 @@ import { intInRange, optionalEnum, optionalMonth } from '../utils/query.js'
 // The dealer comes from the session, never from the request, so one dealer
 // can't read another dealer's data.
 export const dealerDataRouter = Router()
-dealerDataRouter.use(requireAuth)
+dealerDataRouter.use(requireAuth, requireDealer)
 
 // Dealer profile (FR-HOME-1, FR-D360-1) ---------------------------------------
 dealerDataRouter.get('/dealers/:id', async (req, res) => {
@@ -64,8 +68,17 @@ dealerDataRouter.get('/orders', requireModule(MODULES.ORDERS), async (req, res) 
       search: typeof req.query.search === 'string' ? req.query.search.trim() || undefined : undefined,
       limit: intInRange(req.query.limit, { min: 1, max: 500, fallback: 100, name: 'limit' }),
       offset: intInRange(req.query.offset, { min: 0, max: 1_000_000, fallback: 0, name: 'offset' }),
+      sort: optionalEnum(req.query.sort, ORDER_SORT_FIELDS, 'sort'),
+      dir: optionalEnum(req.query.dir, ['asc', 'desc'], 'dir'),
     }),
   )
+})
+
+// Counts per status, orders awaiting approval (FR-ORD-6) and the Order Insight
+// on quotes likely to close (FR-ORD-5). Before /orders/:id so "summary" is not
+// read as an order number.
+dealerDataRouter.get('/orders/summary', requireModule(MODULES.ORDERS), async (req, res) => {
+  res.json(await getOrdersSummary(req.user))
 })
 
 dealerDataRouter.get('/orders/:id', requireModule(MODULES.ORDERS), async (req, res) => {
@@ -89,9 +102,28 @@ dealerDataRouter.post('/orders', requireModule(MODULES.ORDERS), async (req, res)
   res.status(201).json(order)
 })
 
-// Move an order/quote to its next status. Body: { status }
+// Move an order/quote to its next status. Body: { status, acceptance?, reason? }
+// Marking a quote accepted needs acceptance: { method: email|phone|signedCopy|inPerson,
+// contact (who accepted), note? }.
 dealerDataRouter.patch('/orders/:id/status', requireModule(MODULES.ORDERS), async (req, res) => {
-  res.json(await updateOrderStatus(req.user, req.params.id, requiredEnum(req.body?.status, ORDER_STATUSES, 'status')))
+  const raw = req.body?.acceptance
+  const acceptance =
+    raw && typeof raw === 'object'
+      ? {
+          method: requiredEnum(raw.method, ACCEPTANCE_METHODS, 'acceptance.method'),
+          contact: requiredString(raw.contact, 'acceptance.contact', { maxLength: 120 }),
+          note: typeof raw.note === 'string' && raw.note.trim() ? requiredString(raw.note, 'acceptance.note', { maxLength: 300 }) : null,
+        }
+      : null
+  // Declining the manufacturer's quote on an order needs { reason }.
+  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? requiredString(req.body.reason, 'reason', { maxLength: 300 }) : null
+  res.json(await updateOrderStatus(req.user, req.params.id, requiredEnum(req.body?.status, ORDER_STATUSES, 'status'), acceptance, reason))
+})
+
+// Dealer 360 (SRS 3.3): tiles, revenue trend, Health Score breakdown,
+// recommendations and timeline in one call.
+dealerDataRouter.get('/dealer360', requireModule(MODULES.DEALER_360), async (req, res) => {
+  res.json(await getDealer360(req.user))
 })
 
 // Sales (Dealer 360 revenue and trends, SRS 3.3) --------------------------------
@@ -162,4 +194,14 @@ dealerDataRouter.get('/opportunities', requireModule(MODULES.SALES_COACH), async
       stage: optionalEnum(req.query.stage, OPPORTUNITY_STAGES, 'stage'),
     }),
   )
+})
+
+// Dealer Copilot (SRS 3.2): in-house question engine over the dealer's data.
+// Body: { question, context? } where context is the previous answer's
+// context (for follow-up questions such as "and last year?").
+// Open to every role; each answer checks the module its data comes from.
+dealerDataRouter.post('/copilot/ask', async (req, res) => {
+  const question = requiredString(req.body?.question, 'question', { maxLength: 300 })
+  const context = req.body?.context && typeof req.body.context === 'object' ? req.body.context : null
+  res.json(await askCopilot(req.user, question, context))
 })

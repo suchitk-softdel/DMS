@@ -11,6 +11,19 @@ export async function requireAuth(req, _res, next) {
   next()
 }
 
+// Dealer data routes: only users who work for a dealer (the manufacturer's
+// order desk has no dealer and no dealer data).
+export function requireDealer(req, _res, next) {
+  if (!req.user.dealerId) throw forbidden('This page is for dealer users.')
+  next()
+}
+
+// Manufacturer routes: only users who work for the manufacturer.
+export function requireManufacturer(req, _res, next) {
+  if (!req.user.manufacturerId) throw forbidden('This page is for manufacturer users.')
+  next()
+}
+
 // Requires the user's role to include at least one of the given modules.
 // Use after requireAuth. This is the real access check: the frontend's
 // checks only hide things, they don't protect data (SRS 6.2).

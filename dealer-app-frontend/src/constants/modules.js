@@ -1,5 +1,6 @@
-// Modules of the Dealer App, matching SRS v1.0 section 3. Manufacturer and
-// admin modules are out of scope for this app (SRS 1.2 and 2.3).
+// Modules of the Dealer App, matching SRS v1.0 section 3, plus Order Approvals
+// for the manufacturer's order desk (dealers send orders, the manufacturer
+// approves or rejects them).
 // The Dealer Copilot (FR-COP) is not a module: it is a panel available on
 // every screen, so it has no key or route here.
 export const MODULES = Object.freeze({
@@ -10,6 +11,7 @@ export const MODULES = Object.freeze({
   INCENTIVES: 'incentives', // FR-INC (incentives and training)
   WARRANTY: 'warranty', // FR-WAR (warranty and claims)
   SALES_COACH: 'salesCoach', // FR-SC
+  ORDER_APPROVALS: 'orderApprovals', // manufacturer login only
 })
 
 export const MODULE_PATHS = Object.freeze({
@@ -20,6 +22,7 @@ export const MODULE_PATHS = Object.freeze({
   [MODULES.INCENTIVES]: '/incentives',
   [MODULES.WARRANTY]: '/warranty',
   [MODULES.SALES_COACH]: '/sales-coach',
+  [MODULES.ORDER_APPROVALS]: '/order-approvals',
 })
 
 // Routes that are not tied to a permission-controlled module.
