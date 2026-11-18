@@ -164,6 +164,18 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     assert.equal(old, 0)
   })
 
+  test('the dealer can decline the manufacturer quote, with a reason', async () => {
+    const customer = await prisma.customer.findFirst({ where: { dealerId: 'd-1001' } })
+    const product = await prisma.product.findFirst({ where: { category: 'furnace' } })
+    const order = await createOrder(user, { type: 'order', customerId: customer.id, status: 'submitted', items: [{ productId: product.id, quantity: 2 }] })
+    await approveOrder(ORDER_DESK, order.id)
+    await assert.rejects(updateOrderStatus(user, order.id, 'declined'), /reason for declining/)
+    const declined = await updateOrderStatus(user, order.id, 'declined', null, 'Price too high for this project')
+    assert.equal(declined.status, 'declined')
+    assert.equal(declined.declineReason, 'Price too high for this project')
+    await assert.rejects(updateOrderStatus(user, order.id, 'fulfilled'), /cannot be changed/)
+  })
+
   test('a customer of another dealer is refused', async () => {
     const stranger = await prisma.customer.findFirst({ where: { dealerId: 'd-1002' } })
     const product = await prisma.product.findFirst()
@@ -173,7 +185,7 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     )
   })
 
-  test('dealer submits, manufacturer approves, dealer fulfils; fulfilling updates revenue and registers units', async () => {
+  test('dealer requests, manufacturer quotes, dealer accepts and fulfils; fulfilling updates revenue and registers units', async () => {
     const customer = await prisma.customer.findFirst({ where: { dealerId: 'd-1001', type: 'commercial' } })
     const heatPump = await prisma.product.findFirst({ where: { category: 'heatPump' } })
     const revenueBefore = (await prisma.sale.aggregate({ where: { dealerId: 'd-1001' }, _sum: { revenue: true } }))._sum.revenue
@@ -187,14 +199,25 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     assert.equal((await summaryOf('d-1001')).awaitingApproval, before.awaitingApproval + 1)
     // The dealer cannot approve its own order: that is the manufacturer's decision.
     await assert.rejects(updateOrderStatus(user, order.id, 'approved'), /approved or rejected by the manufacturer/)
-    await approveOrder(ORDER_DESK, order.id)
+    // The manufacturer approves and quotes the current catalogue price.
+    await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { unitPrice: 1 } })
+    const quoted = await approveOrder(ORDER_DESK, order.id)
+    assert.equal(quoted.status, 'approved')
+    assert.equal(quoted.items[0].unitPrice, heatPump.unitPrice)
+    assert.equal(quoted.total, Math.round(4 * heatPump.unitPrice * 100) / 100)
+
+    // A quoted order must be accepted before it can be fulfilled.
+    await assert.rejects(updateOrderStatus(user, order.id, 'fulfilled'), /can only move to: accepted, declined/)
+    const accepted = await updateOrderStatus(user, order.id, 'accepted')
+    assert.equal(accepted.status, 'accepted')
+    assert.ok(accepted.dealerRespondedAt)
     const fulfilled = await updateOrderStatus(user, order.id, 'fulfilled')
     assert.equal(fulfilled.status, 'fulfilled')
 
     const registrations = await prisma.warrantyRegistration.count({ where: { orderId: order.id } })
     assert.equal(registrations, 4)
     const revenueAfter = (await prisma.sale.aggregate({ where: { dealerId: 'd-1001' }, _sum: { revenue: true } }))._sum.revenue
-    assert.ok(Math.abs(revenueAfter - revenueBefore - order.total) < 0.01)
+    assert.ok(Math.abs(revenueAfter - revenueBefore - quoted.total) < 0.01)
     await assert.rejects(updateOrderStatus(user, order.id, 'submitted'), /cannot be changed/)
   })
 })

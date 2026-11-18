@@ -110,21 +110,24 @@ export async function orderInsight(dealerId, now = new Date()) {
   }
 }
 
-// -> { counts: { order: { draft, submitted, approved, fulfilled }, quote: { draft, submitted, approved } },
-//      openOrders, awaitingApproval, insight }
+// -> { counts: { order: { draft, submitted, approved, rejected, accepted, declined, fulfilled },
+//                quote: { draft, submitted, approved } },
+//      openOrders, awaitingApproval, quotesToAccept, insight }
 export async function getOrdersSummary(user, now = new Date()) {
   const { dealerId } = user
   const groups = await prisma.order.groupBy({ by: ['type', 'status'], where: { dealerId }, _count: { _all: true } })
   const counts = {
-    order: { draft: 0, submitted: 0, approved: 0, rejected: 0, fulfilled: 0 },
+    order: { draft: 0, submitted: 0, approved: 0, rejected: 0, accepted: 0, declined: 0, fulfilled: 0 },
     quote: { draft: 0, submitted: 0, approved: 0 },
   }
   for (const g of groups) counts[g.type][g.status] = g._count._all
 
   return {
     counts,
-    openOrders: counts.order.submitted + counts.order.approved,
+    openOrders: counts.order.submitted + counts.order.approved + counts.order.accepted,
     awaitingApproval: counts.order.submitted,
+    // Manufacturer quotes waiting for the dealer to accept or decline.
+    quotesToAccept: counts.order.approved,
     insight: await orderInsight(dealerId, now),
   }
 }

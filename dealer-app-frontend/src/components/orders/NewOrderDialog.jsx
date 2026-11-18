@@ -74,7 +74,9 @@ export default function NewOrderDialog({ open, type: initialType = 'quote', onCl
   ].filter(Boolean)
 
   const updateLine = (key, change) => setLines((all) => all.map((l) => (l.key === key ? { ...l, ...change } : l)))
-  const noun = type === 'quote' ? 'quote' : 'order'
+  const noun = type === 'quote' ? 'quote' : 'order request'
+  // Orders are requests with quantities only; the manufacturer quotes the prices.
+  const showPrices = type === 'quote'
 
   const save = async (status) => {
     setTouched(true)
@@ -161,9 +163,11 @@ export default function NewOrderDialog({ open, type: initialType = 'quote', onCl
                           <span>
                             <strong>{p.sku}</strong> {p.name}
                           </span>
-                          <Typography component="span" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                            {formatCurrency(p.unitPrice)}
-                          </Typography>
+                          {showPrices && (
+                            <Typography component="span" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                              {formatCurrency(p.unitPrice)}
+                            </Typography>
+                          )}
                         </Stack>
                       </li>
                     )}
@@ -179,9 +183,11 @@ export default function NewOrderDialog({ open, type: initialType = 'quote', onCl
                     slotProps={{ htmlInput: { min: 1, max: MAX_QUANTITY, step: 1 } }}
                     sx={{ width: { sm: 100 } }}
                   />
-                  <Typography sx={{ minWidth: 110, textAlign: { sm: 'right' }, pt: { sm: 1 }, fontWeight: 600 }}>
-                    {line.product ? formatCurrency(line.product.unitPrice * (Number(line.quantity) || 0)) : '—'}
-                  </Typography>
+                  {showPrices && (
+                    <Typography sx={{ minWidth: 110, textAlign: { sm: 'right' }, pt: { sm: 1 }, fontWeight: 600 }}>
+                      {line.product ? formatCurrency(line.product.unitPrice * (Number(line.quantity) || 0)) : '—'}
+                    </Typography>
+                  )}
                   <IconButton
                     aria-label="Remove product"
                     onClick={() => setLines((all) => (all.length > 1 ? all.filter((l) => l.key !== line.key) : [emptyLine()]))}
@@ -197,10 +203,16 @@ export default function NewOrderDialog({ open, type: initialType = 'quote', onCl
             </Button>
           </Box>
 
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'baseline', borderTop: 1, borderColor: 'divider', pt: 2 }}>
-            <Typography color="text.secondary">Total at list price</Typography>
-            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{formatCurrency(total, { decimals: 2 })}</Typography>
-          </Stack>
+          {showPrices ? (
+            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'baseline', borderTop: 1, borderColor: 'divider', pt: 2 }}>
+              <Typography color="text.secondary">Total at list price</Typography>
+              <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{formatCurrency(total, { decimals: 2 })}</Typography>
+            </Stack>
+          ) : (
+            <Alert severity="info">
+              Send the quantities you need. The manufacturer approves the request and sends you a quote with catalogue prices to accept.
+            </Alert>
+          )}
 
           {touched && problems.length > 0 && <Alert severity="warning">{problems.join(' ')}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
@@ -214,7 +226,7 @@ export default function NewOrderDialog({ open, type: initialType = 'quote', onCl
           Save as draft
         </Button>
         <Button variant="contained" onClick={() => save('submitted')} loading={saving === 'submitted'} disabled={Boolean(saving)}>
-          {type === 'quote' ? 'Send to customer' : 'Send to manufacturer'}
+          {type === 'quote' ? 'Send to customer' : 'Send request'}
         </Button>
       </DialogActions>
     </Dialog>

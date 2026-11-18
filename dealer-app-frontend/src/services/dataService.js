@@ -197,11 +197,12 @@ export function createOrder(input) {
 
 // Moves an order or quote to its next status (draft -> submitted -> approved -> fulfilled).
 // Accepting a quote needs acceptance: { method: email|phone|signedCopy|inPerson, contact, note? }.
-export function updateOrderStatus(orderId, status, acceptance) {
+// Declining the manufacturer's quote on an order needs a reason.
+export function updateOrderStatus(orderId, status, acceptance, reason) {
   if (!env.useMockData) {
     return apiRequest(`/orders/${encodeURIComponent(orderId)}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status, ...(acceptance && { acceptance }) }),
+      body: JSON.stringify({ status, ...(acceptance && { acceptance }), ...(reason && { reason }) }),
     })
   }
   return mockError('Updating orders needs the backend.')
@@ -225,8 +226,8 @@ export function getApprovalSummary() {
   return mockError('Order Approvals needs the backend.')
 }
 
-// Filters: { queue: pending|approved|rejected|fulfilled, dealerId, search, limit, offset }
-// -> { total, items: [{ id, status, total, createdAt, reviewedAt, rejectionReason, dealer, customer, itemCount }] }
+// Filters: { queue: pending|approved|accepted|closed|fulfilled, dealerId, search, limit, offset }
+// -> { total, items: [{ id, status, total, createdAt, reviewedAt, rejectionReason, dealer, customer, itemCount, units }] }
 export function getNetworkOrders(filters) {
   if (!env.useMockData) return apiRequest(`/manufacturer/orders${toQuery(filters)}`)
   return mockResponse({ total: 0, items: [] })

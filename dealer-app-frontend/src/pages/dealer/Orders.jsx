@@ -24,7 +24,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import NewOrderDialog from '@/components/orders/NewOrderDialog'
 import OrderDrawer from '@/components/orders/OrderDrawer'
-import { STATUS_LABELS, statusLabel, TYPE_LABELS } from '@/components/orders/orderLabels'
+import { hasPrices, STATUS_LABELS, statusLabel, TYPE_LABELS } from '@/components/orders/orderLabels'
 import EmptyState from '@/components/patterns/EmptyState'
 import NameWithInitial from '@/components/ui/NameWithInitial'
 import PageHeader from '@/components/ui/PageHeader'
@@ -46,7 +46,7 @@ const TYPES = [
   { value: 'order', label: 'Orders' },
   { value: 'quote', label: 'Quotes' },
 ]
-const STATUSES = ['all', 'draft', 'submitted', 'approved', 'rejected', 'fulfilled']
+const STATUSES = ['all', 'draft', 'submitted', 'approved', 'accepted', 'fulfilled', 'rejected', 'declined']
 const ACTION_DIALOG = { createQuote: 'quote', createOrder: 'order' }
 const COLUMNS = [
   { field: 'id', label: 'Order ID' },
@@ -156,14 +156,20 @@ export default function Orders() {
 
   const onCreated = (order) => {
     setDialog(null)
-    toast(`${TYPE_LABELS[order.type]} ${order.id} ${order.status === 'draft' ? 'saved as draft' : order.type === 'quote' ? 'sent to the customer' : 'sent to the manufacturer for approval'}.`)
+    toast(`${TYPE_LABELS[order.type]} ${order.id} ${order.status === 'draft' ? 'saved as draft' : order.type === 'quote' ? 'sent to the customer' : 'sent to the manufacturer for a quote'}.`)
     reloadAll()
     setOpenOrderId(order.id)
   }
 
   const subtitle = summary ? `${summary.openOrders} open orders  ·  ${summary.awaitingApproval} awaiting approval` : ''
-  // Quotes are never "fulfilled" or "rejected", so those pills are hidden when only quotes are shown.
-  const statuses = type === 'quote' ? STATUSES.filter((s) => s !== 'fulfilled' && s !== 'rejected') : STATUSES
+  // Customer quotes only go draft -> sent -> accepted, so the order-only pills are hidden for them.
+  const statuses = type === 'quote' ? STATUSES.filter((s) => !['accepted', 'fulfilled', 'rejected', 'declined'].includes(s)) : STATUSES
+  const showQuotesToAccept = () => {
+    setType('order')
+    setStatus('approved')
+    setSearchInput('')
+    setPage(0)
+  }
   const insight = summary?.insight
 
   return (
@@ -181,7 +187,19 @@ export default function Orders() {
               </Button>
             }
           >
-            {summary.awaitingApproval === 1 ? '1 order is' : `${summary.awaitingApproval} orders are`} waiting for the manufacturer's approval.
+            {summary.awaitingApproval === 1 ? '1 order request is' : `${summary.awaitingApproval} order requests are`} waiting for the manufacturer.
+          </Alert>
+        )}
+        {summary?.quotesToAccept > 0 && (
+          <Alert
+            severity="info"
+            action={
+              <Button color="inherit" size="small" onClick={showQuotesToAccept}>
+                Review
+              </Button>
+            }
+          >
+            {summary.quotesToAccept === 1 ? '1 manufacturer quote is' : `${summary.quotesToAccept} manufacturer quotes are`} waiting for you to accept or decline.
           </Alert>
         )}
 
@@ -228,7 +246,7 @@ export default function Orders() {
             return (
               <Chip
                 key={s}
-                label={`${s === 'all' ? 'All' : STATUS_LABELS[s]}${count === null ? '' : ` (${count})`}`}
+                label={`${s === 'all' ? 'All' : type === 'all' ? STATUS_LABELS[s] : statusLabel(type, s)}${count === null ? '' : ` (${count})`}`}
                 onClick={() => setStatusFilter(s)}
                 aria-pressed={active}
                 variant={active ? 'filled' : 'outlined'}
@@ -284,7 +302,13 @@ export default function Orders() {
                               <NameWithInitial name={o.customer.name} />
                             </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>
-                              {formatCurrency(o.total)}
+                              {hasPrices(o) ? (
+                                formatCurrency(o.total)
+                              ) : (
+                                <Typography component="span" variant="body2" color="text.secondary">
+                                  Awaiting quote
+                                </Typography>
+                              )}
                             </TableCell>
                             <TableCell>
                               <StatusChip status={o.status} label={statusLabel(o.type, o.status)} sx={{ minWidth: 96, fontWeight: 600 }} />

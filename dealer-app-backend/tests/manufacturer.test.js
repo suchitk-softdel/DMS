@@ -112,7 +112,7 @@ describe('Order Approvals', () => {
     assert.ok(body.items.every((o) => o.dealer.id === 'd-1001' && o.status === 'approved'))
   })
 
-  test('dealer submits -> manufacturer approves -> dealer fulfils', async () => {
+  test('dealer requests -> manufacturer quotes -> dealer accepts -> dealer fulfils', async () => {
     const dealer = await signIn('principal@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     const order = await newSubmittedOrder(dealer)
@@ -133,10 +133,14 @@ describe('Order Approvals', () => {
     // Deciding twice is refused.
     assert.equal((await desk.post(`/manufacturer/orders/${order.id}/reject`, { reason: 'Changed my mind' })).status, 400)
 
-    // The dealer sees the decision and fulfils the order.
+    // The dealer sees the quote, accepts it and fulfils the order.
     const { body: seen } = await dealer.get(`/orders/${order.id}`)
     assert.equal(seen.status, 'approved')
     assert.ok(seen.reviewedAt)
+    assert.equal((await dealer.patch(`/orders/${order.id}/status`, { status: 'fulfilled' })).status, 400)
+    assert.equal((await dealer.patch(`/orders/${order.id}/status`, { status: 'accepted' })).status, 200)
+    const { body: accepted } = await desk.get('/manufacturer/orders?queue=accepted&search=' + order.id)
+    assert.equal(accepted.items[0]?.id, order.id)
     const fulfilled = await dealer.patch(`/orders/${order.id}/status`, { status: 'fulfilled' })
     assert.equal(fulfilled.status, 200)
     assert.equal(await prisma.warrantyRegistration.count({ where: { orderId: order.id } }), 3)
@@ -157,9 +161,11 @@ describe('Order Approvals', () => {
     assert.equal(seen.rejectionReason, 'Credit hold: overdue invoices')
     // A rejected order is final for the dealer.
     assert.equal((await dealer.patch(`/orders/${order.id}/status`, { status: 'fulfilled' })).status, 400)
-    // It counts as neither open nor revenue.
+    // It counts as neither open nor revenue, and shows in the manufacturer's closed list.
     const { body: summary } = await dealer.get('/orders/summary')
     assert.equal(summary.counts.order.rejected, 1)
+    const { body: closed } = await desk.get('/manufacturer/orders?queue=closed&search=' + order.id)
+    assert.equal(closed.items[0]?.id, order.id)
   })
 
   test('quote acceptance via the API needs a valid method and the customer contact', async () => {

@@ -13,12 +13,14 @@ export const CATEGORY_LABELS = Object.freeze({
 export const TYPE_LABELS = Object.freeze({ order: 'Order', quote: 'Quote' })
 
 // The dealer's next step for an order or quote, and its button. Must match
-// ORDER_TRANSITIONS in the backend (src/constants/domain.js). A submitted
-// ORDER has no dealer step: the manufacturer approves or rejects it.
+// ORDER_TRANSITIONS in the backend (src/constants/domain.js).
+// Orders: the dealer sends a request with quantities; the manufacturer
+// approves it and quotes catalogue prices (or rejects it); the dealer accepts
+// or declines the quote (its own buttons), then fulfils the accepted order.
 export const NEXT_STEP = Object.freeze({
   order: {
-    draft: { status: 'submitted', label: 'Send to manufacturer' },
-    approved: { status: 'fulfilled', label: 'Mark fulfilled' },
+    draft: { status: 'submitted', label: 'Send request to manufacturer' },
+    accepted: { status: 'fulfilled', label: 'Mark fulfilled' },
   },
   // A quote is accepted by the CUSTOMER; the dealer records it with proof.
   quote: {
@@ -28,7 +30,7 @@ export const NEXT_STEP = Object.freeze({
 })
 
 export const STEPS = Object.freeze({
-  order: ['draft', 'submitted', 'approved', 'fulfilled'],
+  order: ['draft', 'submitted', 'approved', 'accepted', 'fulfilled'],
   quote: ['draft', 'submitted', 'approved'],
 })
 
@@ -37,14 +39,22 @@ export const STATUS_LABELS = Object.freeze({
   submitted: 'Submitted',
   approved: 'Approved',
   rejected: 'Rejected',
+  accepted: 'Accepted',
+  declined: 'Declined',
   fulfilled: 'Fulfilled',
 })
 
 // What each status means for orders and for quotes (shown on chips and steps).
 const TYPE_STATUS_LABELS = {
-  order: { submitted: 'Sent to manufacturer' },
+  order: { submitted: 'Requested', approved: 'Quoted', accepted: 'Accepted', declined: 'Declined' },
   quote: { submitted: 'Sent to customer', approved: 'Accepted by customer' },
 }
+
+// An order has prices once the manufacturer has quoted it; before that the
+// dealer only asks for quantities.
+export const hasPrices = (order) =>
+  order.type === 'quote' || ['approved', 'accepted', 'declined', 'fulfilled'].includes(order.status)
+
 export const statusLabel = (type, status) => TYPE_STATUS_LABELS[type]?.[status] ?? STATUS_LABELS[status] ?? status
 
 // How a customer accepted a quote. Must match ACCEPTANCE_METHODS in the backend.

@@ -16,15 +16,26 @@ export const MODULES = Object.freeze({
 })
 
 export const ORDER_TYPES = Object.freeze(['quote', 'order'])
-export const ORDER_STATUSES = Object.freeze(['draft', 'submitted', 'approved', 'rejected', 'fulfilled']) // FR-ORD-3
+export const ORDER_STATUSES = Object.freeze(['draft', 'submitted', 'approved', 'rejected', 'accepted', 'declined', 'fulfilled']) // FR-ORD-3
 export const CLAIM_STAGES = Object.freeze(['submitted', 'underReview', 'approved', 'reimbursed', 'rejected']) // FR-WAR-2
 export const OPPORTUNITY_STAGES = Object.freeze(['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'])
 
 // Allowed next statuses / stages, so records only move forward the way they
 // would in the real process.
 export const ORDER_TRANSITIONS = Object.freeze({
-  // submitted -> approved / rejected is the manufacturer's decision (MANUFACTURER_DECISIONS).
-  order: { draft: ['submitted'], submitted: ['approved', 'rejected'], approved: ['fulfilled'], rejected: [], fulfilled: [] },
+  // Orders: the dealer sends a request with quantities (submitted); the
+  // manufacturer approves it and quotes catalogue prices (approved) or rejects
+  // it (MANUFACTURER_DECISIONS); the dealer accepts or declines the quote, then
+  // fulfils the accepted order.
+  order: {
+    draft: ['submitted'],
+    submitted: ['approved', 'rejected'],
+    approved: ['accepted', 'declined'],
+    accepted: ['fulfilled'],
+    rejected: [],
+    declined: [],
+    fulfilled: [],
+  },
   quote: { draft: ['submitted'], submitted: ['approved'], approved: [] },
 })
 // How a customer accepted a quote (recorded by the dealer as proof).

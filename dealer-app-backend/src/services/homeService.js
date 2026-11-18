@@ -10,7 +10,8 @@ import { monthlySalesTotals } from './salesService.js'
 // can open the module it comes from, so e.g. a technician never receives
 // revenue figures (SRS 2.3, 6.2).
 
-const OPEN_ORDER_STATUSES = ['submitted', 'approved']
+// Not finished yet: requested, quoted by the manufacturer, or accepted by the dealer.
+const OPEN_ORDER_STATUSES = ['submitted', 'approved', 'accepted']
 const PENDING_CLAIM_STAGES = ['submitted', 'underReview']
 const ACTIVITY_LIMIT = 6
 

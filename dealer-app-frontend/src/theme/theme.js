@@ -111,6 +111,8 @@ export const statusColors = Object.freeze({
   approved: 'success',
   delivered: 'success',
   fulfilled: 'secondary',
+  accepted: 'info',
+  declined: 'error',
   draft: 'default',
   pending: 'warning',
   onHold: 'warning',

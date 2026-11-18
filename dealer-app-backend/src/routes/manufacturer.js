@@ -24,7 +24,7 @@ manufacturerRouter.get('/orders/summary', async (req, res) => {
   res.json(await getApprovalSummary(req.user))
 })
 
-// ?queue=pending|approved|rejected|fulfilled &dealerId &search &limit &offset
+// ?queue=pending|approved|accepted|closed|fulfilled &dealerId &search &limit &offset
 manufacturerRouter.get('/orders', async (req, res) => {
   res.json(
     await listNetworkOrders(req.user, {
@@ -43,6 +43,7 @@ manufacturerRouter.get('/orders/:id', async (req, res) => {
   res.json(order)
 })
 
+// Approve and send the dealer a quote at catalogue prices.
 manufacturerRouter.post('/orders/:id/approve', async (req, res) => {
   res.json(await approveOrder(req.user, req.params.id))
 })

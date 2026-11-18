@@ -138,14 +138,14 @@ export const CATEGORY_LABELS = {
 
 // Record states. The same word means different statuses for orders and claims.
 export const STATE_WORDS = {
-  pending: { words: ['pending', 'open', 'waiting', 'outstanding', 'in progress', 'unresolved', 'not settled'], orders: ['submitted', 'approved'], claims: ['submitted', 'underReview'] },
+  pending: { words: ['pending', 'open', 'waiting', 'outstanding', 'in progress', 'unresolved', 'not settled'], orders: ['submitted', 'approved', 'accepted'], claims: ['submitted', 'underReview'] },
   draft: { words: ['draft', 'drafts'], orders: ['draft'] },
   submitted: { words: ['submitted'], orders: ['submitted'], claims: ['submitted'] },
   underReview: { words: ['under review', 'in review', 'reviewing'], claims: ['underReview'] },
   approved: { words: ['approved', 'accepted'], orders: ['approved'], claims: ['approved'] },
   fulfilled: { words: ['fulfilled', 'completed', 'delivered', 'shipped', 'done'], orders: ['fulfilled'] },
   settled: { words: ['settled', 'reimbursed', 'paid', 'closed'], claims: ['reimbursed'] },
-  rejected: { words: ['rejected', 'denied', 'declined', 'refused'], orders: ['rejected'], claims: ['rejected'] },
+  rejected: { words: ['rejected', 'denied', 'declined', 'refused'], orders: ['rejected', 'declined'], claims: ['rejected'] },
 }
 
 export const STATUS_LABELS = {

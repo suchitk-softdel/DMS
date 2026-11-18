@@ -50,7 +50,7 @@ async function revenueGrowth(dealerId, asOf) {
 async function orderVelocity(dealerId, asOf) {
   const countOrders = (from, to) =>
     prisma.order.count({
-      where: { dealerId, type: 'order', status: { notIn: ['draft', 'rejected'] }, createdAt: { gte: from, lt: to } },
+      where: { dealerId, type: 'order', status: { notIn: ['draft', 'rejected', 'declined'] }, createdAt: { gte: from, lt: to } },
     })
   const lastYear = yearBefore(asOf)
   const [current, previous] = await Promise.all([

@@ -30,7 +30,7 @@ function buildFilter(fact, filters) {
     if (statuses) checks.push((r) => statuses.includes(r.status))
     else ignored.push('state')
   } else if (fact === 'orders' || fact === 'quotes') {
-    checks.push((r) => r.status !== 'draft' && r.status !== 'rejected') // drafts and rejected orders are not real orders
+    checks.push((r) => !['draft', 'rejected', 'declined'].includes(r.status)) // drafts, rejected and declined orders are not real orders
   }
 
   return { keep: (r) => checks.every((check) => check(r)), ignored }

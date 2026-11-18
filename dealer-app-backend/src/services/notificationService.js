@@ -18,7 +18,7 @@ const plural = (n, word) => `${n} ${n === 1 ? word : `${word}s`}`
 
 async function manufacturerNotifications(user, now) {
   const where = { type: 'order', status: 'submitted', dealer: { manufacturerId: user.manufacturerId } }
-  const [count, oldest] = await Promise.all([
+  const [count, oldest, answered] = await Promise.all([
     prisma.order.count({ where }),
     prisma.order.findMany({
       where,
@@ -26,10 +26,30 @@ async function manufacturerNotifications(user, now) {
       take: MAX_ITEMS,
       select: { id: true, total: true, createdAt: true, dealer: { select: { name: true } } },
     }),
+    // Dealers' answers to quotes in the last 7 days.
+    prisma.order.findMany({
+      where: {
+        type: 'order',
+        status: { in: ['accepted', 'declined'] },
+        dealer: { manufacturerId: user.manufacturerId },
+        dealerRespondedAt: { gte: new Date(now.getTime() - RECENT_DAYS * DAY_MS) },
+      },
+      orderBy: { dealerRespondedAt: 'desc' },
+      take: MAX_ITEMS,
+      select: { id: true, status: true, total: true, dealerRespondedAt: true, declineReason: true, dealer: { select: { name: true } } },
+    }),
   ])
+  const answers = answered.map((o) => ({
+    id: `answered-${o.id}`,
+    kind: o.status === 'accepted' ? 'success' : 'error',
+    title: `${o.id} quote ${o.status} by ${o.dealer.name}`,
+    detail: o.status === 'accepted' ? `${money(o.total)} · order confirmed` : `Reason: ${o.declineReason}`,
+    at: o.dealerRespondedAt,
+    link: `/order-approvals?order=${o.id}`,
+  }))
   return {
-    count,
-    items: oldest.map((o) => {
+    count: count + answers.length,
+    items: [...answers, ...oldest.map((o) => {
       const days = Math.floor((now - o.createdAt) / DAY_MS)
       return {
         id: `approve-${o.id}`,
@@ -39,7 +59,7 @@ async function manufacturerNotifications(user, now) {
         at: o.createdAt,
         link: `/order-approvals?order=${o.id}`,
       }
-    }),
+    })].slice(0, MAX_ITEMS),
   }
 }
 
@@ -63,8 +83,8 @@ async function dealerNotifications(user, now) {
       items.push({
         id: `decided-${o.id}`,
         kind: o.status === 'approved' ? 'success' : 'error',
-        title: `${o.id} ${o.status} by the manufacturer`,
-        detail: o.status === 'approved' ? `${money(o.total)} · ready to fulfil` : `Reason: ${o.rejectionReason}`,
+        title: o.status === 'approved' ? `Quote received for ${o.id}` : `${o.id} rejected by the manufacturer`,
+        detail: o.status === 'approved' ? `${money(o.total)} · review and accept` : `Reason: ${o.rejectionReason}`,
         at: o.reviewedAt,
         link: `/orders?order=${o.id}`,
       })

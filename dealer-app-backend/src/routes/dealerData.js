@@ -102,7 +102,7 @@ dealerDataRouter.post('/orders', requireModule(MODULES.ORDERS), async (req, res)
   res.status(201).json(order)
 })
 
-// Move an order/quote to its next status. Body: { status, acceptance? }
+// Move an order/quote to its next status. Body: { status, acceptance?, reason? }
 // Marking a quote accepted needs acceptance: { method: email|phone|signedCopy|inPerson,
 // contact (who accepted), note? }.
 dealerDataRouter.patch('/orders/:id/status', requireModule(MODULES.ORDERS), async (req, res) => {
@@ -115,7 +115,9 @@ dealerDataRouter.patch('/orders/:id/status', requireModule(MODULES.ORDERS), asyn
           note: typeof raw.note === 'string' && raw.note.trim() ? requiredString(raw.note, 'acceptance.note', { maxLength: 300 }) : null,
         }
       : null
-  res.json(await updateOrderStatus(req.user, req.params.id, requiredEnum(req.body?.status, ORDER_STATUSES, 'status'), acceptance))
+  // Declining the manufacturer's quote on an order needs { reason }.
+  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? requiredString(req.body.reason, 'reason', { maxLength: 300 }) : null
+  res.json(await updateOrderStatus(req.user, req.params.id, requiredEnum(req.body?.status, ORDER_STATUSES, 'status'), acceptance, reason))
 })
 
 // Dealer 360 (SRS 3.3): tiles, revenue trend, Health Score breakdown,

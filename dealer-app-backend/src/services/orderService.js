@@ -49,6 +49,7 @@ export function getOrder(dealerId, orderId) {
     include: {
       customer: { select: { id: true, name: true, type: true, city: true } },
       reviewedBy: { select: { name: true } },
+      dealerRespondedBy: { select: { name: true } },
       items: {
         select: {
           id: true,
@@ -145,7 +146,8 @@ async function registerFulfilledUnits(tx, order, now) {
 // (manufacturerService.js); the dealer submits and fulfils.
 // Marking a QUOTE accepted records the customer's acceptance, so it needs
 // acceptance: { method, contact, note? } (how and by whom the customer accepted).
-export async function updateOrderStatus(user, orderId, status, acceptance = null) {
+// Declining the manufacturer's quote on an ORDER needs a reason.
+export async function updateOrderStatus(user, orderId, status, acceptance = null, reason = null) {
   const order = await prisma.order.findFirst({ where: { id: orderId, dealerId: user.dealerId } })
   if (!order) throw notFound('Order not found.')
   if (order.type === 'order' && MANUFACTURER_DECISIONS.includes(status)) {
@@ -155,6 +157,8 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
   if (accepting && !acceptance) {
     throw badRequest('Record how the customer accepted the quote and the customer contact.')
   }
+  const responding = order.type === 'order' && (status === 'accepted' || status === 'declined')
+  if (status === 'declined' && !reason) throw badRequest('Give a reason for declining the quote.')
   const allowed = ORDER_TRANSITIONS[order.type][order.status] ?? []
   if (!allowed.includes(status)) {
     throw badRequest(
@@ -178,6 +182,11 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
           acceptanceContact: acceptance.contact,
           acceptanceNote: acceptance.note ?? null,
         }),
+        ...(responding && {
+          dealerRespondedById: user.id,
+          dealerRespondedAt: now,
+          declineReason: status === 'declined' ? reason : null,
+        }),
       },
     })
     return status === 'fulfilled' ? registerFulfilledUnits(tx, order, now) : 0
@@ -194,6 +203,7 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
       to: status,
       ...(registered && { unitsRegistered: registered }),
       ...(accepting && { acceptedBy: acceptance.contact, method: acceptance.method }),
+      ...(status === 'declined' && { reason }),
     },
   })
   return getOrder(user.dealerId, order.id)

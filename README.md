@@ -98,7 +98,7 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 | Dealer 360 (3.3)                 | ✅ Done: tiles, revenue trend, explainable Health Score (weights in the database), recommendations with evidence, timeline; `npm test` |
 | Dealer Copilot (3.2)             | ✅ Done: in-house question engine, answers from the 2-year data with evidence; `npm test` |
 | Sales Coach (3.8)                | Backend API done; screen pending                                |
-| Order Approvals (manufacturer)   | ✅ Done: dealers send orders to the manufacturer; the manufacturer login approves or rejects them (with a reason); the dealer then fulfils. Only the manufacturer login sees this tab; `npm test` |
+| Order Approvals (manufacturer)   | ✅ Done: the dealer sends an order request with quantities; the manufacturer approves it and sends a quote at catalogue prices (or rejects it with a reason); the dealer accepts or declines the quote, then fulfils. Only the manufacturer login sees this tab; `npm test` |
 
 ## More information
 

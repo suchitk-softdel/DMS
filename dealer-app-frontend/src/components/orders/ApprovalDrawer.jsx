@@ -25,6 +25,15 @@ import { formatCurrency, formatDate } from '@/lib/format'
 import { approveOrder, getNetworkOrder, rejectOrder } from '@/services/dataService'
 
 const MIN_REASON = 3
+// Status names from the order desk's point of view.
+const DESK_LABELS = {
+  submitted: 'Waiting for approval',
+  approved: 'Quoted',
+  accepted: 'Accepted by dealer',
+  declined: 'Declined by dealer',
+  rejected: 'Rejected',
+  fulfilled: 'Fulfilled',
+}
 
 /**
  * Manufacturer's view of one dealer order: dealer, customer, lines and total,
@@ -95,14 +104,26 @@ export default function ApprovalDrawer({ orderId, onClose, onDecided }) {
           {order && (
             <Stack spacing={3}>
               <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
-                <StatusChip status={order.status} label={order.status === 'submitted' ? 'Waiting for approval' : undefined} size="medium" />
+                <StatusChip status={order.status} label={DESK_LABELS[order.status]} size="medium" />
                 <Typography color="text.secondary">Sent {formatDate(order.createdAt)}</Typography>
               </Stack>
 
               {order.status === 'approved' && (
                 <Alert severity="success">
-                  Approved by {order.reviewedBy?.name ?? 'the order desk'}
-                  {order.reviewedAt ? ` on ${formatDate(order.reviewedAt)}` : ''}. The dealer will mark it fulfilled once installed.
+                  Quote sent by {order.reviewedBy?.name ?? 'the order desk'}
+                  {order.reviewedAt ? ` on ${formatDate(order.reviewedAt)}` : ''}. Waiting for the dealer to accept.
+                </Alert>
+              )}
+              {order.status === 'accepted' && (
+                <Alert severity="success">
+                  Accepted by {order.dealerRespondedBy?.name ?? 'the dealer'}
+                  {order.dealerRespondedAt ? ` on ${formatDate(order.dealerRespondedAt)}` : ''}. The dealer will fulfil it once installed.
+                </Alert>
+              )}
+              {order.status === 'declined' && (
+                <Alert severity="error">
+                  Declined by {order.dealerRespondedBy?.name ?? 'the dealer'}
+                  {order.dealerRespondedAt ? ` on ${formatDate(order.dealerRespondedAt)}` : ''}. Reason: {order.declineReason}
                 </Alert>
               )}
               {order.status === 'rejected' && (
@@ -181,6 +202,11 @@ export default function ApprovalDrawer({ orderId, onClose, onDecided }) {
                 </Table>
               </Box>
 
+              {order.status === 'submitted' && (
+                <Typography variant="body2" color="text.secondary">
+                  Approving sends the dealer a quote at these catalogue prices.
+                </Typography>
+              )}
               {actionError && <Alert severity="error">{actionError}</Alert>}
             </Stack>
           )}
@@ -193,7 +219,7 @@ export default function ApprovalDrawer({ orderId, onClose, onDecided }) {
             Reject
           </Button>
           <Button variant="contained" size="large" onClick={() => decide('approve')} loading={busy === 'approve'} disabled={Boolean(busy)}>
-            Approve order
+            Approve & send quote
           </Button>
         </Stack>
       )}

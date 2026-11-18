@@ -147,7 +147,7 @@ How they are built:
   - **residential:** one home system, about **$7,600** on average (e.g. a furnace with a thermostat and filter)
   - **commercial:** a project for a school, hospital, office or apartment block, about **$113,000** on average (5–50+ units per project, up to about $714K)
 - status follows the real flow:
-  - orders: `draft → submitted (sent to the manufacturer) → approved or rejected by the manufacturer → fulfilled by the dealer`
+  - orders: `draft → requested (quantities, sent to the manufacturer) → quoted by the manufacturer at catalogue prices (or rejected) → accepted (or declined) by the dealer → fulfilled by the dealer`
   - quotes: `draft → submitted → approved`
 - recent orders are still open (submitted or approved); older ones are fulfilled
 - **only fulfilled orders count as sales**

@@ -1,6 +1,6 @@
 import CancelOutlined from '@mui/icons-material/CancelOutlined'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
-import HourglassEmptyOutlined from '@mui/icons-material/HourglassEmptyOutlined'
+import RequestQuoteOutlined from '@mui/icons-material/RequestQuoteOutlined'
 import PendingActionsOutlined from '@mui/icons-material/PendingActionsOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import Alert from '@mui/material/Alert'
@@ -19,8 +19,6 @@ import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -39,41 +37,61 @@ import { getApprovalSummary, getNetworkOrders } from '@/services/dataService'
 // manufacturer, the order desk approves or rejects them with a reason, and the
 // dealer fulfils the approved ones.
 
-const QUEUES = [
-  { value: 'pending', label: 'Waiting' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'fulfilled', label: 'Fulfilled' },
-]
+// Status names from the order desk's point of view.
+const DESK_LABELS = { approved: 'Quoted', accepted: 'Accepted', declined: 'Declined by dealer', rejected: 'Rejected', fulfilled: 'Fulfilled' }
 const DAY_MS = 24 * 60 * 60 * 1000
 const daysWaiting = (date) => Math.floor((Date.now() - new Date(date)) / DAY_MS)
 
-function buildKpis(summary) {
-  const { pending, approvedRecent, rejectedRecent, recentDays } = summary
+// Each tile is a list: click it to show those orders below.
+function buildKpis(summary, queue, showQueue) {
+  const { pending, rejectedRecent, recentDays, counts } = summary
   return [
     {
       key: 'pending',
-      label: 'Waiting for approval',
+      label: 'Waiting',
       value: pending.count,
       accent: 'warning.main',
       icon: PendingActionsOutlined,
-      trend: { text: `${formatCurrency(pending.value, { compact: true })} in orders` },
-    },
-    {
-      key: 'oldest',
-      label: 'Oldest waiting',
-      icon: HourglassEmptyOutlined,
-      value: pending.oldestDays === null ? '—' : `${pending.oldestDays} ${pending.oldestDays === 1 ? 'day' : 'days'}`,
-      accent: 'error.main',
       trend:
         pending.oldestDays === null
           ? { text: 'Nothing waiting', tone: 'positive' }
-          : pending.oldestDays > 2
-            ? { text: 'Dealers are waiting', tone: 'negative', direction: 'down' }
-            : { text: 'Within 2 days', tone: 'positive' },
+          : {
+              text: `${formatCurrency(pending.value, { compact: true })} · oldest ${pending.oldestDays} ${pending.oldestDays === 1 ? 'day' : 'days'}`,
+              tone: pending.oldestDays > 2 ? 'negative' : 'neutral',
+            },
+      onClick: () => showQueue('pending'),
+      selected: queue === 'pending',
     },
-    { key: 'approved', label: `Approved (${recentDays} days)`, value: approvedRecent, accent: 'primary.main', icon: CheckCircleOutlined, trend: { text: 'orders approved' } },
-    { key: 'rejected', label: `Rejected (${recentDays} days)`, value: rejectedRecent, accent: 'secondary.main', icon: CancelOutlined, trend: { text: 'orders rejected' } },
+    {
+      key: 'approved',
+      label: 'Quoted',
+      value: counts.approved,
+      accent: 'primary.main',
+      icon: RequestQuoteOutlined,
+      trend: { text: 'Waiting for the dealer to accept' },
+      onClick: () => showQueue('approved'),
+      selected: queue === 'approved',
+    },
+    {
+      key: 'accepted',
+      label: 'Accepted',
+      value: counts.accepted,
+      accent: 'info.main',
+      icon: CheckCircleOutlined,
+      trend: { text: 'Confirmed · dealer will fulfil' },
+      onClick: () => showQueue('accepted'),
+      selected: queue === 'accepted',
+    },
+    {
+      key: 'closed',
+      label: 'Rejected / declined',
+      value: counts.closed,
+      accent: 'secondary.main',
+      icon: CancelOutlined,
+      trend: { text: `${rejectedRecent} in the last ${recentDays} days` },
+      onClick: () => showQueue('closed'),
+      selected: queue === 'closed',
+    },
   ]
 }
 
@@ -134,7 +152,7 @@ export default function OrderApprovals() {
     (order) => {
       toast(
         order.status === 'approved'
-          ? `${order.id} approved. ${order.dealer.name} can now fulfil it.`
+          ? `${order.id} approved. Quote sent to ${order.dealer.name}.`
           : `${order.id} rejected. ${order.dealer.name} will see the reason.`,
       )
       setRefresh((n) => n + 1)
@@ -143,8 +161,12 @@ export default function OrderApprovals() {
     [reloadSummary, toast],
   )
 
+  const showQueue = (value) => {
+    setQueue(value)
+    setPage(0)
+  }
+  const dealerName = summary?.dealers.find((d) => d.id === dealerId)?.name
   const pendingQueue = queue === 'pending'
-  const decided = queue === 'approved' || queue === 'rejected'
   const subtitle = summary ? `${summary.manufacturer.name}  ·  orders sent by your ${summary.dealers.length} dealers` : ''
 
   return (
@@ -153,26 +175,9 @@ export default function OrderApprovals() {
 
       <Stack spacing={3}>
         {summaryError && <Alert severity="error">{summaryError.message}</Alert>}
-        {summary && <KpiGrid items={buildKpis(summary)} columns={4} spacing={3} />}
+        {summary && <KpiGrid items={buildKpis(summary, queue, showQueue)} columns={4} spacing={3} />}
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap', rowGap: 2 }}>
-          <ToggleButtonGroup
-            exclusive
-            value={queue}
-            onChange={(_, v) => {
-              if (!v) return
-              setQueue(v)
-              setPage(0)
-            }}
-            aria-label="Queue"
-          >
-            {QUEUES.map((q) => (
-              <ToggleButton key={q.value} value={q.value} sx={{ px: 2.25, fontWeight: 600 }}>
-                {q.label}
-                {summary ? ` (${summary.counts[q.value]})` : ''}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
           <TextField
             select
             size="small"
@@ -194,12 +199,12 @@ export default function OrderApprovals() {
           </TextField>
           <TextField
             size="small"
-            placeholder="Search order, dealer or customer"
+            placeholder="Search order or dealer"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 220, maxWidth: { md: 360 } }}
             slotProps={{
-              htmlInput: { 'aria-label': 'Search order, dealer or customer' },
+              htmlInput: { 'aria-label': 'Search order or dealer' },
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
@@ -222,17 +227,19 @@ export default function OrderApprovals() {
           ) : (
             <>
               <TableContainer>
-                <Table sx={{ minWidth: 760 }}>
+                <Table sx={{ minWidth: 800, tableLayout: 'fixed' }}>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: 'grey.50' }}>
-                      <TableCell sx={{ fontWeight: 600 }}>Order ID</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Dealer</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    <TableRow>
+                      <TableCell sx={{ width: '16%' }}>Order ID</TableCell>
+                      <TableCell sx={{ width: '29%' }}>Dealer</TableCell>
+                      <TableCell sx={{ width: '14%' }}>Date</TableCell>
+                      <TableCell align="right" sx={{ width: '11%' }}>
+                        Quantity
+                      </TableCell>
+                      <TableCell align="right" sx={{ width: '14%' }}>
                         Amount
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Sent</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{pendingQueue ? 'Waiting' : decided ? 'Decision' : 'Status'}</TableCell>
+                      <TableCell sx={{ width: '16%', pl: 4 }}>{pendingQueue ? 'Waiting' : 'Status'}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -256,27 +263,29 @@ export default function OrderApprovals() {
                           <TableCell>
                             <NameWithInitial name={o.dealer.name} secondary={`${o.dealer.city}, ${o.dealer.state}`} />
                           </TableCell>
-                          <TableCell>{o.customer.name}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(o.createdAt)}</TableCell>
+                          <TableCell align="right">
+                            {o.units} {o.units === 1 ? 'unit' : 'units'}
+                          </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600 }}>
                             {formatCurrency(o.total)}
                           </TableCell>
-                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(o.createdAt)}</TableCell>
-                          <TableCell>
+                          <TableCell sx={{ pl: 4 }}>
                             {pendingQueue ? (
                               <Typography sx={{ fontWeight: 700, color: waited > 2 ? 'error.main' : 'text.primary' }}>
                                 {waited} {waited === 1 ? 'day' : 'days'}
                               </Typography>
                             ) : (
                               <Box>
-                                <StatusChip status={o.status} sx={{ fontWeight: 600 }} />
-                                {o.reviewedAt && (
+                                <StatusChip status={o.status} label={DESK_LABELS[o.status]} sx={{ fontWeight: 600 }} />
+                                {(o.dealerRespondedAt ?? o.reviewedAt) && (
                                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                    {formatDate(o.reviewedAt)}
+                                    {formatDate(o.dealerRespondedAt ?? o.reviewedAt)}
                                   </Typography>
                                 )}
-                                {o.rejectionReason && (
-                                  <Typography variant="body2" color="error.main" sx={{ mt: 0.5 }}>
-                                    {o.rejectionReason}
+                                {(o.rejectionReason ?? o.declineReason) && (
+                                  <Typography variant="body2" color="error.main" sx={{ mt: 0.5 }} noWrap title={o.rejectionReason ?? o.declineReason}>
+                                    {o.rejectionReason ?? o.declineReason}
                                   </Typography>
                                 )}
                               </Box>
@@ -291,7 +300,15 @@ export default function OrderApprovals() {
               {!loading && list.items.length === 0 && (
                 <EmptyState
                   title={pendingQueue ? 'Nothing waiting' : 'No orders here'}
-                  message={pendingQueue ? 'Every order from your dealers has been decided.' : 'Try another dealer or search.'}
+                  message={
+                    search
+                      ? 'No orders match your search.'
+                      : dealerName
+                        ? `No ${pendingQueue ? 'orders waiting' : 'orders here'} from ${dealerName}.`
+                        : pendingQueue
+                          ? 'Every order from your dealers has been decided.'
+                          : 'Try another dealer or search.'
+                  }
                 />
               )}
               <TablePagination

@@ -93,30 +93,32 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 **Do:** click **+ New Order** →
 - Customer: type `Hillcrest` → choose **Hillcrest Office Park**
 - Product: choose **HP-C15-36** (Comfort 15 SEER2 Heat Pump, 3 Ton), quantity **5**
-- Point at the running total → click **Send to manufacturer**
+- Note: no prices are shown, the dealer only asks for quantities → click **Send request**
 
-**Show:** the order opens with status **Submitted**: "Sent to manufacturer · Waiting for the manufacturer to approve this order". There's no Approve button for the dealer.
+**Show:** the order opens as **Requested**: "Waiting for the manufacturer to approve this request and send a quote". The list shows **Awaiting quote** instead of an amount.
 
 **Say:**
-> "The dealer can create the order, but only the manufacturer can approve it. Prices come from the manufacturer's catalogue."
+> "The dealer sends what it needs: products and quantities. The manufacturer approves the request and replies with a quote at its catalogue prices."
 
 ### 4b. Manufacturer approves
 **Do:** log out → click **Manufacturer** → **Sign in**.
 
 **Show:**
 - The manufacturer sees **only Order Approvals**, no dealer data.
-- Tiles: orders waiting (count and value), oldest waiting, approved and rejected in the last 30 days.
-- The waiting list from **all dealers**, oldest first. The new Summit order is in it.
+- Tiles (click one to show that list): **Waiting** (value, oldest), **Quoted** (waiting for the dealer), **Accepted**, **Rejected / declined**.
+- The waiting list from **all dealers**, oldest first. The new Summit request is in it.
 
-**Do:** open the new order → show the dealer, end customer and lines → click **Approve order**.
+**Do:** open the new request → show the dealer, quantities and the catalogue prices → click **Approve & send quote**.
 
 *(Optional: open another order → **Reject** → pick "Out of stock" to show that a reason is required. Cancel, or reject it to show the dealer side later.)*
 
 **Say:**
-> "Aerovance's order desk sees every order from its dealer network in one place, approves or rejects it, and gives the dealer a reason when it says no."
+> "Aerovance's order desk sees every request from its dealer network in one place. Approving sends the dealer a quote at catalogue prices; rejecting gives the dealer a reason."
 
-### 4c. Dealer fulfils, and revenue updates
-**Do:** log out → **Principal** → **Orders & Quotes** → open the order (now **Approved**: "Approved by Olivia Bennett") → **Mark fulfilled** → **Confirm**.
+### 4c. Dealer accepts the quote, fulfils, and revenue updates
+**Do:** log out → **Principal** → **Orders & Quotes** (banner: "1 manufacturer quote is waiting for you") → open the order (now **Quoted**: "Quote received from Olivia Bennett", with prices and the quote total) → **Accept quote** → **Mark fulfilled** → **Confirm**.
+
+*(Optional: on another quote click **Decline** and pick a reason, e.g. "Price too high". The manufacturer sees it under Rejected / declined.)*
 
 **Do:** go to **Home**.
 
@@ -153,7 +155,7 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 | Is the data real? | It's realistic demo data for one manufacturer and 6 dealers over 2 years, created once and linked like real records. The calculations on it are live. |
 | What happens to new orders? | They're saved and immediately update revenue, dashboards, Health Score, forecast and incentives, using the same logic as the historical data. |
 | Can the manufacturer change the Health Score weights? | Yes. They're stored per manufacturer in the database, so no code change is needed. |
-| Who approves orders? | The manufacturer's order desk. Dealers create and fulfil; they can't approve their own orders. |
+| Who approves orders? | The manufacturer's order desk approves the dealer's request and sends a quote at catalogue prices. The dealer accepts (or declines) the quote, then fulfils. Dealers can't approve their own orders. |
 | What if the manufacturer rejects an order? | The dealer sees the reason and can copy the order to a new draft, fix it and send it again. |
 | Why is November low on the chart? | The month isn't over; the demo data runs to 15 Nov. |
 | Why are 2024 sales so low? | The data starts in November 2024, so 2024 only covers two months. Compare 2025 with 2026, or use the last 12 months. |

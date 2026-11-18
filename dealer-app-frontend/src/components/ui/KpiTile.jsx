@@ -61,13 +61,40 @@ function Sparkline({ values, color }) {
  *         Direction and tone are separate because "down" can be good
  *         (e.g. fewer stock-outs).
  * sparkline: recent values, oldest first (e.g. monthly revenue).
+ * onClick / selected: makes the tile a filter button (e.g. "show the waiting
+ *         orders"); the selected tile gets an outline in its accent colour.
  */
-export default function KpiTile({ label, value, accent = 'primary.main', icon: Icon, trend, sparkline }) {
+export default function KpiTile({ label, value, accent = 'primary.main', icon: Icon, trend, sparkline, onClick, selected = false }) {
   const theme = useTheme()
   const color = themeColor(theme, accent)
+  const clickable = typeof onClick === 'function'
 
   return (
-    <Card sx={{ height: '100%', position: 'relative', overflow: 'hidden', borderLeft: 4, borderLeftColor: accent }}>
+    <Card
+      component={clickable ? 'button' : 'div'}
+      type={clickable ? 'button' : undefined}
+      onClick={onClick}
+      aria-pressed={clickable ? selected : undefined}
+      sx={{
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        borderLeft: 4,
+        borderLeftColor: accent,
+        textAlign: 'left',
+        font: 'inherit',
+        color: 'inherit',
+        p: 0,
+        ...(clickable && {
+          cursor: 'pointer',
+          transition: 'box-shadow 150ms ease, transform 150ms ease',
+          '&:hover': { boxShadow: '0 2px 4px rgba(22, 27, 75, 0.06), 0 8px 24px rgba(22, 27, 75, 0.10)', transform: 'translateY(-1px)' },
+          '&:focus-visible': { outline: `3px solid ${alpha(color, 0.4)}`, outlineOffset: 2 },
+        }),
+        ...(selected && { boxShadow: `0 0 0 2px ${color}, 0 8px 24px ${alpha(color, 0.18)}` }),
+      }}
+    >
       <Box sx={{ px: 3, pt: 2.75, pb: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
           <Typography
