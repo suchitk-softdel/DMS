@@ -38,7 +38,7 @@ export default function AcceptQuoteDialog({ open, quote, busy = false, error = n
       </DialogTitle>
       <DialogContent>
         <Typography color="text.secondary" sx={{ mb: 2.5 }}>
-          Record how {quote?.customer.name} accepted this quote. It is saved on the quote as proof.
+          Record how {quote?.customer?.name ?? 'the customer'} accepted this quote. It is saved on the quote as proof.
         </Typography>
         <Stack spacing={2.5}>
           <div>

@@ -27,6 +27,8 @@ const RELATIVE_BEFORE = / (?:the )?(?:year before|before that|year earlier|one y
 
 export const SPECIAL_KEYWORDS = {
   coverage: ['years of data', 'year of data', 'months of data', 'how much data', 'data do we have', 'data do i have', 'data range', 'date range', 'data available', 'data from', 'how far back', 'how old is the data', 'since when', 'first order', 'oldest order', 'oldest data', 'historical data', 'history of data', 'data period', 'data coverage', 'latest data', 'last updated'],
+  // After "coverage" (data range), so "data coverage" stays a data question.
+  territory: ['territory', 'territory coverage', 'coverage', 'market coverage', 'area covered', 'areas covered', 'how much of my area', 'assigned area', 'my area', 'covered area'],
   // Checked before "forecast", which also reacts to the word "stock".
   stock: ['stock of', 'stock for', 'inventory of', 'inventory for', 'left in stock', 'how many left', 'in stock', 'on hand', 'stock level', 'stock levels', 'inventory value', 'stock value', 'how much stock', 'current stock', 'stock on hand', 'inventory level', 'inventory levels', 'inventory status', 'have in stock', 'stock position', 'units in stock'],
   price: ['price', 'prices', 'pricing', 'list price', 'priced', 'cheapest', 'most expensive', 'how much does', 'price list', 'catalogue', 'catalog', 'cost of a', 'cost of the'],

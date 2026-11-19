@@ -221,6 +221,28 @@ describe('Unrelated questions never repeat the previous answer', () => {
   })
 })
 
+describe('Common misspellings', () => {
+  test('misspelled "revenue" is read as revenue, not "review"', async () => {
+    for (const question of ['what is reviewne?', 'revinue last year', 'what is my revenu']) {
+      const answer = await ask('d-1001', question)
+      assert.ok(answer.understood.startsWith('Sales'), `${question}: ${answer.understood}`)
+    }
+  })
+})
+
+describe('Territory coverage', () => {
+  test('answers the dealer coverage, the same as the Dealer 360 tile', async () => {
+    const dealer = await prisma.dealer.findUnique({ where: { id: 'd-1001' } })
+    const pct = Math.round(dealer.territoryCoverage * 100)
+    for (const question of ['What is my territory coverage?', 'coverage']) {
+      const answer = await ask('d-1001', question)
+      assert.equal(answer.understood, 'Territory coverage', question)
+      assert.ok(answer.text.startsWith(`Your territory coverage is ${pct}%`), answer.text)
+    }
+    assert.equal((await ask('d-1001', 'data coverage')).understood, 'Data coverage')
+  })
+})
+
 describe('No guessing from filler words', () => {
   test('a question with no known topic word is not answered with sales', async () => {
     for (const question of ['how many tables are there in the database?', 'what is in the system?', 'how many are there']) {

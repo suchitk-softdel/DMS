@@ -5,6 +5,12 @@
 const ABBREVIATIONS = {
   yr: 'year', yrs: 'years', mth: 'month', mths: 'months', qtr: 'quarter', qty: 'quantity', amt: 'amount',
   rev: 'revenue', cust: 'customer', custs: 'customers', prev: 'previous', thru: 'through',
+  // Common misspellings that are closer to another known word than to the
+  // intended one (e.g. "reviewne" is 2 letters from "review", 3 from "revenue").
+  reviewne: 'revenue', reveiwne: 'revenue', revinue: 'revenue', revenu: 'revenue', reveune: 'revenue',
+  reveneu: 'revenue', revnue: 'revenue', revanue: 'revenue', revenew: 'revenue', revenvue: 'revenue',
+  reviewnue: 'revenue', revienue: 'revenue', reveneue: 'revenue', reveenue: 'revenue',
+  helath: 'health', healh: 'health', heatlh: 'health',
 }
 
 export function normalize(text) {

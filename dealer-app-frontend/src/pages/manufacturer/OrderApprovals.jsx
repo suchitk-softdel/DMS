@@ -109,6 +109,14 @@ export default function OrderApprovals() {
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedOrder = searchParams.get('order')
   const shownOrderId = openOrderId ?? linkedOrder
+  // ?search=… from the top-bar search fills this page's search box.
+  const urlSearch = searchParams.get('search')
+  const [appliedUrlSearch, setAppliedUrlSearch] = useState(null)
+  if (urlSearch !== null && urlSearch !== appliedUrlSearch) {
+    setAppliedUrlSearch(urlSearch)
+    setSearchInput(urlSearch)
+  }
+
   const closeOrder = () => {
     setOpenOrderId(null)
     if (linkedOrder) setSearchParams({}, { replace: true })
