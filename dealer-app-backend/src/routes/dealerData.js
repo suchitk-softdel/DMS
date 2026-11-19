@@ -9,7 +9,7 @@ import {
 } from '../constants/domain.js'
 import { requireAuth, requireDealer, requireModule } from '../middlewares/auth.js'
 import { getDealer, listCustomers, listProducts } from '../services/catalogService.js'
-import { createClaim, listClaims, listRegistrations, updateClaimStage } from '../services/claimService.js'
+import { createClaim, getClaimsSummary, listClaims, listRegistrations } from '../services/claimService.js'
 import { askCopilot } from '../services/copilotService.js'
 import { getDealer360 } from '../services/dealer360Service.js'
 import { getHomeSummary } from '../services/homeService.js'
@@ -148,6 +148,11 @@ dealerDataRouter.get('/inventory', requireModule(MODULES.INVENTORY), async (req,
 })
 
 // Warranty & Claims (SRS 3.7) -------------------------------------------------
+// Board tiles: open claims, average resolution time, approval rate (FR-WAR-4).
+dealerDataRouter.get('/claims/summary', requireModule(MODULES.WARRANTY), async (req, res) => {
+  res.json(await getClaimsSummary(req.user.dealerId))
+})
+
 dealerDataRouter.get('/claims', requireModule(MODULES.WARRANTY), async (req, res) => {
   res.json(
     await listClaims(req.user.dealerId, { stage: optionalEnum(req.query.stage, CLAIM_STAGES, 'stage') }),
@@ -163,11 +168,6 @@ dealerDataRouter.post('/claims', requireModule(MODULES.WARRANTY), async (req, re
     description: requiredString(body.description, 'description', { maxLength: 500 }),
   })
   res.status(201).json(claim)
-})
-
-// Move a claim to its next kanban stage. Body: { stage }
-dealerDataRouter.patch('/claims/:id/stage', requireModule(MODULES.WARRANTY), async (req, res) => {
-  res.json(await updateClaimStage(req.user, req.params.id, requiredEnum(req.body?.stage, CLAIM_STAGES, 'stage')))
 })
 
 // Registered units (to pick the unit a claim is for). ?search=serial or customer

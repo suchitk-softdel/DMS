@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import AddCommentOutlinedIcon from '@mui/icons-material/AddCommentOutlined'
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
-import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import SendRoundedIcon from '@mui/icons-material/SendRounded'
@@ -73,12 +72,6 @@ const TOPICS = [
     module: MODULES.INCENTIVES,
     questions: ['Which incentive am I closest to?', 'How is my training going?', 'What is my health score?'],
   },
-  {
-    title: 'Sales pipeline',
-    icon: HandshakeOutlinedIcon,
-    module: MODULES.SALES_COACH,
-    questions: ['Show my sales pipeline', 'What is my win rate?'],
-  },
 ]
 
 // Side panel (scrollable). Each prompt is only shown if the role can see that
@@ -105,7 +98,6 @@ const SUGGESTED_PROMPTS = [
   { text: 'How many units did we install last year?', module: MODULES.WARRANTY },
   { text: 'What is the average claim amount?', module: MODULES.WARRANTY },
   { text: 'What is the price of FN-H96-80?', module: MODULES.HOME },
-  { text: 'Show my sales pipeline', module: MODULES.SALES_COACH },
   { text: 'How is my training going?', module: MODULES.INCENTIVES },
   { text: 'Which incentive am I closest to?', module: MODULES.INCENTIVES },
   { text: 'How many years of data do we have?', module: MODULES.HOME },

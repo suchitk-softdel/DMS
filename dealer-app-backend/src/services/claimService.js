@@ -1,8 +1,10 @@
-import { CLAIM_TRANSITIONS } from '../constants/domain.js'
+import { CLAIM_AGING_DAYS, CLAIM_STAGES } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
-import { badRequest, notFound } from '../utils/httpError.js'
-import { daysSince } from '../utils/query.js'
+import { badRequest } from '../utils/httpError.js'
+import { DAY_MS } from '../utils/query.js'
 import { logAudit } from './auditLog.js'
+
+const OPEN_STAGES = ['submitted', 'underReview']
 
 const CLAIM_INCLUDE = {
   product: { select: { id: true, sku: true, name: true } },
@@ -11,10 +13,12 @@ const CLAIM_INCLUDE = {
 
 const toClaimView = ({ dealerId: _d, productId: _p, customerId: _c, ...claim }, now = new Date()) => ({
   ...claim,
-  ageDays: daysSince(claim.stageChangedAt, now),
+  // Whole days, rounded up (as in Dealer 360): "more than 10 days" never shows as "10d".
+  ageDays: Math.max(0, Math.ceil((now - claim.stageChangedAt) / DAY_MS)),
 })
 
-// Warranty claims for one dealer (SRS 3.7). `ageDays` is the number of days
+// Warranty claims for one dealer (SRS 3.7). The dealer submits and tracks
+// claims; the decision (approve, reject, reimburse) is the manufacturer's. `ageDays` is the number of days
 // in the current stage, shown on each kanban card (FR-WAR-3).
 export async function listClaims(dealerId, { stage }) {
   const rows = await prisma.claim.findMany({
@@ -87,27 +91,37 @@ export async function createClaim(user, input) {
   return toClaimView(claim, now)
 }
 
-// Moves a claim to its next kanban stage (FR-WAR-2).
-export async function updateClaimStage(user, claimId, stage) {
-  const claim = await prisma.claim.findFirst({ where: { id: claimId, dealerId: user.dealerId } })
-  if (!claim) throw notFound('Claim not found.')
-  const allowed = CLAIM_TRANSITIONS[claim.stage] ?? []
-  if (!allowed.includes(stage)) {
-    throw badRequest(
-      allowed.length
-        ? `A claim in ${claim.stage} can only move to: ${allowed.join(', ')}.`
-        : `A ${claim.stage} claim cannot be changed.`,
-    )
+// Summary tiles for the Warranty board (FR-WAR-4). Resolution time and
+// approval rate use claims decided in the last 12 months, so old history does
+// not hide recent changes.
+//   openClaims: Submitted + Under Review; aging: of those, more than 10 days in the stage
+//   avgResolutionDays: average days from filing to the decision (approved, reimbursed or rejected)
+//   approvalRate: approved or reimbursed / all decided claims (0..1)
+export async function getClaimsSummary(dealerId, now = new Date()) {
+  const yearAgo = new Date(now)
+  yearAgo.setUTCFullYear(yearAgo.getUTCFullYear() - 1)
+  const agingBefore = new Date(now.getTime() - CLAIM_AGING_DAYS * DAY_MS)
+  const [groups, aging, decided] = await Promise.all([
+    prisma.claim.groupBy({ by: ['stage'], where: { dealerId }, _count: { _all: true } }),
+    prisma.claim.count({ where: { dealerId, stage: { in: OPEN_STAGES }, stageChangedAt: { lt: agingBefore } } }),
+    prisma.claim.findMany({
+      where: { dealerId, stage: { in: ['approved', 'reimbursed', 'rejected'] }, resolvedAt: { gte: yearAgo, lte: now } },
+      select: { stage: true, filedAt: true, resolvedAt: true },
+    }),
+  ])
+  const counts = Object.fromEntries(CLAIM_STAGES.map((stage) => [stage, 0]))
+  for (const g of groups) counts[g.stage] = g._count._all
+  const approved = decided.filter((c) => c.stage !== 'rejected').length
+  const days = decided.reduce((sum, c) => sum + (c.resolvedAt - c.filedAt) / DAY_MS, 0)
+
+  return {
+    counts,
+    openClaims: counts.submitted + counts.underReview,
+    aging,
+    agingDays: CLAIM_AGING_DAYS,
+    decided: decided.length,
+    rejected: decided.length - approved,
+    avgResolutionDays: decided.length ? Math.round((days / decided.length) * 10) / 10 : null,
+    approvalRate: decided.length ? Math.round((approved / decided.length) * 1000) / 1000 : null,
   }
-
-  const now = new Date()
-  const resolved = stage === 'reimbursed' || stage === 'rejected'
-  const updated = await prisma.claim.update({
-    where: { id: claim.id },
-    data: { stage, stageChangedAt: now, ...(resolved && { resolvedAt: now }) },
-    include: CLAIM_INCLUDE,
-  })
-
-  await logAudit({ userId: user.id, action: 'claim.stage', entity: 'Claim', entityId: claim.id, details: { from: claim.stage, to: stage } })
-  return toClaimView(updated, now)
 }
