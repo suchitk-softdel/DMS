@@ -1,6 +1,6 @@
 # Demo Script: Dealers App
 
-A 10-minute walkthrough for a client demo: what to click and what to say at each step.
+An 11-minute walkthrough for a client demo: what to click and what to say at each step.
 
 **Story:** Summit Comfort Heating & Air, a Platinum dealer in Denver, runs its business in the app. Its manufacturer, Aerovance Climate Systems, approves the orders Summit sends.
 
@@ -19,14 +19,14 @@ A 10-minute walkthrough for a client demo: what to click and what to say at each
 3. Open **http://localhost:5173** in Chrome, go full screen (**F11**) and zoom to about **110%**.
 4. Keep this page open on a second screen or printed.
 
-**Logins** (password `demo123` for all; the buttons on the login page fill them in):
+**Logins** (password `demo123` for all; the **Dealer** and **Manufacturer** buttons on the login page fill them in, the other two are typed):
 
-| Button | User | Shows |
+| Login | User | Shows |
 |---|---|---|
-| Principal | `principal@demo.com` | Dealer owner: every dealer screen |
-| Sales Rep | `sales@demo.com` | Dealer sales: no Dealer 360 |
-| Technician | `tech@demo.com` | Dealer service: no sales figures |
-| Manufacturer | `manufacturer@demo.com` | Aerovance order desk: Order Approvals only |
+| **Dealer** button | `principal@demo.com` | Dealer owner: Home, Copilot, Dealer 360, Orders, Inventory, Warranty |
+| typed | `sales@demo.com` | Dealer sales: no Dealer 360, no Warranty |
+| typed | `tech@demo.com` | Dealer service: Home, Copilot, Warranty; no sales figures |
+| **Manufacturer** button | `manufacturer@demo.com` | Aerovance order desk: Order Approvals only |
 
 > Figures on screen are calculated live. Some (this month, Health Score) change slightly with today's date; the 2025 figures below stay the same.
 
@@ -34,7 +34,7 @@ A 10-minute walkthrough for a client demo: what to click and what to say at each
 
 ## 1. Login and Home (1 minute)
 
-**Do:** click **Principal** → **Sign in**.
+**Do:** click **Dealer** → **Sign in**.
 
 **Show:**
 - The greeting with the dealer name, tier and region.
@@ -55,7 +55,7 @@ A 10-minute walkthrough for a client demo: what to click and what to say at each
 |---|---|
 | `What were my total sales last year?` | A direct answer: Summit's 2025 sales, **$6,314,069** |
 | `by month` | **Follow-up:** it remembers "sales in 2025" and breaks it down by month, with a chart |
-| `Top 5 customers by sales this year` | A table and bar chart with share bars |
+| `Top 5 products by sales this year` | A table and bar chart with share bars |
 | `How many furnaces are in stock?` | Stock on hand, at-risk items, and a button to Inventory |
 | `What is my health score?` | The score with its 4 components and evidence |
 
@@ -76,7 +76,7 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 - **Tiles:** Revenue (12 months), Growth, Health Score, Territory Coverage.
 - **Revenue Trend:** switch **6M / 12M / 24M**; hover a month to compare with the same month last year. July is the AC-season peak; November is "to date".
 - **Health Score Breakdown:** 4 weighted components, each with the reason behind its score.
-- **AI Recommendations:** e.g. reorder furnaces, resolve an aging claim, help team members finish training, win back customers. Each has evidence and a button.
+- **AI Recommendations:** e.g. reorder furnaces, resolve aging claims, help team members finish training. Each has evidence and a button.
 
 **Say:**
 > "Dealer 360 explains performance, not just shows it. The Health Score is broken into four parts so the dealer knows exactly why it's 77 and what to do about it. The weights are set by the manufacturer in the database, without any code change."
@@ -115,7 +115,7 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 > "Aerovance's order desk sees every request from its dealer network in one place. Approving sends the dealer a quote at catalogue prices; rejecting gives the dealer a reason."
 
 ### 4c. Dealer accepts the quote, fulfils, and revenue updates
-**Do:** log out → **Principal** → **Orders** (banner: "1 manufacturer quote is waiting for you") → open the order (now **Quoted**: "Quote received from Olivia Bennett", with prices and the quote total) → **Accept quote** → **Mark fulfilled** → **Confirm**.
+**Do:** log out → **Dealer** → **Orders** (banner: "1 manufacturer quote is waiting for you") → open the order (now **Quoted**: "Quote received from Olivia Bennett", with prices and the quote total) → **Accept quote** → **Mark fulfilled** → **Confirm**.
 
 *(Optional: on another quote click **Decline** and pick a reason, e.g. "Price too high". The manufacturer sees it under Rejected / declined.)*
 
@@ -128,21 +128,36 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 
 ---
 
-## 5. Role-based access (30 seconds, optional)
+## 5. Inventory and Warranty (1 minute)
 
-**Do:** log in as **Technician**.
+**Do:** open **Inventory**.
 
-**Show:** the menu has no Orders or Dealer 360, and the Home tiles show no revenue.
+**Show:** the product list with price, on hand, on order and reorder point. Filter **Stock → Low stock** (e.g. FN-H96-80) and **Out of stock** (FN-S80-80). Search `furnace`.
+
+**Do:** open **Warranty**.
+
+**Show:** the tiles (**Open Claims**, with the aging count; **Avg. Resolution**; **Approval Rate**) and the board: Submitted → Under Review → Approved → Reimbursed. Claims waiting more than 10 days have a red border and are on top. Hover a card to see the product.
+
+**Say:**
+> "Inventory shows the dealer's stock at a glance, with low and out-of-stock products flagged. Warranty tracks every claim through the manufacturer's process: the dealer follows it here, and the manufacturer makes the decision."
+
+---
+
+## 6. Role-based access (30 seconds, optional)
+
+**Do:** log out → type `tech@demo.com` / `demo123` → **Sign in**.
+
+**Show:** the menu has only Home, Copilot and Warranty, and the Home tiles show no revenue.
 
 **Say:**
 > "Each user sees only what their role allows. This is enforced in the backend as well, not just hidden in the menu."
 
 ---
 
-## 6. Close (30 seconds)
+## 7. Close (30 seconds)
 
 **Say:**
-> "Everything you've seen runs on two years of connected demo data: about 1,000 orders, 6,400 warranty registrations and 100 claims, all linked from claim back to order, customer, dealer and manufacturer. It's covered by 70 automated tests. Next we're building Warranty & Claims, Inventory, Incentives & Training and Sales Coach."
+> "Everything you've seen runs on two years of connected demo data: about 1,000 orders, 6,400 warranty registrations and 100 claims, all linked from claim back to order, customer, dealer and manufacturer. It's covered by 74 automated tests."
 
 ---
 

@@ -134,10 +134,10 @@ request.
 | GET    | `/dealer360`                 | dealer360     | Dealer 360 page in one call: tiles, 24-month revenue trend, Health Score breakdown, recommendations with evidence, timeline |
 | GET    | `/sales`                     | dealer360     | Monthly sales per product; `from`, `to` (YYYY-MM) |
 | GET    | `/sales/monthly`             | dealer360     | Monthly totals; `from`, `to`                    |
-| GET    | `/inventory`                 | inventory     | Stock per product                               |
-| GET    | `/claims`                    | warranty      | Claims with `ageDays`; filter `stage`           |
+| GET    | `/inventory`                 | inventory     | Product list with price and stock               |
+| GET    | `/claims`                    | warranty      | Claims with `ageDays` (days in stage); filter `stage` |
+| GET    | `/claims/summary`            | warranty      | Open claims, aging, avg. resolution, approval rate |
 | POST   | `/claims`                    | warranty      | File a claim `{ registrationId, amount, description }` |
-| PATCH  | `/claims/:id/stage`          | warranty      | Next kanban stage `{ stage }`                   |
 | GET    | `/registrations`             | warranty      | Registered units; `search` (serial or customer) |
 | GET    | `/incentives`                | incentives    | Programs, progress, next milestone, peer rank   |
 | GET    | `/training`                  | incentives    | Courses, upcoming events, certifications        |
@@ -259,15 +259,12 @@ each answer against values calculated independently from the raw orders and clai
 | ------------------------------- | ------------------------------------------------------------------------ |
 | Forecast and reorder (FR-INV)   | Same month last year × the dealer's unit growth, compared with stock (`forecastService.js`) |
 | Health Score (FR-D360-3, 6)     | Weighted score from revenue growth, order velocity, warranty compliance and training (`healthScoreService.js`). Weights are stored per manufacturer in the `HealthScoreWeight` table (default 30 / 25 / 25 / 20) and can be changed there without a code change |
-| Order Insight (FR-ORD-5)        | For an open quote D days old: of the dealer's past quotes still open at D days, the share approved later (falls back to the whole network with fewer than 20). Shown with those numbers (`orderInsightService.js`) |
-| Dealer 360 recommendations (FR-D360-4) | Rules over the dealer's data (aging claims, unfinished training, open quotes, lapsed customers, stock-out risk), each tied to a Health Score component with its evidence, ordered by how many points that component is missing (`dealer360Service.js`) |
+| Dealer 360 recommendations (FR-D360-4) | Rules over the dealer's data (aging claims, unfinished training, stock-out risk), each tied to a Health Score component with its evidence, ordered by how many points that component is missing (`dealer360Service.js`) |
 | Home insight (FR-HOME-3)        | Rules over the dealer's data, e.g. stock-out risk, aging claims (`homeService.js`) |
-| Sales Coach (FR-SC-1 to 3)      | Planned: rules and scoring over opportunity, customer and product data   |
+| Sales Coach (FR-SC-1 to 5)      | Removed from the app by project decision (customer-based); opportunity data and API kept |
 
 ## Not done yet
 
-- **More write endpoints:** approve reorders, invite to training. The frontend doesn't call the
-  new order and claim endpoints yet.
-- **Sales Coach AI** (FR-SC-1 to 3).
-- **Tests:** `npm test` covers the Copilot and Dealer 360; other endpoints were checked with smoke-test scripts.
+- **Warranty claim form:** `POST /claims` exists, but the Warranty screen is view only (no form or photo upload yet).
+- **Tests:** `npm test` (74) covers the Copilot, Dealer 360, orders and manufacturer approval; other endpoints were checked with smoke-test scripts.
 - **Login hardening:** rate limiting on `/auth/login`.

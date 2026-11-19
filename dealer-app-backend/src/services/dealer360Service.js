@@ -132,23 +132,18 @@ async function agingClaimsRule(dealerId, now) {
 async function trainingRule(dealerId) {
   const rows = await prisma.trainingProgress.findMany({
     where: { user: { dealerId } },
-    select: { completedAt: true, userId: true, user: { select: { role: { select: { name: true } } } } },
+    select: { completedAt: true, userId: true },
   })
   const open = rows.filter((row) => !row.completedAt)
   if (!open.length) return null
-  const people = new Map(open.map((row) => [row.userId, row.user.role.name]))
-  const byRole = new Map()
-  for (const role of people.values()) byRole.set(role, (byRole.get(role) ?? 0) + 1)
+  const people = new Set(open.map((row) => row.userId))
   const done = rows.length - open.length
   return {
     key: 'training',
     component: 'trainingCompletion',
     title: `Help ${plural(people.size, 'team member')} finish training`,
     detail: `${plural(open.length, 'assigned course is', 'assigned courses are')} not finished yet. Completed courses raise Training Completion and count toward the Certified Dealer Bonus.`,
-    evidence: [
-      `${done} of ${rows.length} assigned courses completed (${Math.round((done / rows.length) * 100)}%)`,
-      [...byRole.entries()].map(([role, count]) => `${role}: ${count}`).join(', '),
-    ],
+    evidence: [`${done} of ${rows.length} assigned courses completed (${Math.round((done / rows.length) * 100)}%)`],
     action: { label: 'View Training', module: MODULES.INCENTIVES },
   }
 }

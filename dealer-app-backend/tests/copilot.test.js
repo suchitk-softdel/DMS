@@ -206,7 +206,7 @@ describe('Unrelated questions never repeat the previous answer', () => {
     const profit = await ask('d-1001', 'what was my profit last year')
     const users = await ask('d-1001', 'how much user are there?', ALL_MODULES, profit.context)
     assert.equal(users.understood, 'Users · your dealership')
-    assert.equal(users.text, `Summit Comfort Heating & Air has ${await prisma.user.count({ where: { dealerId: 'd-1001' } })} users in the Dealer App: ${users.text.split(': ')[1]}`)
+    assert.equal(users.text, `Summit Comfort Heating & Air has ${await prisma.user.count({ where: { dealerId: 'd-1001' } })} users in the Dealer App.`)
 
     const dealers = await ask('d-1001', 'how many delaersa re there?', ALL_MODULES, profit.context)
     assert.equal(dealers.understood, 'Dealer network')
@@ -232,8 +232,10 @@ describe('No guessing from filler words', () => {
   test('roles are answered from the database', async () => {
     const answer = await askCopilot({ id: null, dealerId: 'd-1001', roleId: 'principal', permissions: ALL_MODULES }, 'how many roles are there in database?', null, NOW)
     assert.equal(answer.understood, 'User roles')
-    assert.ok(answer.text.startsWith(`There are ${await prisma.role.count()} roles`), answer.text)
-    assert.match(answer.text, /Your role is Dealer Principal/)
+    assert.ok(answer.text.startsWith('There are 2 account types'), answer.text)
+    assert.match(answer.text, /signed in as a Dealer/)
+    const users = await prisma.user.count({ where: { dealerId: 'd-1001' } })
+    assert.deepEqual(answer.table.rows[0].slice(0, 2), ['Dealer (you)', users])
   })
 })
 

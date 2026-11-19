@@ -372,7 +372,7 @@ export function unknownAnswer(can) {
 
 export function noAccessAnswer(what) {
   return {
-    text: `Your role doesn't have access to ${what}, so I can't answer that. Please ask your Dealer Principal.`,
+    text: `Your account doesn't have access to ${what}, so I can't answer that.`,
     evidence: [],
     actions: [],
     suggestions: [],
@@ -384,17 +384,19 @@ export function noAccessAnswer(what) {
 // Team, dealer network and customer list
 // ---------------------------------------------------------------------------
 
-const ROLE_NAMES = { principal: 'Dealer Principal', salesRep: 'Sales Representative', technician: 'Service Technician' }
 const plural = (n, word) => `${number(n)} ${n === 1 ? word : `${word}s`}`
+
+// The app shows two account types only: Dealer and Manufacturer (project
+// decision). The finer dealer roles stay in the database for access rules.
+const MANUFACTURER_ROLE = 'manufacturer'
+const accountType = (roleId) => (roleId === MANUFACTURER_ROLE ? 'Manufacturer' : 'Dealer')
 
 // users: [{ roleId }] of the signed-in user's dealership
 export function teamAnswer(dealerName, users) {
-  const byRole = Object.keys(ROLE_NAMES).map((role) => [role, users.filter((u) => u.roleId === role).length])
-  const parts = byRole.filter(([, n]) => n > 0).map(([role, n]) => plural(n, ROLE_NAMES[role]))
   return {
-    text: `${dealerName} has ${plural(users.length, 'user')} in the Dealer App: ${parts.join(', ')}.`,
+    text: `${dealerName} has ${plural(users.length, 'user')} in the Dealer App.`,
     highlight: { value: plural(users.length, 'user'), caption: dealerName },
-    table: { columns: ['Role', 'Users'], rows: byRole.map(([role, n]) => [ROLE_NAMES[role], n]) },
+    table: { columns: ['Account type', 'Users'], rows: [['Dealer', users.length]] },
     evidence: ['User accounts of your dealership'],
     tags: ['Users', 'your dealership'],
     understood: 'Users · your dealership',
@@ -443,24 +445,32 @@ export function customersAnswer(stats) {
 const MODULE_NAMES = {
   home: 'Home',
   dealer360: 'Dealer 360',
-  orders: 'Orders & Quotes',
+  orders: 'Orders',
   inventory: 'Inventory',
-  incentives: 'Incentives & Training',
   warranty: 'Warranty & Claims',
-  salesCoach: 'Sales Coach',
+  orderApprovals: 'Order Approvals',
 }
 
 export function rolesAnswer(roles, counts, myRoleId) {
-  const mine = roles.find((r) => r.id === myRoleId)
+  const mine = accountType(myRoleId)
+  const types = ['Dealer', 'Manufacturer'].map((type) => {
+    const ofType = roles.filter((r) => accountType(r.id) === type)
+    const modules = [...new Set(ofType.flatMap((r) => r.permissions))].filter((m) => MODULE_NAMES[m])
+    return {
+      type,
+      users: ofType.reduce((sum, r) => sum + (counts[r.id] ?? 0), 0),
+      modules: (type === 'Dealer' ? ['Copilot'] : []).concat(modules.map((m) => MODULE_NAMES[m])),
+    }
+  })
   return {
-    text: `There are ${plural(roles.length, 'role')} in the Dealer App: ${roles.map((r) => r.name).join(', ')}. Each role sees only its own modules.${mine ? ` Your role is ${mine.name}.` : ''}`,
-    highlight: { value: plural(roles.length, 'role'), caption: 'user roles in the Dealer App' },
+    text: `There are 2 account types in the Dealer App: Dealer and Manufacturer. Dealers send orders and follow their business; the manufacturer approves the orders. You are signed in as a ${mine}.`,
+    highlight: { value: '2 account types', caption: 'Dealer and Manufacturer' },
     table: {
-      columns: ['Role', 'Users here', 'Can access'],
-      rows: roles.map((r) => [`${r.name}${r.id === myRoleId ? ' (you)' : ''}`, counts[r.id] ?? 0, r.permissions.map((m) => MODULE_NAMES[m] ?? m).join(', ')]),
+      columns: ['Account type', 'Users here', 'Can open'],
+      rows: types.map((t) => [`${t.type}${t.type === mine ? ' (you)' : ''}`, t.users, t.modules.join(', ')]),
     },
     evidence: ['Role permissions are stored in the database (SRS 6.7)'],
-    tags: ['User roles'],
+    tags: ['Account types'],
     understood: 'User roles',
     actions: [],
     suggestions: ['How many users are there?', 'How many dealers are in the network?', 'What can you do?'],
