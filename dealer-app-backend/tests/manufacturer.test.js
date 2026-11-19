@@ -168,19 +168,14 @@ describe('Order Approvals', () => {
     assert.equal(closed.items[0]?.id, order.id)
   })
 
-  test('quote acceptance via the API needs a valid method and the customer contact', async () => {
+  test('an order request needs no customer, and the API only creates orders', async () => {
     const dealer = await signIn('sales@demo.com')
-    const customer = await prisma.customer.findFirst({ where: { dealerId: 'd-1001' } })
     const product = await prisma.product.findFirst()
-    const { body: quote } = await dealer.post('/orders', { type: 'quote', customerId: customer.id, status: 'submitted', items: [{ productId: product.id, quantity: 1 }] })
-
-    assert.equal((await dealer.patch(`/orders/${quote.id}/status`, { status: 'approved' })).status, 400)
-    assert.equal((await dealer.patch(`/orders/${quote.id}/status`, { status: 'approved', acceptance: { method: 'fax', contact: 'Ann' } })).status, 400)
-    assert.equal((await dealer.patch(`/orders/${quote.id}/status`, { status: 'approved', acceptance: { method: 'phone', contact: ' ' } })).status, 400)
-    const ok = await dealer.patch(`/orders/${quote.id}/status`, { status: 'approved', acceptance: { method: 'phone', contact: 'Ann Patel, Owner' } })
-    assert.equal(ok.status, 200)
-    assert.equal(ok.body.acceptanceMethod, 'phone')
-    assert.equal(ok.body.reviewedBy.name, dealer.user.name)
+    const res = await dealer.post('/orders', { type: 'quote', status: 'submitted', items: [{ productId: product.id, quantity: 2 }] })
+    assert.equal(res.status, 201)
+    assert.equal(res.body.type, 'order')
+    assert.equal(res.body.customer, null)
+    assert.match(res.body.id, /^ORD-/)
   })
 
   test('only submitted orders can be decided, and only within the network', async () => {

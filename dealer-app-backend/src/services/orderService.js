@@ -9,12 +9,29 @@ export const ORDER_SORT_FIELDS = Object.freeze(['createdAt', 'total', 'id', 'cus
 const orderBy = (sort, dir) =>
   sort === 'customer' ? [{ customer: { name: dir } }, { createdAt: 'desc' }] : [{ [sort]: dir }, { createdAt: 'desc' }]
 
+// Status groups for the list filter (the exact status still shows per row).
+//   draft: not sent; open: in progress; done: fulfilled orders and accepted
+//   customer quotes; closed: rejected or declined.
+export const ORDER_STAGES = Object.freeze(['draft', 'open', 'done', 'closed'])
+const STAGE_WHERE = {
+  draft: { status: 'draft' },
+  open: {
+    OR: [
+      { type: 'order', status: { in: ['submitted', 'approved', 'accepted'] } },
+      { type: 'quote', status: 'submitted' },
+    ],
+  },
+  done: { OR: [{ type: 'order', status: 'fulfilled' }, { type: 'quote', status: 'approved' }] },
+  closed: { status: { in: ['rejected', 'declined'] } },
+}
+
 // Orders and quotes for one dealer (SRS 3.4), newest first unless sorted.
-export async function listOrders(dealerId, { type, status, search, limit, offset, sort = 'createdAt', dir = 'desc' }) {
+export async function listOrders(dealerId, { type, status, stage, search, limit, offset, sort = 'createdAt', dir = 'desc' }) {
   const where = {
     dealerId,
     ...(type && { type }),
     ...(status && { status }),
+    ...(stage && { AND: [STAGE_WHERE[stage]] }),
     ...(search && {
       OR: [{ id: { contains: search } }, { customer: { name: { contains: search } } }],
     }),
@@ -30,15 +47,18 @@ export async function listOrders(dealerId, { type, status, search, limit, offset
       include: {
         customer: { select: { id: true, name: true } },
         _count: { select: { items: true } },
+        items: { select: { quantity: true } },
       },
     }),
   ])
 
+  // itemCount: order lines; units: total quantity across the lines.
   return {
     total,
-    items: rows.map(({ _count, dealerId: _d, customerId: _c, createdById: _u, ...order }) => ({
+    items: rows.map(({ _count, items, dealerId: _d, customerId: _c, createdById: _u, ...order }) => ({
       ...order,
       itemCount: _count.items,
+      units: items.reduce((sum, item) => sum + item.quantity, 0),
     })),
   }
 }
@@ -71,10 +91,15 @@ async function nextOrderNumber(tx) {
 
 // Creates a quote or order at list price.
 // input: { type, customerId, status: 'draft' | 'submitted', items: [{ productId, quantity }] }
+// input.customerId is optional (past demo data had end customers; new order
+// requests are dealer <-> manufacturer only).
 export async function createOrder(user, input) {
   const { dealerId } = user
-  const customer = await prisma.customer.findFirst({ where: { id: input.customerId, dealerId } })
-  if (!customer) throw badRequest('Customer not found for this dealership.')
+  let customer = null
+  if (input.customerId) {
+    customer = await prisma.customer.findFirst({ where: { id: input.customerId, dealerId } })
+    if (!customer) throw badRequest('Customer not found for this dealership.')
+  }
 
   const productIds = input.items.map((item) => item.productId)
   if (new Set(productIds).size !== productIds.length) throw badRequest('Each product can appear only once.')
@@ -92,7 +117,7 @@ export async function createOrder(user, input) {
       data: {
         id,
         dealerId,
-        customerId: customer.id,
+        customerId: customer?.id ?? null,
         createdById: user.id,
         type: input.type,
         status: input.status,

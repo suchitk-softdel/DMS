@@ -12,9 +12,6 @@ import { monthlySalesTotals } from './salesService.js'
 
 const TREND_MONTHS = 24
 const TIMELINE_LIMIT = 10
-const QUOTE_FOLLOW_UP_DAYS = 14
-// Quotes older than this are treated as lost, not worth a follow-up.
-const QUOTE_STALE_DAYS = 90
 const MAX_RECOMMENDATIONS = 4
 const PENDING_CLAIM_STAGES = ['submitted', 'underReview']
 
@@ -156,56 +153,6 @@ async function trainingRule(dealerId) {
   }
 }
 
-async function openQuotesRule(dealerId, now) {
-  const before = new Date(now.getTime() - QUOTE_FOLLOW_UP_DAYS * DAY_MS)
-  const staleBefore = new Date(now.getTime() - QUOTE_STALE_DAYS * DAY_MS)
-  const quotes = await prisma.order.findMany({
-    where: { dealerId, type: 'quote', status: 'submitted', createdAt: { gte: staleBefore, lt: before } },
-    orderBy: { total: 'desc' },
-    select: { id: true, total: true, createdAt: true, customer: { select: { name: true } } },
-  })
-  if (!quotes.length) return null
-  const total = quotes.reduce((sum, quote) => sum + quote.total, 0)
-  return {
-    key: 'openQuotes',
-    component: 'orderVelocity',
-    title: `Follow up ${plural(quotes.length, 'open quote')} worth ${money(total)}`,
-    detail: `${plural(quotes.length, 'quote has', 'quotes have')} waited ${QUOTE_FOLLOW_UP_DAYS}–${QUOTE_STALE_DAYS} days for the customer's answer. Turning them into orders raises Order Velocity.`,
-    evidence: quotes.slice(0, 3).map((quote) => `${quote.id}: ${quote.customer.name}, ${money(quote.total)}, ${ageInDays(quote.createdAt, now)} days old`),
-    action: { label: 'Open Orders', module: MODULES.ORDERS },
-  }
-}
-
-// Customers who bought in the previous 12 months but not in the last 12.
-async function lapsedCustomersRule(dealerId, now) {
-  const yearAgo = yearBefore(now)
-  const grouped = await prisma.order.groupBy({
-    by: ['customerId'],
-    where: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte: yearBefore(yearAgo), lt: now } },
-    _max: { createdAt: true },
-  })
-  const lapsedIds = grouped.filter((row) => row._max.createdAt < yearAgo).map((row) => row.customerId)
-  if (!lapsedIds.length) return null
-  const spend = await prisma.order.groupBy({
-    by: ['customerId'],
-    where: { dealerId, customerId: { in: lapsedIds }, type: 'order', status: 'fulfilled', createdAt: { gte: yearBefore(yearAgo), lt: yearAgo } },
-    _sum: { total: true },
-    orderBy: { _sum: { total: 'desc' } },
-  })
-  const names = new Map(
-    (await prisma.customer.findMany({ where: { id: { in: lapsedIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]),
-  )
-  const total = spend.reduce((sum, row) => sum + (row._sum.total ?? 0), 0)
-  return {
-    key: 'lapsedCustomers',
-    component: 'revenueGrowth',
-    title: `Win back ${plural(lapsedIds.length, 'customer')} who stopped buying`,
-    detail: `They spent ${money(total)} with you in the previous 12 months and have not ordered since. Winning them back lifts Revenue Growth.`,
-    evidence: spend.slice(0, 3).map((row) => `${names.get(row.customerId)}: ${money(row._sum.total ?? 0)} last period`),
-    action: { label: 'Open Sales Coach', module: MODULES.SALES_COACH },
-  }
-}
-
 async function stockOutRule(dealerId, now) {
   const { items } = await forecastDemand(dealerId, now)
   const short = items.filter((item) => item.shortfall > 0)
@@ -222,7 +169,7 @@ async function stockOutRule(dealerId, now) {
   }
 }
 
-const RULES = [agingClaimsRule, trainingRule, openQuotesRule, lapsedCustomersRule, stockOutRule]
+const RULES = [agingClaimsRule, trainingRule, stockOutRule]
 // A stock-out loses sales within weeks, so it is never pushed out of the list
 // by a larger but slower score gap.
 const URGENT_MIN_POINTS = 10

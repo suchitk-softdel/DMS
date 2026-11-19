@@ -22,9 +22,7 @@ import {
 
 // Shown to help testers; remove once real authentication exists.
 const DEMO_ACCOUNTS = [
-  { email: 'principal@demo.com', label: 'Principal' },
-  { email: 'sales@demo.com', label: 'Sales Rep' },
-  { email: 'tech@demo.com', label: 'Technician' },
+  { email: 'principal@demo.com', label: 'Dealer' },
   { email: 'manufacturer@demo.com', label: 'Manufacturer' },
 ]
 const DEMO_PASSWORD = 'demo123'
@@ -68,7 +66,7 @@ export default function Login() {
         Welcome back
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
-        Sign in to your dealer account
+        Sign in to your account
       </Typography>
 
       <Stack component="form" spacing={2.5} onSubmit={handleSubmit} noValidate>

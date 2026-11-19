@@ -134,31 +134,20 @@ export default function ApprovalDrawer({ orderId, onClose, onDecided }) {
               )}
               {order.status === 'fulfilled' && <Alert severity="info">Fulfilled: installed by the dealer.</Alert>}
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-                <Box sx={{ flex: 1 }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Dealer
+                </Typography>
+                <Typography sx={{ fontWeight: 700, fontSize: 17 }}>{order.dealer.name}</Typography>
+                <Typography color="text.secondary">
+                  {order.dealer.tier} Tier · {order.dealer.city}, {order.dealer.state}
+                </Typography>
+                {order.createdBy && (
                   <Typography variant="body2" color="text.secondary">
-                    Dealer
+                    Sent by {order.createdBy.name}
                   </Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 17 }}>{order.dealer.name}</Typography>
-                  <Typography color="text.secondary">
-                    {order.dealer.tier} Tier · {order.dealer.city}, {order.dealer.state}
-                  </Typography>
-                  {order.createdBy && (
-                    <Typography variant="body2" color="text.secondary">
-                      Sent by {order.createdBy.name}
-                    </Typography>
-                  )}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    End customer
-                  </Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 17 }}>{order.customer.name}</Typography>
-                  <Typography color="text.secondary">
-                    {order.customer.type === 'commercial' ? 'Commercial' : 'Residential'} · {order.customer.city}
-                  </Typography>
-                </Box>
-              </Stack>
+                )}
+              </Box>
 
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small">

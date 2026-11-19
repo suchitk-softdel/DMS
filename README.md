@@ -91,7 +91,7 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 | -------------------------------- | -------------------------------------------------------------- |
 | Login and role-based access      | ✅ Done                                                        |
 | Home dashboard (3.1)             | ✅ Done: KPIs, AI insight, quick actions, recent activity      |
-| Orders & Quotes (3.4)            | ✅ Done: filterable, sortable list with search, new quote/order, status steps, awaiting-approval alert, Order Insight on quotes likely to close; `npm test` |
+| Orders (3.4)                     | ✅ Done: order requests to the manufacturer (quantities only), status groups, search, sorting, quote acceptance, fulfilment, banners for requests and quotes. Dealer ↔ manufacturer only (no end customers); `npm test` |
 | Warranty & Claims (3.7)          | Backend API done (list, file claim, stage changes); screen pending |
 | Inventory (3.5)                  | Backend API and Forecast done; screen pending                   |
 | Incentives & Training (3.6)      | Backend API done; screen pending                                |

@@ -87,7 +87,6 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
     run(async () => {
       const created = await createOrder({
         type: 'order',
-        customerId: order.customer.id,
         status,
         items: order.items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
       })
@@ -187,15 +186,6 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
                 </Alert>
               )}
 
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Customer
-                </Typography>
-                <Typography sx={{ fontWeight: 700, fontSize: 18 }}>{order.customer.name}</Typography>
-                <Typography color="text.secondary">
-                  {order.customer.type === 'commercial' ? 'Commercial' : 'Residential'} · {order.customer.city}
-                </Typography>
-              </Box>
 
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small">

@@ -104,7 +104,7 @@ export function priceAnswer(products, filters, wants) {
     evidence: ['Manufacturer list prices, before discounts'],
     tags: ['List prices', ...(what ? [what] : [])],
     understood: ['List prices', what].filter(Boolean).join(' · '),
-    actions: [{ label: 'Create Quote', module: MODULES.ORDERS }],
+    actions: [{ label: 'Create Order', module: MODULES.ORDERS }],
     suggestions: ['Which products generated the highest profit?', 'How many furnaces are in stock?', 'What is my average order value?'],
   }
 }

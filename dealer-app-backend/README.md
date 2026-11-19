@@ -154,26 +154,41 @@ Status codes: 400 invalid input, 401 not signed in, 403 role not allowed, 404 no
 ```
 dealer-app-backend/
 ├── prisma/
-│   ├── schema.prisma      # Database tables (18 models)
-│   ├── migrations/        # Generated SQL migrations (committed)
-│   ├── dataset/expected-outputs.json # Expected Health Score + Forecast results
+│   ├── schema.prisma      # Database tables (19 models)
+│   ├── migrations/        # SQL migrations (committed), applied with prisma migrate deploy
+│   ├── dataset/expected-outputs.json # Expected Health Score + Forecast results (db:verify)
 │   └── demo.db            # THE ready-made demo database (committed; copied to dev.db on first start)
-├── scripts/verify-dataset.js # npm run db:verify
+├── scripts/
+│   ├── reset-demo.js      # npm run db:reset (copy demo.db to dev.db again)
+│   ├── verify-dataset.js  # npm run db:verify (links, aggregates, model outputs)
+│   └── db-view.js         # npm run db:view (HTML snapshot of the database)
+├── tests/                 # npm test (node:test, on a temporary copy of demo.db)
+│   ├── copilot.test.js    # Copilot answers vs independent calculations, roles, follow-ups
+│   ├── dealer360.test.js  # Tiles, trend, Health Score + weights, recommendations, timeline
+│   ├── orders.test.js     # Order list, status groups, request → quote → accept → fulfil
+│   └── manufacturer.test.js # Real HTTP API: logins, who can approve, reject/decline reasons
 ├── prisma.config.ts       # Prisma CLI settings
 ├── src/
 │   ├── server.js          # Entry point
 │   ├── app.js             # Express setup and route mounting
-│   ├── config/env.js      # Reads .env (port, database, session secret)
-│   ├── constants/domain.js# Allowed statuses, stages and module keys
-│   ├── db/prisma.js       # Shared Prisma client (SQLite adapter)
-│   ├── routes/            # auth.js (login, roles), dealerData.js (all module data)
-│   ├── services/          # Database queries per module, auth, audit log
-│   ├── middlewares/       # requireAuth, requireModule (RBAC), error handler
-│   ├── utils/             # HTTP errors, password hashing, query checks
-│   ├── clients/           # (later) calls to the IDEP platform API Gateway
-│   ├── events/            # (later) Event Bus subscribers
+│   ├── config/env.js      # Reads .env (port, database, session secret); all optional
+│   ├── constants/domain.js# Statuses, allowed steps (ORDER_TRANSITIONS), module keys, weights
+│   ├── db/prisma.js       # Shared Prisma client (SQLite adapter); copies demo.db on first start
+│   ├── routes/
+│   │   ├── auth.js        # Login, logout, current user, roles
+│   │   ├── dealerData.js  # Dealer users only: home, dealer360, orders, claims, Copilot, ...
+│   │   ├── manufacturer.js# Manufacturer order desk: requests, approve & quote, reject
+│   │   └── notifications.js # Bell notifications (dealer or manufacturer)
+│   ├── services/          # Business logic per module: orders, manufacturer approvals,
+│   │                      #   dealer360, Health Score, forecast, aggregation, notifications,
+│   │                      #   home, claims, incentives, training, auth, audit log, ...
+│   ├── copilot/           # In-house AI: vocabulary, trainingData, classifier, text, period,
+│   │                      #   parser, facts, engine, answers, infoAnswers
+│   ├── middlewares/       # requireAuth, requireDealer / requireManufacturer, requireModule, errors
+│   ├── utils/             # HTTP errors, password hashing, body and query checks
+│   ├── clients/, events/  # (later) IDEP platform API Gateway and Event Bus
 │   └── generated/prisma/  # Generated Prisma client (not committed; npm install creates it)
-├── .env.example
+├── .env.example           # Optional settings (the app runs without a .env)
 └── dev.db                 # Your working database (not committed; copied from prisma/demo.db)
 ```
 

@@ -21,14 +21,14 @@ Status of every requirement in the SRS (`docs/SRS.md`, v1.0): what is done, what
 | 3.1 Home | 6 | 4 | 2 | 0 | 0 |
 | 3.2 Dealer Copilot | 7 | 3 | 3 | 0 | 1 |
 | 3.3 Dealer 360 | 6 | 5 | 1 | 0 | 0 |
-| 3.4 Orders & Quotes | 6 | 6 | 0 | 0 | 0 |
+| 3.4 Orders & Quotes | 6 | 5 | 0 | 0 | 0 |
 | 3.5 Inventory Intelligence | 6 | 0 | 0 | 2 | 4 |
 | 3.6 Incentives & Training | 6 | 0 | 0 | 3 | 3 |
 | 3.7 Warranty & Claims | 5 | 0 | 1 | 2 | 2 |
 | 3.8 Sales Coach | 5 | 0 | 0 | 1 | 4 |
-| **Total functional** | **47** | **18** | **7** | **8** | **14** |
+| **Total functional** | **47** | **17** | **7** | **8** | **14** |
 
-Done or partly done: **25 of 47 (53%)**. With backend-only items: **33 of 47 (70%)**.
+Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68%)**. FR-ORD-5 was removed by project decision.
 
 ---
 
@@ -39,7 +39,7 @@ Done or partly done: **25 of 47 (53%)**. With backend-only items: **33 of 47 (70
 | FR-HOME-1 | Greeting with dealer name, tier, region | ✅ Done | `Home.jsx` header; dealer from `GET /api/home` |
 | FR-HOME-2 | KPI tiles: Revenue YTD, Health Score, Open Orders, Pending Claims, with trends | ✅ Done | `homeService.js`; tiles shown per role |
 | FR-HOME-3 | One AI Insight banner with evidence and a one-click action | ✅ Done | Rules in `homeService.js` (stock-out risk, aging claims, revenue trend) |
-| FR-HOME-4 | Quick actions: Create Quote, Register Warranty, Place Reorder, Submit Claim | 🟡 Partly | All four buttons exist. **Create Quote** opens the New Quote form. The other three go to the Warranty and Inventory screens, which are not built yet. |
+| FR-HOME-4 | Quick actions: Create Quote, Register Warranty, Place Reorder, Submit Claim | 🟡 Partly | All four buttons exist. **Create Order** (replaces Create Quote) opens the new order request. The other three go to the Warranty and Inventory screens, which are not built yet. |
 | FR-HOME-5 | Recent Activity timeline | ✅ Done | Latest orders, claims and training (`recentActivity` in `homeService.js`) |
 | FR-HOME-6 | Refresh KPIs and insight each session and on a background interval | 🟡 Partly | Refreshed every time Home opens. No background interval yet. |
 
@@ -70,12 +70,12 @@ Done or partly done: **25 of 47 (53%)**. With backend-only items: **33 of 47 (70
 
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
-| FR-ORD-1 | Create, save as draft, submit and track quotes and orders | ✅ Done | New Quote / New Order form, status steps, quote → order. **Extra:** the manufacturer approves or rejects orders (Order Approvals). |
+| FR-ORD-1 | Create, save as draft, submit and track quotes and orders | ✅ Done | Project decision: dealer ↔ manufacturer only (no end customers). The dealer sends an order request with quantities; the manufacturer approves it and sends a quote at catalogue prices (or rejects it); the dealer accepts or declines the quote, then fulfils. |
 | FR-ORD-2 | Filterable, sortable list: Order ID, Customer, Amount, Status, Date | ✅ Done | Server-side sorting and paging (`listOrders`) |
 | FR-ORD-3 | Filter by status and free-text search | ✅ Done | Status pills with counts (plus Rejected), search by order ID or customer |
 | FR-ORD-4 | Consistent status chips | ✅ Done | Shared `StatusChip` with design colours |
-| FR-ORD-5 | AI Order Insight on quotes likely to close, linked to Sales Coach | ✅ Done | Learns from past quote approvals (`orderInsightService.js`) |
-| FR-ORD-6 | Notify the dealer of orders awaiting approval | ✅ Done | Banner on Orders & Quotes and the Home tile. No push or email notifications. |
+| FR-ORD-5 | AI Order Insight on quotes likely to close, linked to Sales Coach | ➖ Removed | Removed by project decision: customer quotes are no longer part of the app (dealer ↔ manufacturer only). |
+| FR-ORD-6 | Notify the dealer of orders awaiting approval | ✅ Done | Banners on Orders (requests waiting for the manufacturer, quotes to accept), the Home tile and the bell. No push or email notifications. |
 
 ## 3.5 Inventory Intelligence
 

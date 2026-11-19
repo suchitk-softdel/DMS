@@ -276,6 +276,13 @@ export function getInventory() {
   return mockResponse([])
 }
 
+// Warranty board tiles (FR-WAR-4)
+// -> { counts, openClaims, aging, agingDays, decided, rejected, avgResolutionDays, approvalRate }
+export function getClaimsSummary() {
+  if (!env.useMockData) return apiRequest('/claims/summary')
+  return mockResponse({ counts: {}, openClaims: 0, aging: 0, agingDays: 10, decided: 0, rejected: 0, avgResolutionDays: null, approvalRate: null })
+}
+
 // Warranty claims (SRS 3.7). Filter: { stage }
 // -> [{ id, stage, amount, description, serialNumber, filedAt, ageDays, product, customer, ... }]
 export function getClaims(filters) {
