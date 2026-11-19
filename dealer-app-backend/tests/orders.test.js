@@ -27,7 +27,7 @@ const ORDER_DESK = { id: 'u-m01', manufacturerId: 'm-01' }
 
 const NOW = new Date('2026-11-15T12:00:00Z')
 const DEALERS = ['d-1001', 'd-1002', 'd-1003', 'd-1004', 'd-1005', 'd-1006']
-const summaryOf = (dealerId) => getOrdersSummary({ dealerId }, NOW)
+const summaryOf = (dealerId) => getOrdersSummary({ dealerId })
 
 after(async () => {
   await prisma.$disconnect()
@@ -49,6 +49,15 @@ describe('Order list (FR-ORD-2, FR-ORD-3)', () => {
 
     const other = await prisma.order.findFirst({ where: { dealerId: 'd-1002' }, select: { id: true } })
     assert.equal((await listOrders('d-1001', { search: other.id, limit: 10, offset: 0 })).total, 0)
+  })
+
+  test('status groups: drafts, in progress, completed and closed add up to all', async () => {
+    const all = (await listOrders('d-1001', { limit: 1, offset: 0 })).total
+    const totals = {}
+    for (const stage of ['draft', 'open', 'done', 'closed']) totals[stage] = (await listOrders('d-1001', { stage, limit: 1, offset: 0 })).total
+    assert.equal(totals.draft + totals.open + totals.done + totals.closed, all)
+    const done = await listOrders('d-1001', { stage: 'done', limit: 500, offset: 0 })
+    assert.ok(done.items.every((o) => (o.type === 'order' ? o.status === 'fulfilled' : o.status === 'approved')))
   })
 
   test('sorts by amount, customer and date in both directions', async () => {
@@ -74,7 +83,7 @@ describe('Order list (FR-ORD-2, FR-ORD-3)', () => {
   })
 })
 
-describe('Summary (FR-ORD-6) and Order Insight (FR-ORD-5)', () => {
+describe('Summary (FR-ORD-6)', () => {
   test('counts and orders awaiting approval match the orders table, for every dealer', async () => {
     for (const dealerId of DEALERS) {
       const summary = await summaryOf(dealerId)
@@ -88,34 +97,11 @@ describe('Summary (FR-ORD-6) and Order Insight (FR-ORD-5)', () => {
     }
   })
 
-  test('insight covers the open quotes, with a probability and evidence for each likely one', async () => {
+  test('manufacturer quotes waiting for the dealer are counted', async () => {
     for (const dealerId of DEALERS) {
-      const { insight } = await summaryOf(dealerId)
-      const open = await prisma.order.findMany({ where: { dealerId, type: 'quote', status: 'submitted' }, select: { id: true, total: true } })
-      if (!open.length) {
-        assert.equal(insight, null)
-        continue
-      }
-      assert.ok(insight.message.length > 0)
-      assert.equal(insight.action.module, 'salesCoach')
-      const ids = new Set(open.map((q) => q.id))
-      for (const q of insight.likely) {
-        assert.ok(ids.has(q.id), `${dealerId}: ${q.id} is an open quote`)
-        assert.ok(q.probability >= 0.4 && q.probability <= 1)
-        assert.ok(insight.evidence.some((line) => line.startsWith(q.id)), `${dealerId}: evidence for ${q.id}`)
-      }
-      // Most likely first.
-      assert.ok(insight.likely.every((q, i) => i === 0 || insight.likely[i - 1].probability >= q.probability))
+      const summary = await summaryOf(dealerId)
+      assert.equal(summary.quotesToAccept, await prisma.order.count({ where: { dealerId, type: 'order', status: 'approved' } }))
     }
-  })
-
-  test('the chance of closing falls as a quote gets older (learned from past approvals)', async () => {
-    const { insight } = await summaryOf('d-1001')
-    // Summit has a fresh quote (likely) and many old ones (cold).
-    assert.ok(insight.likely.length >= 1)
-    assert.ok(insight.cold.count >= 1)
-    const freshest = await prisma.order.findFirst({ where: { dealerId: 'd-1001', type: 'quote', status: 'submitted' }, orderBy: { createdAt: 'desc' } })
-    assert.equal(insight.likely[0].id, freshest.id)
   })
 })
 

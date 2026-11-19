@@ -83,15 +83,14 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 
 ---
 
-## 4. Orders & Quotes, then manufacturer approval (3.5 minutes)
+## 4. Orders, then manufacturer approval (3.5 minutes)
 
 ### 4a. Dealer creates an order
-**Do:** open **Orders & Quotes**.
+**Do:** open **Orders**.
 
-**Show briefly:** status filters with counts, search, sortable columns, and the **Order Insight** on the right (which open quote is likely to close, with its percentage and evidence).
+**Show briefly:** the status groups (All, Drafts, In progress, Completed, Closed), search, sortable columns, and the quantity per order.
 
 **Do:** click **+ New Order** →
-- Customer: type `Hillcrest` → choose **Hillcrest Office Park**
 - Product: choose **HP-C15-36** (Comfort 15 SEER2 Heat Pump, 3 Ton), quantity **5**
 - Note: no prices are shown, the dealer only asks for quantities → click **Send request**
 
@@ -116,7 +115,7 @@ Also point out: the **suggested prompts** on the right, **Copy** and **Download 
 > "Aerovance's order desk sees every request from its dealer network in one place. Approving sends the dealer a quote at catalogue prices; rejecting gives the dealer a reason."
 
 ### 4c. Dealer accepts the quote, fulfils, and revenue updates
-**Do:** log out → **Principal** → **Orders & Quotes** (banner: "1 manufacturer quote is waiting for you") → open the order (now **Quoted**: "Quote received from Olivia Bennett", with prices and the quote total) → **Accept quote** → **Mark fulfilled** → **Confirm**.
+**Do:** log out → **Principal** → **Orders** (banner: "1 manufacturer quote is waiting for you") → open the order (now **Quoted**: "Quote received from Olivia Bennett", with prices and the quote total) → **Accept quote** → **Mark fulfilled** → **Confirm**.
 
 *(Optional: on another quote click **Decline** and pick a reason, e.g. "Price too high". The manufacturer sees it under Rejected / declined.)*
 

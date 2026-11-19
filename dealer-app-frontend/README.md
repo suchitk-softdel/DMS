@@ -74,53 +74,32 @@ access above is a working assumption. It is defined in `src/data/roles.js`.
 | `/warranty`    | `warranty`   | Warranty & Claims      | 3.7         |
 | `/sales-coach` | `salesCoach` | Sales Coach            | 3.8         |
 
-The Dealer Copilot (SRS 3.2) is a side panel (`components/layout/CopilotPanel.jsx`), not a route.
+The Dealer Copilot (SRS 3.2) is its own page (`pages/dealer/Copilot.jsx`, menu item "Copilot"); its answers come from the in-house AI in the backend (`dealer-app-backend/src/copilot`).
 
 ## Folder structure
 
+The full map, with what each file is for, is in [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
+
 ```
 src/
-├── main.jsx                 # Redux Provider, ThemeProvider, CssBaseline, BrowserRouter
-├── App.jsx                  # All routes (lazy-loaded pages); on start: fetchRoles, verifySession
-├── config/
-│   └── env.js               # Reads VITE_* environment variables
-├── constants/
-│   ├── modules.js           # MODULES keys, MODULE_PATHS, PUBLIC_PATHS
-│   └── roles.js             # ROLES ids
-├── data/                    # Small hardcoded data for mock mode only. Only
-│   ├── dealers.js           # services/dataService.js may import these files
-│   ├── roles.js
-│   └── users.js
-├── services/
-│   └── dataService.js       # All data access: backend API calls, or mock data when
-│                            # VITE_USE_MOCK_DATA=true
-├── store/
-│   ├── store.js             # configureStore + localStorage persistence via store.subscribe
-│   └── slices/
-│       ├── authSlice.js     # login, signOut, verifySession thunks
-│       ├── rolesSlice.js    # fetchRoles thunk (read-only)
-│       └── uiSlice.js       # navOpen, copilotOpen
-├── lib/
-│   ├── navigation.js        # Menu config: key, label, path, icon, end (exact-match highlight)
-│   ├── rbac.js              # canAccess, getHomePath, usePermissions
-│   └── format.js            # formatNumber, formatCurrency, formatPercent, formatDate
-├── routes/
-│   └── ProtectedRoute.jsx   # Auth, roles-loading and permission guard
-├── layouts/
-│   └── MainLayout.jsx       # NavRail + TopBar + Outlet (in an ErrorBoundary) + CopilotPanel
+├── main.jsx, App.jsx        # Providers and all routes
+├── config/, constants/      # Environment settings; module keys, paths, roles
+├── services/dataService.js  # All backend API calls (mock data only with VITE_USE_MOCK_DATA=true)
+├── store/                   # Redux: auth, roles, ui, copilot chat
+├── lib/                     # Menu, permissions, formatting, toasts, data loading
+├── routes/, layouts/        # Route guard; app shell (NavRail + TopBar) and sign-in layout
 ├── components/
-│   ├── common/              # ErrorBoundary, PageLoader
-│   ├── layout/              # NavRail, TopBar, CopilotPanel
-│   ├── ui/                  # Primitives: ComingSoon, PageHeader, KpiTile, StatusChip,
-│   │                        # RiskBadge, ProgressBar, DataTable
-│   └── patterns/            # Composites built from ui/: FilterBar, ChartCard, KpiGrid,
-│                            # SectionCard, AsyncContent, EmptyState, ConfirmDialog
+│   ├── common/              # ErrorBoundary, PageLoader, ContentSkeleton, ToastProvider
+│   ├── layout/              # NavRail, TopBar
+│   ├── ui/                  # Primitives: KpiTile, StatusChip, BrandLogo, NameWithInitial, ...
+│   ├── patterns/            # Composites: KpiGrid, LineChart, ActivityTimeline, CopilotAnswer, ...
+│   └── orders/              # Order request, order panel, manufacturer approval panel, dialogs
 ├── pages/
-│   ├── Login.jsx, Unauthorized.jsx, NotFound.jsx
-│   └── dealer/              # Home, Dealer360, Orders, Inventory, Incentives, Warranty,
-│                            # SalesCoach
-└── theme/
-    └── theme.js             # MUI theme + statusColors and riskColors maps
+│   ├── Login, Unauthorized, NotFound
+│   ├── dealer/              # Home, Copilot, Dealer360, Orders (built); Inventory, Incentives,
+│   │                        #   Warranty, SalesCoach (coming soon)
+│   └── manufacturer/        # OrderApprovals (manufacturer login only)
+└── theme/theme.js           # MUI theme + statusColors and riskColors maps
 ```
 
 Imports use the `@` alias for `src/` (for example `import { ROLES } from '@/constants/roles'`).

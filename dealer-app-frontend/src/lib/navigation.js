@@ -25,7 +25,7 @@ export const NAV_ITEMS = [
   { id: 'home', icon: HomeOutlined, key: MODULES.HOME, label: 'Home', badge: 'H', path: MODULE_PATHS[MODULES.HOME], end: true },
   { id: 'copilot', icon: AutoAwesomeOutlined, key: null, label: 'Copilot', badge: 'AI', path: COPILOT_PATH },
   { id: 'dealer360', icon: InsightsOutlined, key: MODULES.DEALER_360, label: 'Dealer 360', badge: '360', path: MODULE_PATHS[MODULES.DEALER_360] },
-  { id: 'orders', icon: ShoppingCartOutlined, key: MODULES.ORDERS, label: 'Orders & Quotes', badge: 'O', path: MODULE_PATHS[MODULES.ORDERS] },
+  { id: 'orders', icon: ShoppingCartOutlined, key: MODULES.ORDERS, label: 'Orders', badge: 'O', path: MODULE_PATHS[MODULES.ORDERS] },
   { id: 'inventory', icon: Inventory2Outlined, key: MODULES.INVENTORY, label: 'Inventory', badge: 'I', path: MODULE_PATHS[MODULES.INVENTORY] },
   { id: 'incentives', icon: EmojiEventsOutlined, key: MODULES.INCENTIVES, label: 'Incentives', badge: '$', path: MODULE_PATHS[MODULES.INCENTIVES] },
   { id: 'training', icon: SchoolOutlined, key: MODULES.INCENTIVES, label: 'Training', badge: 'T', path: TRAINING_PATH },

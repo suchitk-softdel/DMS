@@ -25,7 +25,7 @@ import { getHome } from '@/services/dataService'
 
 // FR-HOME-4. `?action=` lets the target page open the right form directly.
 const QUICK_ACTIONS = [
-  { key: 'createQuote', label: '+ Create Quote', module: MODULES.ORDERS },
+  { key: 'createOrder', label: '+ Create Order', module: MODULES.ORDERS },
   { key: 'registerWarranty', label: 'Register Warranty', module: MODULES.WARRANTY },
   { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },

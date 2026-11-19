@@ -47,13 +47,13 @@ const TOPICS = [
     title: 'Sales & profit',
     icon: TrendingUpRoundedIcon,
     module: MODULES.DEALER_360,
-    questions: ['Compare my sales with last year', 'Top 5 customers by profit in 2025', 'Show sales by month'],
+    questions: ['Compare my sales with last year', 'Top 5 products by profit in 2025', 'Show sales by month'],
   },
   {
-    title: 'Orders & quotes',
+    title: 'Orders',
     icon: ReceiptLongOutlinedIcon,
     module: MODULES.ORDERS,
-    questions: ['How many orders did I place last year?', 'What is my total pending order quantity?', 'How many quotes are open?'],
+    questions: ['How many orders did I place last year?', 'What is my total pending order quantity?', 'How many orders are waiting for approval?'],
   },
   {
     title: 'Warranty claims',
@@ -90,13 +90,10 @@ const SUGGESTED_PROMPTS = [
   { text: 'Which products generated the highest profit?', module: MODULES.DEALER_360 },
   { text: 'Show sales by month', module: MODULES.DEALER_360 },
   { text: 'Sales by category this year', module: MODULES.DEALER_360 },
-  { text: 'Top 5 customers by sales this year', module: MODULES.DEALER_360 },
-  { text: 'Residential vs commercial sales this year', module: MODULES.DEALER_360 },
+  { text: 'Top 5 products by sales this year', module: MODULES.DEALER_360 },
   { text: 'What is my health score?', module: MODULES.DEALER_360 },
   { text: 'How many orders did I place last year?', module: MODULES.ORDERS },
   { text: 'What is my total pending order quantity?', module: MODULES.ORDERS },
-  { text: 'How many quotes are open?', module: MODULES.ORDERS },
-  { text: 'How many customers do I have?', module: MODULES.ORDERS },
   { text: 'How many claims are pending?', module: MODULES.WARRANTY },
   { text: 'How many claims were rejected last year?', module: MODULES.WARRANTY },
   { text: 'Which product has the most claims?', module: MODULES.WARRANTY },
@@ -117,7 +114,7 @@ const SUGGESTED_PROMPTS = [
 
 // FR-COP-4: one-click actions.
 const QUICK_ACTIONS = [
-  { key: 'createQuote', label: 'Create Quote', module: MODULES.ORDERS },
+  { key: 'createOrder', label: 'Create Order', module: MODULES.ORDERS },
   { key: 'registerWarranty', label: 'Register Warranty', module: MODULES.WARRANTY },
   { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },

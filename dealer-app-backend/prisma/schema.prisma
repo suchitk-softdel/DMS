@@ -146,7 +146,7 @@ model Customer {
 model Order {
   id                  String    @id // e.g. ORD-100231 or QT-100232
   dealerId            String
-  customerId          String
+  customerId          String? // past demo data only; new orders have no customer (dealer <-> manufacturer)
   createdById         String?
   type                String // quote | order
   // Orders: draft -> submitted (request with quantities, sent to the
@@ -173,7 +173,7 @@ model Order {
   declineReason       String?
 
   dealer            Dealer                 @relation(fields: [dealerId], references: [id])
-  customer          Customer               @relation(fields: [customerId], references: [id])
+  customer          Customer?              @relation(fields: [customerId], references: [id])
   createdBy         User?                  @relation("OrderCreator", fields: [createdById], references: [id])
   reviewedBy        User?                  @relation("OrderReviewer", fields: [reviewedById], references: [id])
   dealerRespondedBy User?                  @relation("OrderResponder", fields: [dealerRespondedById], references: [id])
@@ -250,7 +250,7 @@ model WarrantyRegistration {
   orderId      String
   orderItemId  Int
   productId    String
-  customerId   String
+  customerId   String? // past demo data only; new orders have no customer (dealer <-> manufacturer)
   serialNumber String   @unique
   installDate  DateTime
   createdAt    DateTime
@@ -259,7 +259,7 @@ model WarrantyRegistration {
   order     Order     @relation(fields: [orderId], references: [id])
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
   product   Product   @relation(fields: [productId], references: [id])
-  customer  Customer  @relation(fields: [customerId], references: [id])
+  customer  Customer? @relation(fields: [customerId], references: [id])
   claims    Claim[]
 
   @@index([dealerId])
@@ -274,7 +274,7 @@ model Claim {
   registrationId String
   orderId        String
   productId      String
-  customerId     String
+  customerId     String? // past demo data only; new orders have no customer (dealer <-> manufacturer)
   serialNumber   String
   amount         Float
   description    String
@@ -287,7 +287,7 @@ model Claim {
   registration WarrantyRegistration @relation(fields: [registrationId], references: [id])
   order        Order                @relation(fields: [orderId], references: [id])
   product      Product              @relation(fields: [productId], references: [id])
-  customer     Customer             @relation(fields: [customerId], references: [id])
+  customer     Customer?            @relation(fields: [customerId], references: [id])
 
   @@index([dealerId, stage])
   @@index([orderId])

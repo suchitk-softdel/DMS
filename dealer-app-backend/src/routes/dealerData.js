@@ -17,7 +17,7 @@ import { listIncentives } from '../services/incentiveService.js'
 import { listInventory } from '../services/inventoryService.js'
 import { listOpportunities } from '../services/opportunityService.js'
 import { getOrdersSummary } from '../services/orderInsightService.js'
-import { createOrder, getOrder, listOrders, ORDER_SORT_FIELDS, updateOrderStatus } from '../services/orderService.js'
+import { createOrder, getOrder, listOrders, ORDER_SORT_FIELDS, ORDER_STAGES, updateOrderStatus } from '../services/orderService.js'
 import { listSales, monthlySalesTotals } from '../services/salesService.js'
 import { getTrainingOverview } from '../services/trainingService.js'
 import { requiredArray, requiredEnum, requiredNumber, requiredString } from '../utils/body.js'
@@ -65,6 +65,7 @@ dealerDataRouter.get('/orders', requireModule(MODULES.ORDERS), async (req, res) 
     await listOrders(req.user.dealerId, {
       type: optionalEnum(req.query.type, ORDER_TYPES, 'type'),
       status: optionalEnum(req.query.status, ORDER_STATUSES, 'status'),
+      stage: optionalEnum(req.query.stage, ORDER_STAGES, 'stage'),
       search: typeof req.query.search === 'string' ? req.query.search.trim() || undefined : undefined,
       limit: intInRange(req.query.limit, { min: 1, max: 500, fallback: 100, name: 'limit' }),
       offset: intInRange(req.query.offset, { min: 0, max: 1_000_000, fallback: 0, name: 'offset' }),
@@ -87,12 +88,13 @@ dealerDataRouter.get('/orders/:id', requireModule(MODULES.ORDERS), async (req, r
   res.json(order)
 })
 
-// New quote or order. Body: { type, customerId, status?: draft|submitted, items: [{ productId, quantity }] }
+// New order request. Body: { status?: draft|submitted, items: [{ productId, quantity }] }
+// The app is dealer <-> manufacturer only: an order request has no end
+// customer, and customer quotes are no longer created.
 dealerDataRouter.post('/orders', requireModule(MODULES.ORDERS), async (req, res) => {
   const body = req.body ?? {}
   const order = await createOrder(req.user, {
-    type: requiredEnum(body.type, ORDER_TYPES, 'type'),
-    customerId: requiredString(body.customerId, 'customerId', { maxLength: 40 }),
+    type: 'order',
     status: body.status === undefined ? 'draft' : requiredEnum(body.status, ['draft', 'submitted'], 'status'),
     items: requiredArray(body.items, 'items').map((item, i) => ({
       productId: requiredString(item?.productId, `items[${i}].productId`, { maxLength: 40 }),
