@@ -1,8 +1,8 @@
 # Dealers App
 
 The dealer-facing web app of Softdel's **Intelligent Dealer Ecosystem Platform (IDEP)**. HVAC
-dealers use it to manage orders and quotes, inventory, warranty claims, incentives and training,
-and sales opportunities, with an AI Copilot on every screen.
+dealers use it to send orders to their manufacturer, see their product stock, track warranty claims
+and follow their performance, with an in-house AI Copilot.
 
 - **Requirements:** [`docs/SRS.md`](docs/SRS.md) (SRS v1.0) is the main document.
 - **Project decision:** all AI features (Copilot, Health Score, Forecast, insights) are **our own
@@ -92,12 +92,12 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 | Login and role-based access      | ✅ Done                                                        |
 | Home dashboard (3.1)             | ✅ Done: KPIs, AI insight, quick actions, recent activity      |
 | Orders (3.4)                     | ✅ Done: order requests to the manufacturer (quantities only), status groups, search, sorting, quote acceptance, fulfilment, banners for requests and quotes. Dealer ↔ manufacturer only (no end customers); `npm test` |
-| Warranty & Claims (3.7)          | Backend API done (list, file claim, stage changes); screen pending |
-| Inventory (3.5)                  | Backend API and Forecast done; screen pending                   |
-| Incentives & Training (3.6)      | Backend API done; screen pending                                |
+| Warranty & Claims (3.7)          | ✅ Done (view only): Open Claims, Avg. Resolution and Approval Rate tiles, 4-stage claims board. The manufacturer decides claims; no claim form yet |
+| Inventory (3.5)                  | ✅ Done (product list): stock levels per product, search and filters. Not connected to orders (project decision) |
+| Incentives & Training (3.6)      | ➖ Removed from the menu (project decision); backend data and API kept |
 | Dealer 360 (3.3)                 | ✅ Done: tiles, revenue trend, explainable Health Score (weights in the database), recommendations with evidence, timeline; `npm test` |
 | Dealer Copilot (3.2)             | ✅ Done: in-house question engine, answers from the 2-year data with evidence; `npm test` |
-| Sales Coach (3.8)                | Backend API done; screen pending                                |
+| Sales Coach (3.8)                | ➖ Removed from the menu: it is customer-based and the app is dealer ↔ manufacturer only; backend data and API kept |
 | Order Approvals (manufacturer)   | ✅ Done: the dealer sends an order request with quantities; the manufacturer approves it and sends a quote at catalogue prices (or rejects it with a reason); the dealer accepts or declines the quote, then fulfils. Only the manufacturer login sees this tab; `npm test` |
 
 ## More information

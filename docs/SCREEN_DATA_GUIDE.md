@@ -99,7 +99,9 @@ How the forecast works is explained in [section 5](#5-demand-forecast-stock-out-
 
 These are fixed buttons. Each one appears only if the role can open the screen it leads to:
 - **+ Create Order** opens the new order request.
-- **Register Warranty**, **Place Reorder** and **Submit Claim** go to screens that are still "Coming soon".
+- **Place Reorder** opens the Inventory product list.
+- **Register Warranty** and **Submit Claim** open the Warranty board.
+- There is no reorder, registration or claim form: Inventory and Warranty are view only.
 
 ### 2.5 Recent Activity
 
@@ -234,7 +236,49 @@ Dealer marks fulfilled             → Fulfilled   → becomes REVENUE: Sale tab
 
 ---
 
-## 7. Order Approvals page (manufacturer)
+## 7. Inventory page
+
+Backend: `GET /api/inventory` → `inventoryService.js`. Screen: `pages/dealer/Inventory.jsx`. Principal and Sales Rep.
+
+**Project decision:** this is only the dealer's product list with stock. It is **not connected to orders**, so there is no reorder button.
+
+| What you see | Where it comes from |
+|---|---|
+| **Subtitle** ("40 products · 8 low stock · 1 out of stock") | Counted from the list below |
+| **Price** | The manufacturer's catalogue price (`Product` table) |
+| **On hand, On order, Reorder point** | The dealer's stock record per product (`Inventory` table, as of 15 Nov 2026 in the demo data) |
+| **Stock label** | **Out of stock** (red): 0 on hand. **Low stock** (amber): on hand at or below the reorder point. **In stock** (green): everything else. |
+| Search and filters | Search by SKU or name; filter by category and stock level |
+
+Example: FN-H96-80 has 4 on hand and a reorder point of 12, so it is **Low stock**. FN-S80-80 has 0 on hand, so it is **Out of stock**. These are the same two furnaces as in the Home AI insight.
+
+---
+
+## 8. Warranty page
+
+Backend: `GET /api/claims` and `GET /api/claims/summary` → `claimService.js`. Screen: `pages/dealer/Warranty.jsx`. Principal and Technician.
+
+**View only:** the dealer tracks its claims; the manufacturer decides them (approve, reject, reimburse). The dealer has no buttons to move a claim.
+
+### Tiles
+
+| Tile | Calculation | Summit today |
+|---|---|---|
+| **Open Claims** | Claims in **Submitted** or **Under Review**. Small text: of those, how many have waited **more than 10 days** in the same stage. Same numbers as the Home tile. | **6**, 3 aging |
+| **Avg. Resolution** | Average days from **filing** to the **decision** (approved, reimbursed or rejected), for claims decided in the **last 12 months** | **16 days** (16 claims) |
+| **Approval Rate** | Approved or reimbursed ÷ all claims decided in the last 12 months | **94%** (15 of 16; 1 rejected) |
+
+### Board
+
+- **4 columns:** Submitted → Under Review → Approved → Reimbursed, each with its count.
+- **One line per claim:** Claim ID, amount, and **days in the current stage** (rounded up, the same as in Dealer 360). Reimbursed claims show the **paid date** instead.
+- **Red border:** waiting more than 10 days. These claims are shown first in their column.
+- **Hover** a card to see the product code and name.
+- **Rejected** claims aren't a column; they are counted in the Approval Rate tile.
+
+---
+
+## 9. Order Approvals page (manufacturer)
 
 Backend: `GET /api/manufacturer/...` → `manufacturerService.js`. Screen: `pages/manufacturer/OrderApprovals.jsx`. Login: `manufacturer@demo.com`.
 
@@ -255,7 +299,7 @@ Only orders from **this manufacturer's own dealers** are shown.
 
 ---
 
-## 8. Notification bell
+## 10. Notification bell
 
 Backend: `GET /api/notifications` → `notificationService.js`. Nothing is stored; notifications are worked out from the data each time.
 
@@ -268,7 +312,7 @@ The count on the bell is the number of these items. Each one links to the matchi
 
 ---
 
-## 9. Copilot
+## 11. Copilot
 
 Backend: `POST /api/copilot/ask` → `src/copilot/`. In-house: no ChatGPT, no outside API.
 
@@ -286,7 +330,7 @@ Question → understand it (in-house classifier + business dictionary)
 
 ---
 
-## 10. Common demo questions
+## 12. Common demo questions
 
 | Question | Answer |
 |---|---|
@@ -301,7 +345,7 @@ Question → understand it (in-house classifier + business dictionary)
 
 ---
 
-## 11. Files to point to
+## 13. Files to point to
 
 | Screen / item | Backend file | Frontend file |
 |---|---|---|
@@ -311,6 +355,8 @@ Question → understand it (in-house classifier + business dictionary)
 | Forecast | `src/services/forecastService.js` | (insight, recommendation, bell) |
 | Sales summary | `src/services/aggregationService.js`, `salesService.js` | n/a |
 | Orders | `src/services/orderService.js`, `orderInsightService.js` | `pages/dealer/Orders.jsx`, `components/orders/` |
+| Inventory | `src/services/inventoryService.js` | `pages/dealer/Inventory.jsx` |
+| Warranty | `src/services/claimService.js` | `pages/dealer/Warranty.jsx` |
 | Order Approvals | `src/services/manufacturerService.js` | `pages/manufacturer/OrderApprovals.jsx` |
 | Notifications | `src/services/notificationService.js` | `components/layout/TopBar.jsx` |
 | Copilot | `src/copilot/`, `src/services/copilotService.js` | `pages/dealer/Copilot.jsx` |

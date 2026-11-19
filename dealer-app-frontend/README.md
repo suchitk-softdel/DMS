@@ -1,8 +1,8 @@
 # Dealer App – Frontend
 
 The dealer-facing app of Softdel's Intelligent Dealer Ecosystem Platform (IDEP). Dealers use it to
-manage orders and quotes, inventory, incentives and training, warranty claims and sales
-opportunities, with an AI Copilot available on every screen.
+send orders to their manufacturer, see their product stock, track warranty claims and follow their
+performance, with an in-house AI Copilot. The manufacturer's order desk uses it to approve orders.
 
 **Requirements:** [`docs/SRS.md`](../docs/SRS.md) (SRS v1.0) defines the scope. Manufacturer and
 executive screens (AI Channel Command Center, Digital Twin) and admin tools are out of scope for
@@ -53,9 +53,14 @@ password **`demo123`**.
 
 | Email                | Role                 | Accessible modules                                                           |
 | -------------------- | -------------------- | ---------------------------------------------------------------------------- |
-| `principal@demo.com` | Dealer Principal     | All modules                                                                  |
-| `sales@demo.com`     | Sales Representative | Home, Orders & Quotes, Inventory, Incentives & Training, Sales Coach         |
-| `tech@demo.com`      | Service Technician   | Home, Warranty & Claims, Incentives & Training (limited sales data, per SRS) |
+| `principal@demo.com` | Dealer Principal     | Home, Copilot, Dealer 360, Orders, Inventory, Warranty                       |
+| `sales@demo.com`     | Sales Representative | Home, Copilot, Orders, Inventory                                             |
+| `tech@demo.com`      | Service Technician   | Home, Copilot, Warranty (no sales data, per SRS)                             |
+| `manufacturer@demo.com` | Manufacturer Order Desk | Order Approvals only                                                  |
+
+The sign-in page has two demo buttons, **Dealer** (`principal@demo.com`) and **Manufacturer**; the
+other accounts work when typed in. Incentives, Training and Sales Coach were removed from the menu
+(project decision); their pages and backend APIs still exist.
 
 Every role lands on Home after login, and every role can open the Copilot.
 
@@ -69,10 +74,11 @@ access above is a working assumption. It is defined in `src/data/roles.js`.
 | `/`            | `home`       | Home / Dashboard       | 3.1         |
 | `/dealer-360`  | `dealer360`  | Dealer 360             | 3.3         |
 | `/orders`      | `orders`     | Orders & Quotes        | 3.4         |
-| `/inventory`   | `inventory`  | Inventory Intelligence | 3.5         |
-| `/incentives`  | `incentives` | Incentives & Training  | 3.6         |
-| `/warranty`    | `warranty`   | Warranty & Claims      | 3.7         |
-| `/sales-coach` | `salesCoach` | Sales Coach            | 3.8         |
+| `/inventory`   | `inventory`  | Inventory (product list) | 3.5         |
+| `/incentives`  | `incentives` | Incentives & Training (not in the menu) | 3.6 |
+| `/warranty`    | `warranty`   | Warranty & Claims (view only) | 3.7    |
+| `/sales-coach` | `salesCoach` | Sales Coach (not in the menu) | 3.8    |
+| `/order-approvals` | `orderApprovals` | Order Approvals (manufacturer) | —  |
 
 The Dealer Copilot (SRS 3.2) is its own page (`pages/dealer/Copilot.jsx`, menu item "Copilot"); its answers come from the in-house AI in the backend (`dealer-app-backend/src/copilot`).
 
@@ -96,8 +102,8 @@ src/
 │   └── orders/              # Order request, order panel, manufacturer approval panel, dialogs
 ├── pages/
 │   ├── Login, Unauthorized, NotFound
-│   ├── dealer/              # Home, Copilot, Dealer360, Orders (built); Inventory, Incentives,
-│   │                        #   Warranty, SalesCoach (coming soon)
+│   ├── dealer/              # Home, Copilot, Dealer360, Orders, Inventory, Warranty (built);
+│   │                        #   Incentives, SalesCoach (not in the menu)
 │   └── manufacturer/        # OrderApprovals (manufacturer login only)
 └── theme/theme.js           # MUI theme + statusColors and riskColors maps
 ```

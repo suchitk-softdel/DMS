@@ -2,7 +2,7 @@
 
 Status of every requirement in the SRS (`docs/SRS.md`, v1.0): what is done, what is partly done, and where it is implemented.
 
-**Status as of:** 18 Nov 2026 · branch `feature/dealer-360-copilot`
+**Status as of:** 19 Nov 2026 · branch `feature/dealer-360-copilot`
 
 | Mark | Meaning |
 |---|---|
@@ -10,25 +10,28 @@ Status of every requirement in the SRS (`docs/SRS.md`, v1.0): what is done, what
 | 🟡 Partly done | Main part works; a piece is missing (explained in the notes) |
 | 🔧 Backend only | Backend API or model is ready; the screen is not built yet |
 | ⬜ Not started | Not built yet |
-| ➖ Not applicable | Depends on the production platform, not on this app |
+| ➖ Removed | Taken out of the app by project decision (noted per requirement) |
+| ➖ Platform | Depends on the production platform, not on this app |
 
 ---
 
 ## Summary
 
-| Module (SRS section) | Requirements | ✅ | 🟡 | 🔧 | ⬜ |
-|---|---|---|---|---|---|
-| 3.1 Home | 6 | 4 | 2 | 0 | 0 |
-| 3.2 Dealer Copilot | 7 | 3 | 3 | 0 | 1 |
-| 3.3 Dealer 360 | 6 | 5 | 1 | 0 | 0 |
-| 3.4 Orders & Quotes | 6 | 5 | 0 | 0 | 0 |
-| 3.5 Inventory Intelligence | 6 | 0 | 0 | 2 | 4 |
-| 3.6 Incentives & Training | 6 | 0 | 0 | 3 | 3 |
-| 3.7 Warranty & Claims | 5 | 0 | 1 | 2 | 2 |
-| 3.8 Sales Coach | 5 | 0 | 0 | 1 | 4 |
-| **Total functional** | **47** | **17** | **7** | **8** | **14** |
+| Module (SRS section) | Requirements | ✅ | 🟡 | 🔧 | ⬜ | ➖ Removed |
+|---|---|---|---|---|---|---|
+| 3.1 Home | 6 | 4 | 2 | 0 | 0 | 0 |
+| 3.2 Dealer Copilot | 7 | 3 | 3 | 0 | 1 | 0 |
+| 3.3 Dealer 360 | 6 | 5 | 1 | 0 | 0 | 0 |
+| 3.4 Orders & Quotes | 6 | 5 | 0 | 0 | 0 | 1 |
+| 3.5 Inventory Intelligence | 6 | 1 | 0 | 0 | 0 | 5 |
+| 3.6 Incentives & Training | 6 | 0 | 0 | 0 | 0 | 6 |
+| 3.7 Warranty & Claims | 5 | 2 | 2 | 1 | 0 | 0 |
+| 3.8 Sales Coach | 5 | 0 | 0 | 0 | 0 | 5 |
+| **Total functional** | **47** | **20** | **8** | **1** | **1** | **17** |
 
-Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68%)**. FR-ORD-5 was removed by project decision.
+**In scope after project decisions: 30 of 47 requirements.** 17 were removed: customer quotes and Sales Coach (the app is dealer ↔ manufacturer only), Incentives & Training (taken out of the menu) and most of Inventory (reduced to a product list).
+
+Of those 30: **20 done (67%)**, **28 done or partly done (93%)**. Still open: FR-COP-6 (voice and document search) and FR-WAR-1 (claim form with photo; backend ready).
 
 ---
 
@@ -39,7 +42,7 @@ Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68
 | FR-HOME-1 | Greeting with dealer name, tier, region | ✅ Done | `Home.jsx` header; dealer from `GET /api/home` |
 | FR-HOME-2 | KPI tiles: Revenue YTD, Health Score, Open Orders, Pending Claims, with trends | ✅ Done | `homeService.js`; tiles shown per role |
 | FR-HOME-3 | One AI Insight banner with evidence and a one-click action | ✅ Done | Rules in `homeService.js` (stock-out risk, aging claims, revenue trend) |
-| FR-HOME-4 | Quick actions: Create Quote, Register Warranty, Place Reorder, Submit Claim | 🟡 Partly | All four buttons exist. **Create Order** (replaces Create Quote) opens the new order request. The other three go to the Warranty and Inventory screens, which are not built yet. |
+| FR-HOME-4 | Quick actions: Create Quote, Register Warranty, Place Reorder, Submit Claim | 🟡 Partly | All four buttons exist. **Create Order** (replaces Create Quote) opens the new order request. **Place Reorder** opens the Inventory product list; **Register Warranty** and **Submit Claim** open the Warranty board. There is no reorder, registration or claim form (project decision: Inventory and Warranty are view only). |
 | FR-HOME-5 | Recent Activity timeline | ✅ Done | Latest orders, claims and training (`recentActivity` in `homeService.js`) |
 | FR-HOME-6 | Refresh KPIs and insight each session and on a background interval | 🟡 Partly | Refreshed every time Home opens. No background interval yet. |
 
@@ -79,45 +82,53 @@ Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68
 
 ## 3.5 Inventory Intelligence
 
+**Project decision (19 Nov 2026):** the Inventory screen is a **product list with stock levels only** and is **not connected to orders**. Search by SKU or name; filter by category and stock level (`pages/dealer/Inventory.jsx`, `GET /api/inventory`). The demand forecast still runs in the backend for the Home insight, the Dealer 360 recommendation and the bell.
+
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
-| FR-INV-1 | Tiles: Inventory Risk, 30-day Stock-outs, Overstock value, Forecast Accuracy | ⬜ Not started | Stock data exists; tile calculations and screen not built |
-| FR-INV-2 | Demand vs. supply trend chart | ⬜ Not started | |
-| FR-INV-3 | Highest-risk SKU with recommended action and impact | 🔧 Backend only | Forecast finds stock-out risks and revenue at risk (`forecastService.js`) |
-| FR-INV-4 | Ranked reorder recommendations table | 🔧 Backend only | Forecast items ranked by revenue at risk |
-| FR-INV-5 | Approve and trigger a reorder from a recommendation | ⬜ Not started | |
-| FR-INV-6 | Consistent risk colours | ⬜ Not started | `RiskBadge` component exists |
+| FR-INV-1 | Tiles: Inventory Risk, 30-day Stock-outs, Overstock value, Forecast Accuracy | ➖ Removed | Project decision: product list only. The subtitle shows the number of products, low stock and out of stock. |
+| FR-INV-2 | Demand vs. supply trend chart | ➖ Removed | Project decision: product list only |
+| FR-INV-3 | Highest-risk SKU with recommended action and impact | ➖ Removed | Not on the Inventory screen. The same forecast drives the Home AI insight ("FN-H96-80 … projected to run short"). |
+| FR-INV-4 | Ranked reorder recommendations table | ➖ Removed | Not on the Inventory screen. Stock-out risk is a Dealer 360 recommendation. |
+| FR-INV-5 | Approve and trigger a reorder from a recommendation | ➖ Removed | Project decision: Inventory is not connected to orders. Dealers order through Orders. |
+| FR-INV-6 | Consistent risk colours | ✅ Done | Stock level per product: Out of stock (red), Low stock (amber, at or below the reorder point), In stock (green) |
 
 ## 3.6 Incentives & Training
 
+**Project decision (19 Nov 2026):** Incentives and Training were **removed from the menu**. The backend keeps the data and APIs (`GET /api/incentives`, `GET /api/training`), and training still counts in the Health Score and Copilot answers.
+
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
-| FR-INC-1 | Forecasted incentive earnings and rank among peers | ⬜ Not started | Earned payouts exist; forecast and rank not built |
-| FR-INC-2 | Progress bar per program with % to next milestone | 🔧 Backend only | `IncentiveProgress` (aggregated from sales and training) |
-| FR-INC-3 | Action to reach the next tier | ⬜ Not started | |
-| FR-INC-4 | Certifications and in-progress courses | 🔧 Backend only | `trainingService.js` |
-| FR-INC-5 | Upcoming training events and webinars | 🔧 Backend only | Scheduled courses in the data |
-| FR-INC-6 | Invite team members to training | ⬜ Not started | |
+| FR-INC-1 | Forecasted incentive earnings and rank among peers | ➖ Removed | Removed from the app |
+| FR-INC-2 | Progress bar per program with % to next milestone | ➖ Removed | Removed from the app (`IncentiveProgress` is still aggregated; the Copilot answers "Which incentive am I closest to?") |
+| FR-INC-3 | Action to reach the next tier | ➖ Removed | Removed from the app |
+| FR-INC-4 | Certifications and in-progress courses | ➖ Removed | Removed from the app (training completion is part of the Health Score) |
+| FR-INC-5 | Upcoming training events and webinars | ➖ Removed | Removed from the app |
+| FR-INC-6 | Invite team members to training | ➖ Removed | Removed from the app |
 
 ## 3.7 Warranty & Claims
 
+**Project decision (19 Nov 2026):** the Warranty screen is **view only**. The dealer tracks its claims; the decision (approve, reject, reimburse) belongs to the manufacturer, so the dealer route that changed claim stages was removed. `pages/dealer/Warranty.jsx`, `GET /api/claims`, `GET /api/claims/summary`.
+
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
-| FR-WAR-1 | Register a warranty and submit a claim with evidence | 🔧 Backend only | `POST /api/claims`; registrations are created automatically when an order is fulfilled. Photo upload not built. |
-| FR-WAR-2 | Kanban board: Submitted, Under Review, Approved, Reimbursed | 🔧 Backend only | `GET /api/claims`, `PATCH /api/claims/:id/stage` |
-| FR-WAR-3 | Card: Claim ID, SKU, Amount, Age | ⬜ Not started | Age (days in stage) is available from the API |
-| FR-WAR-4 | Metrics: Open Claims, Avg Resolution Time, Approval Rate | ⬜ Not started | |
-| FR-WAR-5 | Notify when a claim ages past a threshold (10 days) | 🟡 Partly | Home tile ("1 aging > 10 days"), Home AI insight and a Dealer 360 recommendation |
+| FR-WAR-1 | Register a warranty and submit a claim with evidence | 🔧 Backend only | `POST /api/claims`; registrations are created automatically when an order is fulfilled. No claim form or photo upload on the screen yet. |
+| FR-WAR-2 | Kanban board: Submitted, Under Review, Approved, Reimbursed | ✅ Done | 4 columns with counts; view only. Rejected claims are counted in the Approval Rate tile. |
+| FR-WAR-3 | Card: Claim ID, SKU, Amount and Age | 🟡 Partly | One line per card: Claim ID, amount, days in the current stage (paid date once reimbursed). The **SKU and product show on hover** only (simplified on request). |
+| FR-WAR-4 | Metrics: Open Claims, Avg Resolution Time, Approval Rate | ✅ Done | Open Claims (with aging count), Avg. Resolution (filing to decision, last 12 months), Approval Rate (last 12 months) |
+| FR-WAR-5 | Notify when a claim ages past a threshold (10 days) | 🟡 Partly | Home tile, Home AI insight, bell, Dealer 360 recommendation, and a red border on the board. The 10 days is set in code and can't yet be changed without a code change. |
 
 ## 3.8 Sales Coach
 
+**Project decision (19 Nov 2026):** Sales Coach was **removed from the menu**. It works on customer opportunities, and the app is dealer ↔ manufacturer only. The opportunity data and `GET /api/opportunities` are kept.
+
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
-| FR-SC-1 | Customer brief for an opportunity | 🔧 Backend only | Opportunities with budget, decision date, need (`GET /api/opportunities`) |
-| FR-SC-2 | Recommended product bundle with rationale | ⬜ Not started | |
-| FR-SC-3 | Win-probability score | ⬜ Not started | |
-| FR-SC-4 | Draft proposal document | ⬜ Not started | |
-| FR-SC-5 | Competitive positioning guidance | ⬜ Not started | Competitor is recorded on opportunities |
+| FR-SC-1 | Customer brief for an opportunity | ➖ Removed | Removed from the app (no end customers) |
+| FR-SC-2 | Recommended product bundle with rationale | ➖ Removed | Removed from the app |
+| FR-SC-3 | Win-probability score | ➖ Removed | Removed from the app |
+| FR-SC-4 | Draft proposal document | ➖ Removed | Removed from the app |
+| FR-SC-5 | Competitive positioning guidance | ➖ Removed | Removed from the app |
 
 ---
 
@@ -126,7 +137,7 @@ Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68
 | Area | Status | Notes |
 |---|---|---|
 | 6.1 Performance (2 s pages, 1.5 s Copilot) | 🟡 Partly | Pages and Copilot answers return well under a second locally; not load-tested |
-| 6.2 Security: role-based access | ✅ Done | Checked in the backend on every route; dealer and manufacturer users separated; tests |
+| 6.2 Security: role-based access | ✅ Done | Checked in the backend on every route; dealer and manufacturer users separated; dealers can't approve their own orders or change their own claims' stages; tests |
 | 6.2 Security: encryption | 🟡 Partly | Passwords hashed (bcrypt), httpOnly session cookie. HTTPS and encryption at rest come with deployment. |
 | 6.2 Security: audit log of write actions | ✅ Done | Orders, quotes, approvals, claims and logins in `AuditLog` |
 | 6.2 Security: AI guardrails service | ➖ Platform | See FR-COP-7 |
@@ -146,9 +157,10 @@ Done or partly done: **24 of 47 (51%)**. With backend-only items: **32 of 47 (68
 | **Manufacturer Order Approvals** (separate manufacturer login) | Requested by the project lead: dealers send orders to the manufacturer, which approves or rejects them with a reason |
 | **Fixed 2-year demo dataset** with linked records | Requirement for the client demo (`docs/DEMO_DATA.md`) |
 | **In-house AI** (no third-party service) | Project decision (`REQUIREMENTS.md` 7–9) |
-| **70 automated tests** and `db:verify` | Data accuracy, aggregation and Copilot correctness |
+| **74 automated tests** and `db:verify` | Data accuracy, aggregation and Copilot correctness |
 
 ## Known limitations
 - **Date drift:** calculations use the real date, while the demo data ends on 15 Nov 2026. A demo-date setting is proposed.
 - **Production config** still has mock data switched on (`dealer-app-frontend/src/config/prod.js`).
-- **Pending screens:** Inventory, Incentives & Training, Warranty & Claims, Sales Coach.
+- **Removed from the app by project decision:** Incentives & Training and Sales Coach (menu items removed; backend data and APIs kept), the Inventory forecast screen and reorder, and claim decisions by the dealer.
+- **Warranty:** no claim form or photo upload yet (FR-WAR-1); the board is view only.

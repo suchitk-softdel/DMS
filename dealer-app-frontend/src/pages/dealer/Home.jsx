@@ -102,7 +102,7 @@ export default function Home() {
 
   const firstName = user?.name?.split(' ')[0] ?? ''
   const dealer = data?.dealer
-  const subtitle = dealer ? `${dealer.name}  ·  ${dealer.tier} Tier Dealer  ·  ${dealer.region}` : ''
+  const subtitle = dealer?.name ?? ''
 
   const kpis = data ? buildKpis(data.kpis) : []
   const insight = data?.insight

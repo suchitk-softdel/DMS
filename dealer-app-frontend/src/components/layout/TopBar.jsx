@@ -63,7 +63,7 @@ function useNotifications() {
 export default function TopBar() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const { user, role } = usePermissions()
+  const { user } = usePermissions()
   const { header } = usePageHeader()
   const notifications = useNotifications()
   const [accountAnchor, setAccountAnchor] = useState(null)
@@ -190,7 +190,6 @@ export default function TopBar() {
           <UserAvatar name={user?.name} color="secondary.main" size={44} />
           <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left' }}>
             <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>{firstName}</Typography>
-            <Typography noWrap sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.2 }}>{role?.name}</Typography>
           </Box>
         </ButtonBase>
 
@@ -205,7 +204,7 @@ export default function TopBar() {
           <Box sx={{ px: 2.5, py: 1.5 }}>
             <Typography sx={{ fontWeight: 700 }}>{user?.name}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {role?.name}
+              {user?.organization?.type === 'manufacturer' ? 'Manufacturer' : 'Dealer'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {user?.email}

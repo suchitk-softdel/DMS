@@ -84,9 +84,9 @@ Each dealer was given a different size, growth and mix, so the dashboards and Co
 
 | Role | Works for | Can open |
 |---|---|---|
-| Dealer Principal | a dealer | Home, Dealer 360, Orders, Inventory, Incentives, Warranty, Sales Coach |
-| Sales Representative | a dealer | Home, Orders, Inventory, Incentives, Sales Coach |
-| Service Technician | a dealer | Home, Warranty, Incentives |
+| Dealer Principal | a dealer | Home, Copilot, Dealer 360, Orders, Inventory, Warranty |
+| Sales Representative | a dealer | Home, Copilot, Orders, Inventory |
+| Service Technician | a dealer | Home, Copilot, Warranty |
 | Manufacturer Order Desk | the manufacturer (Aerovance) | **Order Approvals** only: approve or reject the orders dealers send |
 
 The manufacturer has one user, `manufacturer@demo.com` (Olivia Bennett, Aerovance order desk). It belongs to the manufacturer, not to a dealer, so it cannot open any dealer page or dealer data. The 35 dealer users are:
@@ -287,7 +287,7 @@ Dashboards, Health Score, Forecast and Copilot show the new figures
 | Command | What it checks |
 |---|---|
 | `npm run db:verify` | **Links:** every claim matches its registration (same order, serial, customer, product, dealer; filed after install); every registration matches its order line; order totals equal their lines. **Aggregates:** Sale revenue equals fulfilled orders for each dealer; incentive payouts match the milestones. **Models:** Health Score and Forecast match `expected-outputs.json`. |
-| `npm test` | 70 tests. **Manufacturer approval (8):** who can open Order Approvals, the manufacturer cannot see dealer data, dealers cannot approve their own orders, approve and reject (reason required, shown to the dealer), no double decisions. **Orders & Quotes (9):** list filters, search, sorting and paging, status counts, the quote insight, and the create → submit → approve → fulfil flow (revenue and warranty registrations update). **Copilot (42):** answers for all 6 dealers compared with values calculated separately from the database, plus follow-ups, role access and dealer isolation. **Dealer 360 (11):** tiles, monthly trend, Health Score and its database weights, recommendations and timeline checked against the raw records |
+| `npm test` | 74 tests. **Manufacturer approval (9):** who can open Order Approvals, the manufacturer cannot see dealer data, dealers cannot approve their own orders, approve and reject (reason required, shown to the dealer), no double decisions. **Orders (12):** list filters, status groups, search, sorting and paging, and the request → quote → accept → fulfil flow (revenue and warranty registrations update). **Copilot (42):** answers for all 6 dealers compared with values calculated separately from the database, plus follow-ups, role access and dealer isolation. **Dealer 360 (11):** tiles, monthly trend, Health Score and its database weights, recommendations and timeline checked against the raw records |
 
 Both pass on the current `demo.db`.
 

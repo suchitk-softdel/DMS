@@ -59,12 +59,12 @@ src/
 ├── routes/ProtectedRoute.jsx # Login, permission and dealer-only guard
 ├── layouts/
 │   ├── MainLayout.jsx        # NavRail + TopBar + page (in an ErrorBoundary)
-│   └── AuthLayout.jsx        # Sign-in page layout (brand panel + form)
+│   └── AuthLayout.jsx        # Sign-in page layout (navy panel with the logo + form)
 │
 ├── components/
 │   ├── common/               # ErrorBoundary, PageLoader, ContentSkeleton (loading shapes),
 │   │                         #   ToastProvider
-│   ├── layout/               # NavRail (menu + organisation card), TopBar (title, search,
+│   ├── layout/               # NavRail (logo + menu), TopBar (title, search,
 │   │                         #   notifications bell, account menu), PageHeaderContext
 │   ├── ui/                   # Primitives: BrandLogo, KpiTile (icon, sparkline, clickable),
 │   │                         #   StatusChip, NameWithInitial, PageHeader, SectionTitle,
@@ -85,10 +85,10 @@ src/
     │   ├── Copilot.jsx       # ✅ In-house AI chat with suggested prompts
     │   ├── Dealer360.jsx     # ✅ Tiles, revenue trend, Health Score, recommendations, timeline
     │   ├── Orders.jsx        # ✅ Order requests, status groups, quotes to accept, fulfilment
-    │   ├── Inventory.jsx     # ⏳ Coming soon (backend ready)
-    │   ├── Incentives.jsx    # ⏳ Coming soon (also the Training menu item)
-    │   ├── Warranty.jsx      # ⏳ Coming soon (backend ready)
-    │   └── SalesCoach.jsx    # ⏳ Coming soon (backend ready)
+    │   ├── Inventory.jsx     # ✅ Product list with stock levels, search, filters (not connected to orders)
+    │   ├── Warranty.jsx      # ✅ Claims tiles + 4-stage board (view only)
+    │   ├── Incentives.jsx    # ➖ Not in the menu (project decision)
+    │   └── SalesCoach.jsx    # ➖ Not in the menu (customer-based; app is dealer ↔ manufacturer)
     └── manufacturer/
         └── OrderApprovals.jsx # ✅ Manufacturer order desk: requests, quotes, accepted, closed
 ```
@@ -105,7 +105,9 @@ Every demo account uses the password `demo123`.
 | `principal2@demo.com`   | Rachel Kim       | Dealer Principal (Coastal) | `/` (Home)      |
 | `manufacturer@demo.com` | Olivia Bennett   | Manufacturer Order Desk | `/order-approvals` |
 
-The menu shows only what each role can open; the manufacturer sees only Order Approvals.
+The menu shows only what each role can open: Home, Copilot, Dealer 360, Orders, Inventory and
+Warranty for the Principal; the manufacturer sees only Order Approvals. The sign-in page has two demo
+buttons, **Dealer** and **Manufacturer**; the Sales Rep and Technician accounts work when typed in.
 
 ## Order flow (dealer ↔ manufacturer)
 
