@@ -23,7 +23,7 @@ import Typography from '@mui/material/Typography'
 import { useDispatch } from 'react-redux'
 import { useLocation, useNavigate } from 'react-router-dom'
 import UserAvatar from '@/components/ui/UserAvatar'
-import { PUBLIC_PATHS } from '@/constants/modules'
+import { MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
 import { usePageHeader } from '@/lib/pageHeader'
 import { usePermissions } from '@/lib/rbac'
 import { getNotifications } from '@/services/dataService'
@@ -32,6 +32,12 @@ import { toggleNav } from '@/store/slices/uiSlice'
 
 // Notifications are refreshed on every page change and once a minute.
 const REFRESH_MS = 60_000
+
+// "ORD-101399", "ord101399" or "101399" -> "ORD-101399"; anything else -> null.
+const toOrderId = (term) => {
+  const match = term.trim().match(/^(?:ord[\s-]?)?(\d{6})$/i)
+  return match ? `ORD-${match[1]}` : null
+}
 const KIND_ICON = {
   success: { Icon: CheckCircleOutlined, color: 'primary.main' },
   error: { Icon: CancelOutlined, color: 'error.main' },
@@ -63,7 +69,24 @@ function useNotifications() {
 export default function TopBar() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const { user } = usePermissions()
+  const { user, can } = usePermissions()
+  const [query, setQuery] = useState('')
+  // Orders screen for this user: the dealer's Orders or the manufacturer's Order Approvals.
+  const ordersPath = can(MODULES.ORDERS)
+    ? MODULE_PATHS[MODULES.ORDERS]
+    : can(MODULES.ORDER_APPROVALS)
+      ? MODULE_PATHS[MODULES.ORDER_APPROVALS]
+      : null
+
+  // A full order number opens that order; anything else filters the order list.
+  const searchOrders = (event) => {
+    event.preventDefault()
+    const term = query.trim()
+    if (!term || !ordersPath) return
+    const orderId = toOrderId(term)
+    navigate(orderId ? `${ordersPath}?order=${orderId}` : `${ordersPath}?search=${encodeURIComponent(term)}`)
+    setQuery('')
+  }
   const { header } = usePageHeader()
   const notifications = useNotifications()
   const [accountAnchor, setAccountAnchor] = useState(null)
@@ -107,9 +130,9 @@ export default function TopBar() {
         <Box
           component="form"
           role="search"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={searchOrders}
           sx={{
-            display: { xs: 'none', md: 'flex' },
+            display: { xs: 'none', md: ordersPath ? 'flex' : 'none' },
             alignItems: 'center',
             gap: 1,
             width: { md: 260, lg: 380 },
@@ -125,8 +148,10 @@ export default function TopBar() {
         >
           <SearchIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
           <InputBase
-            placeholder="Search dealers, orders, SKUs..."
-            inputProps={{ 'aria-label': 'Search dealers, orders, SKUs' }}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={can(MODULES.ORDER_APPROVALS) ? 'Search orders or dealers… (Enter)' : 'Search orders by ID… (Enter)'}
+            inputProps={{ 'aria-label': 'Search orders' }}
             sx={{ flexGrow: 1, fontSize: 15 }}
           />
         </Box>

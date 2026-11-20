@@ -424,6 +424,21 @@ export function networkAnswer(manufacturer, dealers, ownDealerId) {
   }
 }
 
+// dealer: { name, region, territoryCoverage (0..1) }. The dealer's own value
+// only (the same as the Dealer 360 tile), never other dealers' figures.
+export function territoryAnswer(dealer) {
+  const pct = Math.round(dealer.territoryCoverage * 100)
+  return {
+    text: `Your territory coverage is ${pct}%: ${dealer.name} serves ${pct}% of the territory assigned to it by the manufacturer in ${dealer.region}. The other ${100 - pct}% is room to grow.`,
+    highlight: { value: `${pct}%`, caption: 'Territory coverage' },
+    evidence: ['Territory coverage stored on your dealer record (assigned by the manufacturer)'],
+    tags: ['Territory coverage'],
+    understood: 'Territory coverage',
+    actions: [{ label: 'Open Dealer 360', module: MODULES.DEALER_360 }],
+    suggestions: ['What is my health score?', 'Compare my sales with last year', 'How many dealers are in the network?'],
+  }
+}
+
 // stats: { total, residential, commercial, activeThisYear, year }
 export function customersAnswer(stats) {
   return {

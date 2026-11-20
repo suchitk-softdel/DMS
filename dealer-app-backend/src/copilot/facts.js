@@ -16,13 +16,15 @@ import { monthKey, monthLabel } from './period.js'
 const customerFields = { select: { id: true, name: true, type: true, city: true } }
 const productLabel = (p) => `${p.sku} · ${p.name}`
 
+// Orders sent to the manufacturer since customers were removed have no
+// customer (dealer <-> manufacturer only), so every customer field is optional.
 const common = (date, customer) => ({
   date,
   month: monthKey(date),
-  customerId: customer.id,
-  customer: customer.name,
-  customerType: customer.type,
-  city: customer.city,
+  customerId: customer?.id ?? null,
+  customer: customer?.name ?? 'No customer',
+  customerType: customer?.type ?? null,
+  city: customer?.city ?? null,
 })
 
 async function salesFacts(dealerId, period) {

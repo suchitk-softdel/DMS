@@ -2,6 +2,7 @@ import { MODULES } from '../constants/domain.js'
 import {
   clarifyAnswer,
   coverageAnswer,
+  territoryAnswer,
   customersAnswer,
   forecastAnswer,
   greetingAnswer,
@@ -196,6 +197,7 @@ async function customersFor(dealerId, now) {
 
 const SPECIAL_MODULE = {
   health: [MODULES.DEALER_360, 'your Health Score'],
+  territory: [MODULES.DEALER_360, 'territory coverage'],
   forecast: [MODULES.INVENTORY, 'inventory and forecasts'],
   incentives: [MODULES.INCENTIVES, 'incentives'],
   customers: [MODULES.ORDERS, 'the customer list'],
@@ -221,6 +223,7 @@ export async function askCopilot(user, question, rawContext, now = new Date()) {
     else if (parsed.intent === 'forecast') answer = forecastAnswer(await forecastDemand(user.dealerId, now))
     else if (parsed.intent === 'incentives') answer = incentivesAnswer(await listIncentives(user.dealerId))
     else if (parsed.intent === 'coverage') answer = await coverageFor(user.dealerId)
+    else if (parsed.intent === 'territory') answer = territoryAnswer(await prisma.dealer.findUnique({ where: { id: user.dealerId }, select: { name: true, region: true, territoryCoverage: true } }))
     else if (parsed.intent === 'stock') answer = stockAnswer(await listInventory(user.dealerId), parsed.filters ?? {})
     else if (parsed.intent === 'price') answer = priceAnswer(await prisma.product.findMany(), parsed.filters ?? {}, parsed.wants)
     else if (parsed.intent === 'training') answer = await trainingFor(user)

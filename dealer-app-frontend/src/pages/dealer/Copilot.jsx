@@ -85,6 +85,7 @@ const SUGGESTED_PROMPTS = [
   { text: 'Sales by category this year', module: MODULES.DEALER_360 },
   { text: 'Top 5 products by sales this year', module: MODULES.DEALER_360 },
   { text: 'What is my health score?', module: MODULES.DEALER_360 },
+  { text: 'What is my territory coverage?', module: MODULES.DEALER_360 },
   { text: 'How many orders did I place last year?', module: MODULES.ORDERS },
   { text: 'What is my total pending order quantity?', module: MODULES.ORDERS },
   { text: 'How many claims are pending?', module: MODULES.WARRANTY },
@@ -203,8 +204,9 @@ export default function Copilot() {
   const endRef = useRef(null)
   const inputRef = useRef(null)
 
+  // Follow the conversation; an empty chat stays at the top (welcome screen).
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
+    if (messages.length || thinking) endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
   }, [messages, thinking])
 
   const ask = async (text) => {
@@ -226,6 +228,12 @@ export default function Copilot() {
   }
 
   const handleShown = useCallback((id) => dispatch(markShown(id)), [dispatch])
+
+  const startNewChat = () => {
+    dispatch(clearChat())
+    setDraft('')
+    inputRef.current?.focus()
+  }
 
   // ↑ in an empty input brings back the last question to edit.
   const handleKeyDown = (event) => {
@@ -263,18 +271,18 @@ export default function Copilot() {
               bgcolor: 'grey.50',
             }}
           >
-            {messages.length > 0 && (
-              <Stack direction="row" sx={{ justifyContent: 'flex-end', mb: 1 }}>
-                <Button
-                  size="small"
-                  startIcon={<AddCommentOutlinedIcon />}
-                  onClick={() => dispatch(clearChat())}
-                  disabled={thinking}
-                >
-                  New chat
-                </Button>
-              </Stack>
-            )}
+            {/* New chat: clears the conversation and the follow-up context. */}
+            <Stack direction="row" sx={{ justifyContent: 'flex-end', mb: 1.5 }}>
+              <Button
+                variant="outlined"
+                startIcon={<AddCommentOutlinedIcon />}
+                onClick={startNewChat}
+                disabled={thinking}
+                sx={{ bgcolor: 'background.paper' }}
+              >
+                New chat
+              </Button>
+            </Stack>
 
             <Stack spacing={3} sx={{ flexGrow: 1, overflowY: 'auto', pb: 2, pr: 0.5 }} aria-live="polite">
               {messages.length === 0 && !thinking && <Welcome topics={topics} onAsk={ask} />}

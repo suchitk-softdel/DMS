@@ -82,6 +82,15 @@ export default function Orders() {
     if (searchParams.has('action')) setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams])
 
+
+  // ?search=… from the top-bar search fills this page's search box.
+  const urlSearch = searchParams.get('search')
+  const [appliedUrlSearch, setAppliedUrlSearch] = useState(null)
+  if (urlSearch !== null && urlSearch !== appliedUrlSearch) {
+    setAppliedUrlSearch(urlSearch)
+    setSearchInput(urlSearch)
+  }
+
   // ?order=ORD-123 (e.g. from a notification) opens that order.
   const linkedOrder = searchParams.get('order')
   const shownOrderId = openOrderId ?? linkedOrder
