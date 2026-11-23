@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATEGORIES, MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
+import { MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
 import { badRequest, forbidden, notFound } from '../utils/httpError.js'
 import { refreshDealerAggregates } from './aggregationService.js'
@@ -133,40 +133,11 @@ export async function createOrder(user, input) {
   return getOrder(dealerId, order.id)
 }
 
-// One warranty registration per equipment unit when an order is fulfilled
-// (the unit is installed and registered with the manufacturer).
-async function registerFulfilledUnits(tx, order, now) {
-  const items = await tx.orderItem.findMany({
-    where: { orderId: order.id, product: { category: { in: [...EQUIPMENT_CATEGORIES] } } },
-    select: { id: true, productId: true, quantity: true },
-  })
-  const [{ maxSerial }] = await tx.$queryRaw`
-    SELECT MAX(CAST(substr(serialNumber, 3) AS INTEGER)) AS maxSerial FROM "WarrantyRegistration"`
-  let serial = Number(maxSerial ?? 5000000)
-
-  const rows = items.flatMap((item) =>
-    Array.from({ length: item.quantity }, () => {
-      const serialNumber = `SN${++serial}`
-      return {
-        id: `wr-${serialNumber}`,
-        dealerId: order.dealerId,
-        orderId: order.id,
-        orderItemId: item.id,
-        productId: item.productId,
-        customerId: order.customerId,
-        serialNumber,
-        installDate: now,
-        createdAt: now,
-      }
-    }),
-  )
-  if (rows.length) await tx.warrantyRegistration.createMany({ data: rows })
-  return rows.length
-}
-
-// Moves an order or quote to its next status. Fulfilling an order registers
-// its equipment units, and every change re-runs the dealer's aggregates so
-// KPIs, trends, forecast and incentives include it straight away.
+// Moves an order or quote to its next status. Every change re-runs the
+// dealer's aggregates so KPIs, trends, forecast and incentives include it
+// straight away. Fulfilled equipment units are then registered by the dealer
+// one by one with their serial number and install date (Register Warranty,
+// claimService.registerWarranty).
 // Approving or rejecting an ORDER is the manufacturer's decision
 // (manufacturerService.js); the dealer submits and fulfils.
 // Marking a QUOTE accepted records the customer's acceptance, so it needs
@@ -194,27 +165,24 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
   }
 
   const now = new Date()
-  const registered = await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status,
-        updatedAt: now,
-        ...(accepting && {
-          reviewedById: user.id,
-          reviewedAt: now,
-          acceptanceMethod: acceptance.method,
-          acceptanceContact: acceptance.contact,
-          acceptanceNote: acceptance.note ?? null,
-        }),
-        ...(responding && {
-          dealerRespondedById: user.id,
-          dealerRespondedAt: now,
-          declineReason: status === 'declined' ? reason : null,
-        }),
-      },
-    })
-    return status === 'fulfilled' ? registerFulfilledUnits(tx, order, now) : 0
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status,
+      updatedAt: now,
+      ...(accepting && {
+        reviewedById: user.id,
+        reviewedAt: now,
+        acceptanceMethod: acceptance.method,
+        acceptanceContact: acceptance.contact,
+        acceptanceNote: acceptance.note ?? null,
+      }),
+      ...(responding && {
+        dealerRespondedById: user.id,
+        dealerRespondedAt: now,
+        declineReason: status === 'declined' ? reason : null,
+      }),
+    },
   })
 
   await refreshDealerAggregates(user.dealerId)
@@ -226,7 +194,6 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
     details: {
       from: order.status,
       to: status,
-      ...(registered && { unitsRegistered: registered }),
       ...(accepting && { acceptedBy: acceptance.contact, method: acceptance.method }),
       ...(status === 'declined' && { reason }),
     },

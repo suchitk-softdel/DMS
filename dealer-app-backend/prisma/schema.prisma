@@ -115,6 +115,9 @@ model Product {
   unitPrice Float
   unitCost  Float
   packSize  Int    @default(1)
+  // Warranty length from the install date. Every product has 1 year by default;
+  // change it per product here (no code change). Claims after it ends are refused.
+  warrantyYears Int @default(1)
 
   orderItems    OrderItem[]
   sales         Sale[]

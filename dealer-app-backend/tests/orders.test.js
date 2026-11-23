@@ -200,10 +200,46 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     const fulfilled = await updateOrderStatus(user, order.id, 'fulfilled')
     assert.equal(fulfilled.status, 'fulfilled')
 
+    // Units are registered by the dealer afterwards (Register Warranty), not automatically.
     const registrations = await prisma.warrantyRegistration.count({ where: { orderId: order.id } })
-    assert.equal(registrations, 4)
+    assert.equal(registrations, 0)
     const revenueAfter = (await prisma.sale.aggregate({ where: { dealerId: 'd-1001' }, _sum: { revenue: true } }))._sum.revenue
     assert.ok(Math.abs(revenueAfter - revenueBefore - quoted.total) < 0.01)
     await assert.rejects(updateOrderStatus(user, order.id, 'submitted'), /cannot be changed/)
+  })
+})
+
+describe('Order insights (top of the Orders screen)', () => {
+  test('quotes, waiting requests and orders to receive match the order records', async () => {
+    for (const dealerId of DEALERS) {
+      const { insights } = await getOrdersSummary({ dealerId }, NOW)
+      const rows = (status) => prisma.order.findMany({ where: { dealerId, type: 'order', status } })
+      const quotes = await rows('approved')
+      assert.equal(insights.quotes.count, quotes.length, dealerId)
+      assert.ok(Math.abs(insights.quotes.value - quotes.reduce((s, o) => s + o.total, 0)) < 0.01, dealerId)
+      assert.equal(insights.waiting.count, (await rows('submitted')).length, dealerId)
+      assert.equal(insights.toReceive.count, (await rows('accepted')).length, dealerId)
+      if (quotes.length) {
+        // The oldest quote waited at least as long as every other one.
+        const waited = quotes.map((q) => Math.floor((NOW - (q.reviewedAt ?? q.createdAt)) / 86_400_000))
+        assert.equal(insights.quotes.oldest.days, Math.max(...waited), dealerId)
+      } else {
+        assert.equal(insights.quotes.oldest, null, dealerId)
+      }
+    }
+  })
+
+  test('last 30 days counts the orders sent in that window', async () => {
+    const { insights } = await getOrdersSummary({ dealerId: 'd-1001' }, NOW)
+    const from = new Date(NOW.getTime() - 30 * 86_400_000)
+    const count = await prisma.order.count({ where: { dealerId: 'd-1001', type: 'order', status: { not: 'draft' }, createdAt: { gte: from, lte: NOW } } })
+    assert.equal(insights.last30.count, count)
+  })
+
+  test('approval rate is approved / decided in the last 90 days', async () => {
+    const { insights } = await getOrdersSummary({ dealerId: 'd-1001' }, NOW)
+    const { decided, rejected, rate } = insights.approval
+    if (decided) assert.equal(rate, Math.round(((decided - rejected) / decided) * 100) / 100)
+    else assert.equal(rate, null)
   })
 })

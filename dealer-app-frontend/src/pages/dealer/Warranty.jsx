@@ -1,21 +1,36 @@
+import AddTaskOutlined from '@mui/icons-material/AddTaskOutlined'
+import PostAddOutlined from '@mui/icons-material/PostAddOutlined'
 import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined'
 import ScheduleOutlined from '@mui/icons-material/ScheduleOutlined'
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AsyncContent from '@/components/patterns/AsyncContent'
 import KpiGrid from '@/components/patterns/KpiGrid'
 import PageHeader from '@/components/ui/PageHeader'
-import { formatCurrency, formatDayMonth, formatPercent } from '@/lib/format'
+import RegisterWarrantyDialog from '@/components/warranty/RegisterWarrantyDialog'
+import SubmitClaimDialog from '@/components/warranty/SubmitClaimDialog'
+import { formatCurrency, formatDate, formatDayMonth, formatPercent } from '@/lib/format'
+import LiveBadge from '@/components/ui/LiveBadge'
+import { describeLiveEvent, useLiveEvents } from '@/lib/live'
+import { usePermissions } from '@/lib/rbac'
+import { useToast } from '@/lib/toast'
 import { useAsyncData } from '@/lib/useAsyncData'
 import { getClaims, getClaimsSummary } from '@/services/dataService'
 
-// Warranty & Claims, SRS v1.0 section 3.7 (FR-WAR-2 to 4), as in the UI Design
-// Concept. View only: the dealer tracks its claims; the decision (approve,
-// reject, reimburse) is the manufacturer's, so there are no stage buttons.
+// Warranty & Claims, SRS v1.0 section 3.7 (FR-WAR-1 to 4), as in the UI Design
+// Concept. The dealer registers installed units and submits claims (FR-WAR-1);
+// the decision (approve, reject, reimburse) is the manufacturer's, so the board
+// has no stage buttons.
+
+// Forms that ?action= can open.
+const FORMS = ['registerWarranty', 'submitClaim']
 
 const COLUMNS = [
   { stage: 'submitted', label: 'Submitted', color: 'grey.600' },
@@ -68,7 +83,8 @@ function buildKpis(summary) {
 
 // FR-WAR-3: one short line per claim: Claim ID, Amount and Age (days in the
 // current stage; paid date once reimbursed). The SKU and product show on hover.
-function ClaimCard({ claim, agingDays }) {
+// isNew: arrived through a live update a moment ago (teal outline + "New").
+function ClaimCard({ claim, agingDays, isNew = false }) {
   const aging = WAITING.has(claim.stage) && claim.ageDays > agingDays
   return (
     <Card
@@ -83,8 +99,14 @@ function ClaimCard({ claim, agingDays }) {
         alignItems: 'baseline',
         gap: 1.5,
         ...(aging && { borderColor: 'error.main', borderLeftWidth: 4 }),
+        ...(isNew && { borderColor: 'primary.main', boxShadow: (t) => `0 0 0 2px ${t.palette.primary.main}33`, transition: 'box-shadow 300ms' }),
       }}
     >
+      {isNew && (
+        <Typography component="span" sx={{ fontSize: 11, fontWeight: 700, color: 'common.white', bgcolor: 'primary.main', px: 0.75, borderRadius: 1, alignSelf: 'center' }}>
+          New
+        </Typography>
+      )}
       <Typography sx={{ fontWeight: 700, fontSize: 14, color: 'brand.navy' }}>{claim.id}</Typography>
       <Typography sx={{ fontSize: 14, flexGrow: 1, textAlign: 'right' }}>{formatCurrency(claim.amount)}</Typography>
       <Typography
@@ -99,7 +121,7 @@ function ClaimCard({ claim, agingDays }) {
 }
 
 // FR-WAR-2: one column per stage.
-function BoardColumn({ column, claims, agingDays }) {
+function BoardColumn({ column, claims, agingDays, newIds = [] }) {
   return (
     <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.default', height: '100%' }}>
       <Box sx={{ px: 2, py: 1.5, bgcolor: column.color, color: 'common.white' }}>
@@ -109,7 +131,7 @@ function BoardColumn({ column, claims, agingDays }) {
       </Box>
       <Stack spacing={1} sx={{ p: 1.5, maxHeight: 520, overflowY: 'auto' }}>
         {claims.length ? (
-          claims.map((claim) => <ClaimCard key={claim.id} claim={claim} agingDays={agingDays} />)
+          claims.map((claim) => <ClaimCard key={claim.id} claim={claim} agingDays={agingDays} isNew={newIds.includes(claim.id)} />)
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
             No claims
@@ -121,12 +143,67 @@ function BoardColumn({ column, claims, agingDays }) {
 }
 
 export default function Warranty() {
-  const { data, loading, error, reload } = useAsyncData(loadWarranty)
+  const { data, loading, error, reload, refresh } = useAsyncData(loadWarranty)
+  const { user } = usePermissions()
+  const [newIds, setNewIds] = useState([]) // claims that just arrived live
   const summary = data?.summary
+  const [searchParams, setSearchParams] = useSearchParams()
+  // ?action=registerWarranty | submitClaim (e.g. from a Copilot answer) opens that form.
+  const [form, setForm] = useState(() => (FORMS.includes(searchParams.get('action')) ? searchParams.get('action') : null))
+  const toast = useToast()
+
+  // Remove ?action= once used, so a page refresh does not open the form again.
+  useEffect(() => {
+    if (searchParams.has('action')) setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // Live: refresh the board when warranty data changes; tell the user when
+  // someone else made the change, and mark a new claim for a few seconds.
+  useLiveEvents((event) => {
+    refresh()
+    if (event.action === 'claim.submitted' && event.id) {
+      setNewIds((ids) => [...ids, event.id])
+      setTimeout(() => setNewIds((ids) => ids.filter((id) => id !== event.id)), 15_000)
+    }
+    if (event.by !== user?.id) {
+      const message = describeLiveEvent(event)
+      if (message) toast(message, 'info')
+    }
+  })
+
+  const formDone = (message) => {
+    setForm(null)
+    toast(message)
+    reload()
+  }
 
   return (
     <>
-      <PageHeader title="Warranty & Claims" subtitle="4-stage pipeline  ·  board view" />
+      <PageHeader
+        title="Warranty & Claims"
+        subtitle="4-stage pipeline  ·  board view"
+        actions={
+          <>
+            <Button variant="contained" startIcon={<AddTaskOutlined />} onClick={() => setForm('registerWarranty')}>
+              Register Warranty
+            </Button>
+            <Button variant="outlined" startIcon={<PostAddOutlined />} onClick={() => setForm('submitClaim')} sx={{ bgcolor: 'background.paper' }}>
+              Submit Claim
+            </Button>
+            <Box sx={{ flexGrow: 1 }} />
+            <LiveBadge />
+          </>
+        }
+      />
+      {form === 'registerWarranty' && (
+        <RegisterWarrantyDialog
+          onClose={() => setForm(null)}
+          onRegistered={(r) => formDone(`Warranty registered · serial number ${r.serialNumber} · covered until ${formatDate(r.warrantyUntil)}`)}
+        />
+      )}
+      {form === 'submitClaim' && (
+        <SubmitClaimDialog onClose={() => setForm(null)} onSubmitted={(c) => formDone(`Claim ${c.id} submitted for ${c.serialNumber}`)} />
+      )}
       <AsyncContent loading={loading} error={error} onRetry={reload} skeleton="dashboard">
         {data && (
           <Stack spacing={3.5}>
@@ -138,6 +215,7 @@ export default function Warranty() {
                     column={column}
                     claims={claimsIn(data.claims, column.stage)}
                     agingDays={summary.agingDays}
+                    newIds={newIds}
                   />
                 </Grid>
               ))}

@@ -143,7 +143,8 @@ describe('Order Approvals', () => {
     assert.equal(accepted.items[0]?.id, order.id)
     const fulfilled = await dealer.patch(`/orders/${order.id}/status`, { status: 'fulfilled' })
     assert.equal(fulfilled.status, 200)
-    assert.equal(await prisma.warrantyRegistration.count({ where: { orderId: order.id } }), 3)
+    // Units are registered by the dealer afterwards (Register Warranty), not automatically.
+    assert.equal(await prisma.warrantyRegistration.count({ where: { orderId: order.id } }), 0)
   })
 
   test('reject needs a reason, and the dealer sees it', async () => {
@@ -183,5 +184,51 @@ describe('Order Approvals', () => {
     const draft = await prisma.order.findFirst({ where: { type: 'order', status: 'fulfilled' } })
     assert.equal((await desk.post(`/manufacturer/orders/${draft.id}/approve`)).status, 400)
     assert.equal((await desk.post('/manufacturer/orders/ORD-999999/approve')).status, 404)
+  })
+})
+
+describe('Dealer claim insights (on Order Approvals)', () => {
+  test('only the manufacturer can see them; rates are claims per 100 installed units', async () => {
+    const dealer = await signIn('principal@demo.com')
+    assert.equal((await dealer.get('/manufacturer/claim-insights')).status, 403)
+
+    const desk = await signIn('manufacturer@demo.com')
+    const { status, body } = await desk.get('/manufacturer/claim-insights')
+    assert.equal(status, 200)
+    const dealerIds = (await prisma.dealer.findMany({ where: { manufacturerId: 'm-01' }, select: { id: true } })).map((d) => d.id)
+    assert.equal(body.dealers.length, dealerIds.length)
+    assert.equal(body.network.claims, await prisma.claim.count({ where: { dealerId: { in: dealerIds } } }))
+    assert.equal(body.network.units, await prisma.warrantyRegistration.count({ where: { dealerId: { in: dealerIds } } }))
+    for (const d of body.dealers) {
+      if (d.units) assert.ok(Math.abs(d.ratePer100 - (d.claims / d.units) * 100) < 0.01, d.id)
+      for (const f of d.flags) assert.ok(f.label && f.detail, `${d.id} ${f.key}`)
+    }
+  })
+
+  test('the high-rate flag follows the rule; dealers are sorted by risk', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const { body } = await desk.get('/manufacturer/claim-insights')
+    for (const d of body.dealers) {
+      assert.equal(d.flags.some((f) => f.key === 'highRate'), d.claims >= 3 && d.rateVsNetwork >= body.rules.highRate - 0.005, d.id)
+      assert.equal(d.risk, d.score >= 4 ? 'high' : d.score >= 1 ? 'medium' : 'normal', d.id)
+    }
+    const scores = body.dealers.map((d) => d.score)
+    assert.deepEqual(scores, [...scores].sort((a, b) => b - a))
+    assert.equal(body.flaggedCount, body.dealers.filter((d) => d.risk !== 'normal').length)
+  })
+
+  test('a dealer can be flagged for investigation and the flag closed again', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const { body } = await desk.get('/manufacturer/claim-insights')
+    const target = body.dealers[0]
+    const opened = await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: true, note: 'Check the last claims' })
+    assert.equal(opened.status, 200)
+    const flagged = opened.body.dealers.find((d) => d.id === target.id)
+    assert.equal(flagged.investigation.note, 'Check the last claims')
+    assert.equal(opened.body.underInvestigation, 1)
+    const closed = await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: false })
+    assert.equal(closed.body.dealers.find((d) => d.id === target.id).investigation, null)
+    assert.equal((await desk.post('/manufacturer/claim-insights/dealers/d-unknown/investigation', { open: true })).status, 404)
+    assert.equal((await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: 'yes' })).status, 400)
   })
 })

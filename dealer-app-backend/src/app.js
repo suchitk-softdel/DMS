@@ -4,6 +4,7 @@ import { prisma } from './db/prisma.js'
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js'
 import { authRouter, rolesRouter } from './routes/auth.js'
 import { dealerDataRouter } from './routes/dealerData.js'
+import { liveRouter } from './routes/live.js'
 import { manufacturerRouter } from './routes/manufacturer.js'
 import { notificationsRouter } from './routes/notifications.js'
 
@@ -26,6 +27,7 @@ export function createApp() {
   // Before the dealer routes, which are mounted on /api and accept dealer users only.
   app.use('/api/manufacturer', manufacturerRouter)
   app.use('/api/notifications', notificationsRouter)
+  app.use('/api/live', liveRouter)
   app.use('/api', dealerDataRouter)
 
   app.use(notFoundHandler)

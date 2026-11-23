@@ -1,3 +1,13 @@
+//train the AI ONCE WHEN SERCIE START
+// . Small helper functions fetch the data for the special answers:
+
+// coverageFor (data range)
+// rolesFor
+// teamFor
+// networkFor
+// customersFor
+// trainingFor
+
 import { MODULES } from '../constants/domain.js'
 import {
   clarifyAnswer,

@@ -171,6 +171,7 @@ export const FOLLOW_UP_STARTS = ['and ', 'what about', 'how about', 'same for', 
 
 // Words that are understood but carry no business meaning (used to tell an
 // in-scope question from an out-of-scope one).
+//THIS WORDS WILL BE REMOVE FROM  QAUSONT
 export const STOP_WORDS = new Set(
   `a an the of in on at to for from by with and or is are was were be been am do does did
    i me my mine we our us you your it its this that these those what whats which who how

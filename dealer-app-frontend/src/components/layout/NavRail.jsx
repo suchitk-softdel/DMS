@@ -1,4 +1,6 @@
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
 import Box from '@mui/material/Box'
+import ButtonBase from '@mui/material/ButtonBase'
 import Drawer, { drawerClasses } from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -8,6 +10,7 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link as RouterLink, matchPath, useLocation } from 'react-router-dom'
 import BrandLogo from '@/components/ui/BrandLogo'
+import { COPILOT_PATH } from '@/constants/modules'
 import { NAV_ITEMS, NAV_RAIL_WIDTH } from '@/lib/navigation'
 import { usePermissions } from '@/lib/rbac'
 import { selectNavOpen, setNavOpen } from '@/store/slices/uiSlice'
@@ -87,6 +90,35 @@ export default function NavRail() {
           )
         })}
       </List>
+
+      {/* Small AI Insights link at the bottom of the menu: opens the Copilot (dealer users only). */}
+      {can(null) && (
+        <Box sx={{ px: 1.75, pb: 2 }}>
+          <ButtonBase
+            component={RouterLink}
+            to={COPILOT_PATH}
+            onClick={closeMobileNav}
+            aria-label="AI Insights: ask the Copilot about your business"
+            sx={{
+              width: '100%',
+              justifyContent: 'flex-start',
+              gap: 1.25,
+              px: 1.5,
+              py: 0.9,
+              borderRadius: 2,
+              color: 'common.white',
+              border: '1px solid rgba(0, 168, 150, 0.6)',
+              bgcolor: 'rgba(0, 168, 150, 0.12)',
+              transition: 'background-color 120ms ease',
+              '&:hover': { bgcolor: 'rgba(0, 168, 150, 0.25)' },
+              '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
+            }}
+          >
+            <AutoAwesomeRoundedIcon sx={{ fontSize: 18, color: '#3CC9BA' }} />
+            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>AI Insights</Typography>
+          </ButtonBase>
+        </Box>
+      )}
     </Drawer>
   )
 }

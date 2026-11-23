@@ -9,12 +9,20 @@ import {
 } from '../constants/domain.js'
 import { requireAuth, requireDealer, requireModule } from '../middlewares/auth.js'
 import { getDealer, listCustomers, listProducts } from '../services/catalogService.js'
-import { createClaim, getClaimsSummary, listClaims, listRegistrations } from '../services/claimService.js'
+import {
+  createClaim,
+  getClaimsSummary,
+  listClaims,
+  listRegistrations,
+  listUnregisteredUnits,
+  previewSerialNumber,
+  registerWarranty,
+} from '../services/claimService.js'
 import { askCopilot } from '../services/copilotService.js'
 import { getDealer360 } from '../services/dealer360Service.js'
 import { getHomeSummary } from '../services/homeService.js'
 import { listIncentives } from '../services/incentiveService.js'
-import { listInventory } from '../services/inventoryService.js'
+import { getInventoryOverview, listInventory } from '../services/inventoryService.js'
 import { listOpportunities } from '../services/opportunityService.js'
 import { getOrdersSummary } from '../services/orderInsightService.js'
 import { createOrder, getOrder, listOrders, ORDER_SORT_FIELDS, ORDER_STAGES, updateOrderStatus } from '../services/orderService.js'
@@ -147,6 +155,12 @@ dealerDataRouter.get('/inventory', requireModule(MODULES.INVENTORY), async (req,
   res.json(await listInventory(req.user.dealerId))
 })
 
+// Inventory dashboard: pricing summary, products with their last 3 months of
+// sales, orders with the manufacturer and product insights.
+dealerDataRouter.get('/inventory/overview', requireModule(MODULES.INVENTORY), async (req, res) => {
+  res.json(await getInventoryOverview(req.user.dealerId))
+})
+
 // Warranty & Claims (SRS 3.7) -------------------------------------------------
 // Board tiles: open claims, average resolution time, approval rate (FR-WAR-4).
 dealerDataRouter.get('/claims/summary', requireModule(MODULES.WARRANTY), async (req, res) => {
@@ -170,11 +184,35 @@ dealerDataRouter.post('/claims', requireModule(MODULES.WARRANTY), async (req, re
   res.status(201).json(claim)
 })
 
-// Registered units (to pick the unit a claim is for). ?search=serial or customer
+// Equipment units of fulfilled orders that are not registered yet (Register Warranty).
+dealerDataRouter.get('/registrations/pending', requireModule(MODULES.WARRANTY), async (req, res) => {
+  res.json(await listUnregisteredUnits(req.user.dealerId))
+})
+
+// The serial number the next registered unit will get, shown in the form as
+// soon as a unit is picked. -> { serialNumber: 'SN5002946' }
+dealerDataRouter.get('/registrations/next-serial', requireModule(MODULES.WARRANTY), async (req, res) => {
+  res.json({ serialNumber: await previewSerialNumber() })
+})
+
+// Register one installed unit. Body: { orderItemId }
+// The serial number (next SN number) and the install date (today) are set by
+// the system. The warranty runs from today (each product's warrantyYears, 1 year by default).
+dealerDataRouter.post('/registrations', requireModule(MODULES.WARRANTY), async (req, res) => {
+  const body = req.body ?? {}
+  const registration = await registerWarranty(req.user, {
+    orderItemId: requiredNumber(body.orderItemId, 'orderItemId', { min: 1, max: Number.MAX_SAFE_INTEGER, integer: true }),
+  })
+  res.status(201).json(registration)
+})
+
+// Registered units (to pick the unit a claim is for), with warranty end date,
+// expired flag and any open claim. ?productId= (one product), ?search=serial, SKU or order number
 dealerDataRouter.get('/registrations', requireModule(MODULES.WARRANTY), async (req, res) => {
   res.json(
     await listRegistrations(req.user.dealerId, {
       search: typeof req.query.search === 'string' ? req.query.search.trim() || undefined : undefined,
+      productId: typeof req.query.productId === 'string' ? req.query.productId.trim() || undefined : undefined,
       limit: intInRange(req.query.limit, { min: 1, max: 200, fallback: 50, name: 'limit' }),
     }),
   )

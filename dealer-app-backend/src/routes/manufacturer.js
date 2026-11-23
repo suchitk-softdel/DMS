@@ -9,11 +9,13 @@ import {
   listNetworkOrders,
   rejectOrder,
 } from '../services/manufacturerService.js'
+import { getClaimInsights, setInvestigation } from '../services/claimInsightService.js'
 import { requiredString } from '../utils/body.js'
-import { notFound } from '../utils/httpError.js'
+import { badRequest, notFound } from '../utils/httpError.js'
 import { intInRange, optionalEnum } from '../utils/query.js'
 
-// Manufacturer order desk: approve or reject the orders that dealers send.
+// Manufacturer order desk: approve or reject the orders that dealers send, and
+// see dealer claim insights (unusual claim patterns, investigation flag).
 // Only manufacturer users with the Order Approvals module; each sees its own
 // dealer network only.
 export const manufacturerRouter = Router()
@@ -52,4 +54,19 @@ manufacturerRouter.post('/orders/:id/approve', async (req, res) => {
 manufacturerRouter.post('/orders/:id/reject', async (req, res) => {
   const reason = requiredString(req.body?.reason, 'reason', { maxLength: 300 })
   res.json(await rejectOrder(req.user, req.params.id, reason))
+})
+
+// Dealer claim insights (shown on Order Approvals): dealers whose warranty
+// claims look unusual compared with the network, with the reasons.
+manufacturerRouter.get('/claim-insights', async (req, res) => {
+  res.json(await getClaimInsights(req.user.manufacturerId))
+})
+
+// Open or close an investigation of a dealer. Body: { open: boolean, note?: string }
+manufacturerRouter.post('/claim-insights/dealers/:id/investigation', async (req, res) => {
+  const { open, note } = req.body ?? {}
+  if (typeof open !== 'boolean') throw badRequest('open must be true or false.')
+  if (note !== undefined && note !== null && typeof note !== 'string') throw badRequest('note must be text.')
+  await setInvestigation(req.user, req.params.id, { open, note: note?.trim() || null })
+  res.json(await getClaimInsights(req.user.manufacturerId))
 })

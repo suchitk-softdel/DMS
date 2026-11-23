@@ -23,6 +23,7 @@ import SectionTitle from '@/components/ui/SectionTitle'
 import { COPILOT_PATH, MODULE_PATHS } from '@/constants/modules'
 import { toTimelineItems } from '@/lib/activity'
 import { formatCurrency, formatPercent } from '@/lib/format'
+import { useLiveEvents } from '@/lib/live'
 import { useAsyncData } from '@/lib/useAsyncData'
 import { getDealer360 } from '@/services/dataService'
 
@@ -250,7 +251,9 @@ function Recommendations({ items }) {
 }
 
 export default function Dealer360() {
-  const { data, loading, error, reload } = useAsyncData(getDealer360)
+  const { data, loading, error, reload, refresh } = useAsyncData(getDealer360)
+  // Live: warranty changes move the Health Score and the timeline.
+  useLiveEvents(refresh)
   const dealer = data?.dealer
   const status = dealer ? STATUS_LABELS[dealer.status] : null
   const subtitle = dealer

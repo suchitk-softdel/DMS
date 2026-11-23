@@ -7,11 +7,17 @@ import { CATEGORY_LABELS, DIMENSIONS, METRICS } from './vocabulary.js'
 
 // Rounded to cents first, so the same amounts summed in a different order
 // (floating-point noise) always show the same dollar figure.
+// money(1234.5) -> "$1,235"
 const money = (v) => `$${Math.round(Math.round(v * 100) / 100).toLocaleString('en-US')}`
+// number(1234.5) -> "1,235"
 const number = (v) => Math.round(v).toLocaleString('en-US')
+// Formats a value as money or a plain number, depending on the metric.
 const fmt = (metric, v) => (METRICS[metric].format === 'money' ? money(v) : number(v))
+// pct(0.125) -> "12.5%" (always positive; the sign is said in words: up/down).
 const pct = (v) => `${Math.abs(v * 100).toFixed(1)}%`
+// Short month names for dates in the evidence.
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// dayMonth(date) -> "5 Mar"
 const dayMonth = (d) => `${d.getUTCDate()} ${MONTH_SHORT[d.getUTCMonth()]}`
 
 // "1 Jan – 31 Dec 2025", "1 Nov 2024 – 15 Nov 2026" (`to` is exclusive).
@@ -22,8 +28,10 @@ function rangeLabel(from, toExclusive) {
     ? `${dayMonth(from)} – ${dayMonth(to)} ${to.getUTCFullYear()}`
     : `${dayMonth(from)} ${from.getUTCFullYear()} – ${dayMonth(to)} ${to.getUTCFullYear()}`
 }
+// capitalize("sales") -> "Sales"
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
+// How each status filter is written in a sentence, e.g. "pending claims".
 const STATE_LABEL = {
   pending: 'pending',
   draft: 'draft',
@@ -35,6 +43,7 @@ const STATE_LABEL = {
   rejected: 'rejected',
 }
 
+// The button shown under an answer: which screen to open for each kind of data.
 const FACT_ACTION = {
   sales: { label: 'Open Dealer 360', module: MODULES.DEALER_360 },
   orders: { label: 'View Orders', module: MODULES.ORDERS },
@@ -43,6 +52,7 @@ const FACT_ACTION = {
   registrations: { label: 'View Warranty', module: MODULES.WARRANTY },
 }
 
+// "in 2025", "in Q3 2025" or "overall" (for all time).
 const periodPhrase = (period) => (period.kind === 'all' ? 'overall' : `in ${period.label}`)
 
 // Category as a describing word: "furnace sales" (the plural is used for "36 furnaces").
@@ -56,10 +66,11 @@ const CATEGORY_ADJECTIVE = {
   parts: 'parts',
 }
 
-// Count words read better in the singular for 1 ("1 claim").
+// "1 claims" -> "1 claim": count words read better in the singular for 1.
 const singularize = (word, value) => (Math.round(value) === 1 ? word.replace(/s$/, '') : word)
 
-// "pending residential furnace" etc., placed before the metric name.
+// "pending residential furnace": status, customer type, category and SKU filters,
+// placed before the metric name.
 function filterWords(filters) {
   const words = []
   if (filters.state) words.push(STATE_LABEL[filters.state])
@@ -69,6 +80,7 @@ function filterWords(filters) {
   return words.join(' ')
 }
 
+// " in Denver", " for ABC Homes": city and customer filters, placed after the metric name.
 function filterSuffix(filters) {
   const parts = []
   if (filters.city) parts.push(`in ${filters.city}`)
@@ -93,9 +105,11 @@ export function recipeTags(recipe) {
   return parts
 }
 
+// The same tags as one line: "Sales · Furnaces · 2025" (the "Understood as" text).
 export const describeRecipe = (recipe) => recipeTags(recipe).join(' · ')
 
-// The key number, shown big: { value, caption, change?: { direction, percent, vs } }
+// The key number shown big at the top of the answer, with the % change when
+// comparing: { value, caption, change?: { direction, percent, vs } }
 function highlightFor(recipe, result) {
   const { metric } = recipe
   const unit = metric === 'units' || metric === 'orderUnits' ? ' units' : ''
@@ -111,6 +125,7 @@ function highlightFor(recipe, result) {
   return highlight
 }
 
+// The comparison sentence added to the answer: " That's up 12.5% from $X in 2024."
 function changeSentence(metric, current, previous, previousLabel) {
   if (!previous) return ` There was nothing to compare with in ${previousLabel}.`
   const change = current / previous - 1
@@ -120,6 +135,8 @@ function changeSentence(metric, current, previous, previousLabel) {
     : ` That's ${direction} ${pct(change)} from ${fmt(metric, previous)} in ${previousLabel}.`
 }
 
+// The evidence lines: how many records the answer is based on, the exact dates,
+// and the comparison period.
 function evidenceFor(recipe, result) {
   const { fact } = METRICS[recipe.metric]
   const evidence = []
@@ -130,6 +147,7 @@ function evidenceFor(recipe, result) {
   return evidence
 }
 
+// Up to 3 follow-up questions to click, e.g. "Compare with last year", "Show by month".
 function suggestionsFor(recipe) {
   const { fact } = METRICS[recipe.metric]
   const options = []
@@ -141,6 +159,10 @@ function suggestionsFor(recipe) {
   return options.slice(0, 3)
 }
 
+// MAIN ANSWER for data questions (sales, profit, units, orders, claims...).
+// Takes the recipe from the parser and the result from the engine and builds
+// the full reply: sentence, big number, chart (months), table (breakdowns),
+// evidence, tags, button and follow-up suggestions.
 export function queryAnswer(recipe, result) {
   const { metric, filters, period } = recipe
   const label = METRICS[metric].label
@@ -234,6 +256,8 @@ export function queryAnswer(recipe, result) {
 // Special answers (reuse the existing in-house models)
 // ---------------------------------------------------------------------------
 
+// "What is my health score?": the score out of 100, the strongest and weakest
+// part, and a table of the 4 parts (same data as the Dealer 360 screen).
 export function healthAnswer(health) {
   if (health.score === null) {
     return { text: 'There is not enough data yet to calculate your Health Score.', evidence: [], actions: [], suggestions: [] }
@@ -256,6 +280,8 @@ export function healthAnswer(health) {
   }
 }
 
+// "What should I stock next month?": which products may run short in the next
+// 30 days (expected sales vs stock on hand + on order).
 export function forecastAnswer(forecast) {
   const atRisk = forecast.items.filter((i) => i.shortfall > 0)
   const expected = forecast.items.reduce((sum, i) => sum + i.expected, 0)
@@ -284,6 +310,8 @@ export function forecastAnswer(forecast) {
   }
 }
 
+// "Which incentive am I closest to?": progress in each incentive program and
+// the next milestone payout. (Incentives module is hidden from the menu now.)
 export function incentivesAnswer(programs) {
   const open = programs.filter((p) => p.nextMilestone).sort((a, b) => b.percentToNext - a.percentToNext)
   const earned = programs.reduce((sum, p) => sum + p.earned, 0)
@@ -313,6 +341,7 @@ export function incentivesAnswer(programs) {
   }
 }
 
+// One example question per topic, shown as clickable suggestions.
 const EXAMPLES = {
   revenue: 'What were my total sales last year?',
   profit: 'Which products generated the highest profit?',
@@ -324,6 +353,7 @@ const EXAMPLES = {
   forecast: 'What should I stock next month?',
   incentives: 'Which incentive am I closest to?',
 }
+// The module each example belongs to, so users only see examples they have access to.
 const EXAMPLE_MODULE = {
   revenue: MODULES.DEALER_360,
   profit: MODULES.DEALER_360,
@@ -336,10 +366,12 @@ const EXAMPLE_MODULE = {
   incentives: MODULES.INCENTIVES,
 }
 
+// Example questions the user is allowed to ask (filtered by their permissions).
 export function examplesFor(can, intents = Object.keys(EXAMPLES)) {
   return intents.filter((i) => EXAMPLES[i] && can(EXAMPLE_MODULE[i])).map((i) => EXAMPLES[i])
 }
 
+// "hi" / "help" / "what can you do": a welcome message with example questions.
 export function greetingAnswer(can) {
   return {
     text: "Hi! I'm your Dealer Copilot. Ask me about your sales, profit, orders, quotes, warranty claims, stock, prices, training, sales pipeline and incentives, in your own words. Every answer comes from your dealership's own data, with the evidence shown.",
@@ -349,6 +381,8 @@ export function greetingAnswer(can) {
   }
 }
 
+// When the Copilot is not sure (e.g. sales or profit?): asks back with the
+// closest example questions instead of guessing.
 export function clarifyAnswer(can, options) {
   const suggestions = examplesFor(can, options)
   return {
@@ -361,6 +395,8 @@ export function clarifyAnswer(can, options) {
   }
 }
 
+// Question not about the dealer's data (e.g. "weather"): says what it can
+// answer instead of guessing.
 export function unknownAnswer(can) {
   return {
     text: "I can only answer questions about your dealership's data: sales, profit, orders, quotes, warranty claims, installs, stock, prices, incentives, training, sales opportunities, customers, users, roles and the dealer network. I won't guess about anything else.",
@@ -370,6 +406,7 @@ export function unknownAnswer(can) {
   }
 }
 
+// The user's account cannot open the module this data comes from.
 export function noAccessAnswer(what) {
   return {
     text: `Your account doesn't have access to ${what}, so I can't answer that.`,
@@ -384,6 +421,7 @@ export function noAccessAnswer(what) {
 // Team, dealer network and customer list
 // ---------------------------------------------------------------------------
 
+// plural(1, "user") -> "1 user", plural(5, "user") -> "5 users"
 const plural = (n, word) => `${number(n)} ${n === 1 ? word : `${word}s`}`
 
 // The app shows two account types only: Dealer and Manufacturer (project
@@ -391,6 +429,7 @@ const plural = (n, word) => `${number(n)} ${n === 1 ? word : `${word}s`}`
 const MANUFACTURER_ROLE = 'manufacturer'
 const accountType = (roleId) => (roleId === MANUFACTURER_ROLE ? 'Manufacturer' : 'Dealer')
 
+// "How many users are there?": number of user accounts at the dealership.
 // users: [{ roleId }] of the signed-in user's dealership
 export function teamAnswer(dealerName, users) {
   return {
@@ -405,6 +444,7 @@ export function teamAnswer(dealerName, users) {
   }
 }
 
+// "How many dealers are in the network?": dealers of the same manufacturer.
 // Network overview only: names and regions, never other dealers' figures.
 export function networkAnswer(manufacturer, dealers, ownDealerId) {
   const active = dealers.filter((d) => d.status === 'active').length
@@ -424,6 +464,7 @@ export function networkAnswer(manufacturer, dealers, ownDealerId) {
   }
 }
 
+// "What is my territory coverage?": % of the assigned territory the dealer serves.
 // dealer: { name, region, territoryCoverage (0..1) }. The dealer's own value
 // only (the same as the Dealer 360 tile), never other dealers' figures.
 export function territoryAnswer(dealer) {
@@ -440,6 +481,8 @@ export function territoryAnswer(dealer) {
 }
 
 // stats: { total, residential, commercial, activeThisYear, year }
+// "How many customers do I have?": total, residential vs commercial, and how
+// many bought this year.
 export function customersAnswer(stats) {
   return {
     text: `You have ${plural(stats.total, 'customer')}: ${number(stats.residential)} residential and ${number(stats.commercial)} commercial. ${number(stats.activeThisYear)} of them have bought from you in ${stats.year} so far.`,
@@ -457,6 +500,7 @@ export function customersAnswer(stats) {
 }
 
 // roles: [{ id, name, permissions: [module] }], counts: { roleId: users at this dealership }
+// Screen names shown in the account types table.
 const MODULE_NAMES = {
   home: 'Home',
   dealer360: 'Dealer 360',
@@ -466,6 +510,8 @@ const MODULE_NAMES = {
   orderApprovals: 'Order Approvals',
 }
 
+// "What roles are there?": the 2 account types (Dealer, Manufacturer), how many
+// users each has here, and which screens each can open.
 export function rolesAnswer(roles, counts, myRoleId) {
   const mine = accountType(myRoleId)
   const types = ['Dealer', 'Manufacturer'].map((type) => {
@@ -492,6 +538,7 @@ export function rolesAnswer(roles, counts, myRoleId) {
   }
 }
 
+// "How much data do we have?": first and latest order date and record counts.
 // stats: { from, to, orders, quotes, claims, customers, joined }
 export function coverageAnswer(stats) {
   const months = (stats.to.getUTCFullYear() - stats.from.getUTCFullYear()) * 12 + (stats.to.getUTCMonth() - stats.from.getUTCMonth()) + stats.to.getUTCDate() / 31
