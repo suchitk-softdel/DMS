@@ -295,4 +295,29 @@ describe('Live updates (Server-Sent Events)', () => {
       deskLive.close()
     }
   })
+
+  test('an investigation reaches the manufacturer only, never the dealer being investigated', async () => {
+    const dealer = await signIn('principal@demo.com')
+    const desk = await signIn('manufacturer@demo.com')
+    const dealerLive = await openLive(dealer.cookie)
+    const deskLive = await openLive(desk.cookie)
+    const url = `/manufacturer/claim-insights/dealers/${dealer.user.dealerId}/investigation`
+    try {
+      assert.ok(await waitFor(() => dealerLive.events.some((e) => e.name === 'ready')))
+      assert.ok(await waitFor(() => deskLive.events.some((e) => e.name === 'ready')))
+
+      assert.equal((await desk.post(url, { open: true, note: 'Test' })).status, 200)
+      assert.equal((await desk.post(url, { open: false })).status, 200)
+
+      for (const action of ['investigation.opened', 'investigation.closed']) {
+        assert.ok(await waitFor(() => deskLive.events.some((e) => e.data?.action === action)), `manufacturer gets ${action}`)
+      }
+      // Both events have reached the manufacturer; give the dealer's stream the same time.
+      await new Promise((r) => setTimeout(r, 200))
+      assert.ok(!dealerLive.events.some((e) => e.data?.action?.startsWith('investigation.')), 'dealer gets no investigation event')
+    } finally {
+      dealerLive.close()
+      deskLive.close()
+    }
+  })
 })

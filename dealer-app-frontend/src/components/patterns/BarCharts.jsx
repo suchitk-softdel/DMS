@@ -42,8 +42,9 @@ function TipContent({ title, lines = [] }) {
  * markerLabel: legend text for the tick.
  * onRowClick(key): optional; makes each row a button (click or Enter).
  * selectedKey: the row to highlight (e.g. the product open in the details).
+ * tooltips: false hides the hover tooltip (tip is still read by screen readers).
  */
-export function HBarChart({ rows, formatValue = String, markerLabel, valueLabel, maxHeight = 560, ariaLabel, onRowClick, selectedKey }) {
+export function HBarChart({ rows, formatValue = String, markerLabel, valueLabel, maxHeight = 560, ariaLabel, onRowClick, selectedKey, tooltips = true }) {
   const max = Math.max(1, ...rows.map((r) => Math.max(r.value, r.marker ?? 0)))
   return (
     <Box>
@@ -67,7 +68,7 @@ export function HBarChart({ rows, formatValue = String, markerLabel, valueLabel,
       </Stack>
       <Box role="list" aria-label={ariaLabel} sx={{ maxHeight, overflowY: 'auto', pr: 0.5 }}>
         {rows.map((row, index) => (
-          <Tooltip key={row.key} title={<TipContent {...row.tip} />} placement="top-start" arrow disableInteractive>
+          <Tooltip key={row.key} title={tooltips ? <TipContent {...row.tip} /> : ''} placement="top-start" arrow disableInteractive>
             <Box
               role={onRowClick ? 'button' : 'listitem'}
               tabIndex={0}
@@ -143,10 +144,11 @@ export function HBarChart({ rows, formatValue = String, markerLabel, valueLabel,
  * Vertical columns for a few periods (e.g. the last 3 months), each labelled
  * with its value on top. bars: [{ key, label, value, display, tip: { title, lines } }]
  */
-export function ColumnChart({ bars, height = 200, ariaLabel }) {
+// dense: many columns (e.g. 12 months) - narrower gaps and smaller value labels.
+export function ColumnChart({ bars, height = 200, ariaLabel, dense = false }) {
   const max = Math.max(1, ...bars.map((b) => b.value))
   return (
-    <Box role="list" aria-label={ariaLabel} sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height, pt: 3, borderBottom: 1, borderColor: 'divider' }}>
+    <Box role="list" aria-label={ariaLabel} sx={{ display: 'flex', alignItems: 'flex-end', gap: dense ? 0.75 : 2, height, pt: 3, borderBottom: 1, borderColor: 'divider' }}>
       {bars.map((bar, index) => (
         <Tooltip key={bar.key} title={<TipContent {...bar.tip} />} placement="top" arrow disableInteractive>
           <Box
@@ -155,7 +157,7 @@ export function ColumnChart({ bars, height = 200, ariaLabel }) {
             aria-label={`${bar.tip.title}: ${bar.tip.lines.join(', ')}`}
             sx={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', outline: 'none', cursor: 'default', '&:hover .bar, &:focus-visible .bar': { bgcolor: 'primary.dark' } }}
           >
-            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.5, fontVariantNumeric: 'tabular-nums' }}>{bar.display}</Typography>
+            <Typography sx={{ fontSize: dense ? 11 : 14, fontWeight: 700, mb: 0.5, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{bar.display}</Typography>
             <Box className="bar" sx={{ width: '100%', maxWidth: 72, height: `${(bar.value / max) * 100}%`, minHeight: bar.value > 0 ? 3 : 0, bgcolor: 'primary.main', borderRadius: '4px 4px 0 0', transition: 'background-color 120ms, height 400ms ease', ...grow(growY, 'center bottom', index * 80) }} />
           </Box>
         </Tooltip>

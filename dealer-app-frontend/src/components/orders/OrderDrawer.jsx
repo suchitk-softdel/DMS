@@ -17,17 +17,16 @@ import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
 import AsyncContent from '@/components/patterns/AsyncContent'
 import ConfirmDialog from '@/components/patterns/ConfirmDialog'
-import AcceptQuoteDialog from '@/components/orders/AcceptQuoteDialog'
-import { acceptanceLabel, hasPrices, NEXT_STEP, statusLabel, STEPS, TYPE_LABELS } from '@/components/orders/orderLabels'
+import { hasPrices, NEXT_STEP, statusLabel, STEPS } from '@/components/orders/orderLabels'
 import ReasonDialog from '@/components/orders/ReasonDialog'
 import StatusChip from '@/components/ui/StatusChip'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { createOrder, getOrder, updateOrderStatus } from '@/services/dataService'
 
 /**
- * Side panel with one order or quote: customer, lines, total, progress and the
- * button that moves it to its next status (FR-ORD-1). An accepted quote can be
- * turned into an order with the same lines.
+ * Side panel with one order request to the manufacturer: lines, quote total,
+ * progress and the button that moves it to its next status (FR-ORD-1). A
+ * rejected or declined order can be copied to a new request.
  *
  * orderId: the order to show, or null to close. onChanged(order) after a change;
  * onOpenOrder(id) to switch the panel to another order (e.g. the new order).
@@ -38,7 +37,6 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState(null)
   const [confirm, setConfirm] = useState(null) // the step waiting for confirmation
-  const [accepting, setAccepting] = useState(false) // recording the customer's acceptance of a quote
   const [declining, setDeclining] = useState(false) // declining the manufacturer's quote
 
   useEffect(() => {
@@ -53,8 +51,8 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
   }, [orderId])
 
   const { order } = state
-  const next = order ? NEXT_STEP[order.type][order.status] : null
-  const steps = order ? STEPS[order.type] : []
+  const next = order ? (NEXT_STEP[order.status] ?? null) : null
+  const steps = STEPS
 
   const run = async (action) => {
     setBusy(true)
@@ -69,40 +67,30 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
     }
   }
 
-  const advance = (acceptance) => setStatus(next.status, acceptance)
+  const advance = () => setStatus(next.status)
 
-  const setStatus = (status, acceptance, reason) =>
+  const setStatus = (status, reason) =>
     run(async () => {
-      const updated = await updateOrderStatus(order.id, status, acceptance, reason)
+      const updated = await updateOrderStatus(order.id, status, undefined, reason)
       setState({ order: updated, loading: false, error: null })
-      setAccepting(false)
       setDeclining(false)
       onChanged(updated)
     })
 
-  // Same customer and lines as a new order: from an accepted customer quote
-  // (sent to the manufacturer straight away) or from a rejected or declined
-  // order (a draft to fix).
-  const copyToOrder = (status) =>
+  // Same lines as a new draft request, from a rejected or declined order.
+  const copyToNewRequest = () =>
     run(async () => {
       const created = await createOrder({
         type: 'order',
-        status,
+        status: 'draft',
         items: order.items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
       })
       onChanged(created)
       onOpenOrder(created.id)
     })
 
-  // Fulfilling changes revenue and registers warranty units, so ask first.
-  // Accepting a quote asks how and by whom the customer accepted.
-  const onNext = () => {
-    if (next.status === 'fulfilled') setConfirm(next)
-    else if (order.type === 'quote' && next.status === 'approved') {
-      setActionError(null)
-      setAccepting(true)
-    } else advance()
-  }
+  // Fulfilling adds the goods to stock and can't be undone, so ask first.
+  const onNext = () => (next.status === 'fulfilled' ? setConfirm(next) : advance())
 
   return (
     <Drawer
@@ -114,7 +102,7 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Box>
           <Typography variant="body2" color="text.secondary">
-            {order ? TYPE_LABELS[order.type] : 'Loading'}
+            {order ? 'Order' : 'Loading'}
           </Typography>
           <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700 }}>
             {orderId}
@@ -153,36 +141,19 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
                   ))}
                 </Stepper>
               )}
-              {order.type === 'order' && order.status === 'submitted' && (
+              {order.status === 'submitted' && (
                 <Alert severity="info">Waiting for the manufacturer to approve this request and send a quote.</Alert>
               )}
-              {order.type === 'quote' && order.status === 'submitted' && (
-                <Alert severity="info">Waiting for the customer's answer. When they accept, record it with "Customer accepted".</Alert>
-              )}
-              {order.type === 'quote' && order.status === 'approved' && (
-                <Alert severity="success">
-                  <strong>Accepted by customer</strong>
-                  {order.acceptanceContact ? ` · ${order.acceptanceContact}` : ''}
-                  {order.acceptanceMethod ? ` · by ${acceptanceLabel(order.acceptanceMethod)}` : ''}
-                  {order.reviewedAt ? ` · ${formatDate(order.reviewedAt)}` : ''}
-                  {order.reviewedBy ? ` · recorded by ${order.reviewedBy.name}` : ''}
-                  {order.acceptanceNote && (
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      Note: {order.acceptanceNote}
-                    </Typography>
-                  )}
-                </Alert>
-              )}
-              {order.type === 'order' && order.status === 'approved' && (
+              {order.status === 'approved' && (
                 <Alert severity="success">
                   <strong>Quote received</strong> from {order.reviewedBy?.name ?? 'the manufacturer'}
                   {order.reviewedAt ? ` on ${formatDate(order.reviewedAt)}` : ''}. Review the prices below, then accept or decline.
                 </Alert>
               )}
-              {order.type === 'order' && order.status === 'accepted' && (
+              {order.status === 'accepted' && (
                 <Alert severity="success">
                   You accepted the quote{order.dealerRespondedAt ? ` on ${formatDate(order.dealerRespondedAt)}` : ''}
-                  {order.dealerRespondedBy ? ` (${order.dealerRespondedBy.name})` : ''}. Mark it fulfilled once it is installed.
+                  {order.dealerRespondedBy ? ` (${order.dealerRespondedBy.name})` : ''}. Mark it fulfilled when the goods arrive.
                 </Alert>
               )}
 
@@ -228,7 +199,7 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
                     {hasPrices(order) ? (
                       <TableRow>
                         <TableCell colSpan={3} sx={{ fontWeight: 700, borderBottom: 0 }}>
-                          {order.type === 'order' ? 'Quote total' : 'Total'}
+                          Quote total
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, fontSize: 18, borderBottom: 0 }}>
                           {formatCurrency(order.total, { decimals: 2 })}
@@ -246,17 +217,17 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
               </Box>
 
               {actionError && <Alert severity="error">{actionError}</Alert>}
-              {order.type === 'order' && order.status === 'fulfilled' && (
-                <Alert severity="success">Fulfilled: counted in revenue, and its equipment units are registered for warranty.</Alert>
+              {order.status === 'fulfilled' && (
+                <Alert severity="success">Fulfilled and added to your stock. Register its equipment units on the Warranty page.</Alert>
               )}
             </Stack>
           )}
         </AsyncContent>
       </Box>
 
-      {order && (next || (order.type === 'quote' && order.status === 'approved') || ['rejected', 'declined'].includes(order.status) || (order.type === 'order' && order.status === 'approved')) && (
+      {order && (next || ['approved', 'rejected', 'declined'].includes(order.status)) && (
         <Stack direction="row" spacing={1.5} sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider', justifyContent: 'flex-end' }}>
-          {order.type === 'order' && order.status === 'approved' && (
+          {order.status === 'approved' && (
             <>
               <Button variant="outlined" color="error" size="large" onClick={() => setDeclining(true)} disabled={busy}>
                 Decline
@@ -271,13 +242,8 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
               {next.label}
             </Button>
           )}
-          {order.type === 'quote' && order.status === 'approved' && (
-            <Button variant="contained" size="large" onClick={() => copyToOrder('submitted')} loading={busy}>
-              Create order from quote
-            </Button>
-          )}
           {['rejected', 'declined'].includes(order.status) && (
-            <Button variant="contained" size="large" onClick={() => copyToOrder('draft')} loading={busy}>
+            <Button variant="contained" size="large" onClick={copyToNewRequest} loading={busy}>
               Copy to a new request
             </Button>
           )}
@@ -288,27 +254,18 @@ export default function OrderDrawer({ orderId, onClose, onChanged, onOpenOrder }
         open={declining}
         title={`Decline the quote for ${order?.id}?`}
         message="The manufacturer will see your reason."
-        reasons={['Price too high', 'Customer cancelled', 'Ordered elsewhere', 'Quantities changed']}
+        reasons={['Price too high', 'Ordered elsewhere', 'Quantities changed']}
         confirmLabel="Decline quote"
         busy={busy}
         error={declining ? actionError : null}
-        onConfirm={(reason) => setStatus('declined', undefined, reason)}
+        onConfirm={(reason) => setStatus('declined', reason)}
         onCancel={() => setDeclining(false)}
-      />
-
-      <AcceptQuoteDialog
-        open={accepting}
-        quote={order}
-        busy={busy}
-        error={accepting ? actionError : null}
-        onConfirm={(acceptance) => advance(acceptance)}
-        onCancel={() => setAccepting(false)}
       />
 
       <ConfirmDialog
         open={Boolean(confirm)}
         title={`Mark ${order?.id} as fulfilled?`}
-        message="The order will count in revenue, and each equipment unit is registered for warranty. This can't be undone."
+        message="The goods will be added to your stock. You can then register its equipment units for warranty. This can't be undone."
         confirmLabel="Mark fulfilled"
         loading={busy}
         onConfirm={() => advance()}

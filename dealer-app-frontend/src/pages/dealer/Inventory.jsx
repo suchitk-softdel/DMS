@@ -8,7 +8,6 @@ import TrendingDownRounded from '@mui/icons-material/TrendingDownRounded'
 import TrendingFlatRounded from '@mui/icons-material/TrendingFlatRounded'
 import TrendingUpRounded from '@mui/icons-material/TrendingUpRounded'
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded'
-import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -24,7 +23,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORY_LABELS } from '@/components/orders/orderLabels'
 import AsyncContent from '@/components/patterns/AsyncContent'
 import { ColumnChart, ColumnLabels, HBarChart } from '@/components/patterns/BarCharts'
@@ -40,7 +39,8 @@ import { getInventoryOverview } from '@/services/dataService'
 // Inventory dashboard (SRS 3.5) in three tabs:
 //   Overview - one stock alert, 4 operational cards, pricing summary, product insights
 //   Stock    - category pills, stock-on-hand list (sort, search, filter) + product details
-//   Sales    - last 3 months (units / revenue) and product trends
+//   Sales    - units / revenue and top sellers for a chosen period:
+//              current month (so far), or the last 3 / 6 / 12 complete months
 // Read only; all figures come from the backend (GET /inventory/overview).
 // "Recent" = the last 3 complete months. Links between tabs: "View" opens a
 // product in the Stock tab; cards and insights open Stock with a filter set.
@@ -233,17 +233,17 @@ function PricingSummary({ pricing }) {
     <SectionCard title="Pricing summary" sx={cardSx}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Figure label="Stock value" value={money(pricing.stockValue)} note={`${money(pricing.stockCost)} at cost`} />
+          <Figure label="Stock value" value={money(pricing.stockValue)} note={`${money(pricing.stockCost)} at base price`} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <Figure label="Potential margin" value={money(pricing.potentialMargin)} note={`${pricing.marginPct}%`} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Figure label="Incoming" value={money(pricing.incomingValue)} note="at list price" />
+          <Figure label="Incoming" value={money(pricing.incomingValue)} note="at base price" />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <Figure
-            label="Price range"
+            label="Selling price range"
             value={`${formatCurrency(pricing.lowestPrice)} – ${formatCurrency(pricing.highestPrice)}`}
             note={`average ${formatCurrency(pricing.averagePrice)}`}
           />
@@ -424,7 +424,7 @@ function StockList({ products, category, stockFilter, onStockFilter, selectedId,
         </TextField>
       </Stack>
       {rows.length ? (
-        <HBarChart key={`${category}|${stockFilter}|${sort}`} rows={rows} onRowClick={onSelect} selectedKey={selectedId} maxHeight={520} formatValue={formatNumber} ariaLabel="Stock on hand by product" />
+        <HBarChart key={`${category}|${stockFilter}|${sort}`} rows={rows} onRowClick={onSelect} selectedKey={selectedId} tooltips={false} maxHeight={520} formatValue={formatNumber} ariaLabel="Stock on hand by product" />
       ) : (
         <Typography sx={{ py: 5, textAlign: 'center', color: C.muted }}>No products match.</Typography>
       )}
@@ -441,21 +441,10 @@ function GreyBox({ label, value }) {
   )
 }
 
-function ProductDetails({ products, item, onSelect, months }) {
+// Simple summary of the product picked in the Stock on hand list.
+function ProductDetails({ item, months }) {
   return (
     <SectionCard title="Product details" sx={cardSx}>
-      <Autocomplete
-        size="small"
-        sx={{ mb: 2.5, '& .MuiInputBase-root': { minHeight: 44 } }}
-        options={products}
-        value={item}
-        onChange={(_, value) => value && onSelect(value.product.id)}
-        disableClearable
-        groupBy={(p) => CATEGORY_LABELS[p.product.category] ?? p.product.category}
-        getOptionLabel={(p) => `${p.product.sku} — ${p.product.name}`}
-        isOptionEqualToValue={(a, b) => a.product.id === b.product.id}
-        renderInput={(params) => <TextField {...params} label="Product" />}
-      />
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
         <Typography sx={{ fontFamily: 'Arial, sans-serif', fontWeight: 700, fontSize: 20, color: C.navy }}>{item.product.sku}</Typography>
         {item.status !== 'ok' && (
@@ -474,41 +463,19 @@ function ProductDetails({ products, item, onSelect, months }) {
       </Stack>
       <Typography sx={{ color: C.muted, mb: 2 }}>{item.product.name}</Typography>
       <Grid container spacing={1.25}>
-        <Grid size={{ xs: 6, sm: 4 }}>
+        <Grid size={4}>
           <GreyBox label="On hand" value={formatNumber(item.onHand)} />
         </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <GreyBox label="Reorder point" value={formatNumber(item.reorderPoint)} />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
+        <Grid size={4}>
           <GreyBox label="On order" value={formatNumber(item.onOrder)} />
         </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <GreyBox label="List price" value={formatCurrency(item.product.unitPrice)} />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <GreyBox label="Margin" value={`${item.marginPct}%`} />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <GreyBox label="Stock value" value={moneyShort(item.onHand * item.product.unitPrice)} />
+        <Grid size={4}>
+          <GreyBox label="Price per unit" value={formatCurrency(item.product.unitPrice)} />
         </Grid>
       </Grid>
-      <Typography sx={{ fontWeight: 700, color: C.navy, mt: 2.5 }}>Units sold</Typography>
-      <Typography sx={{ fontSize: 13.5, color: C.muted }}>
-        {formatNumber(item.unitsSold)} in {monthShort(months[0])} – {monthShort(months.at(-1))} · {formatCurrency(item.revenue)}
+      <Typography sx={{ fontSize: 14, color: C.muted, mt: 2 }}>
+        Sold <strong>{formatNumber(item.unitsSold)}</strong> units in {monthShort(months[0])} – {monthShort(months.at(-1))}
       </Typography>
-      <ColumnChart
-        key={item.product.id}
-        height={130}
-        ariaLabel={`${item.product.sku} units sold by month`}
-        bars={item.monthly.map((m) => ({
-          key: m.month,
-          value: m.units,
-          display: formatNumber(m.units),
-          tip: { title: monthLabel(m.month), lines: [`Units: ${formatNumber(m.units)}`, `Revenue: ${formatCurrency(m.revenue)}`] },
-        }))}
-      />
-      <ColumnLabels labels={months.map(monthShort)} />
     </SectionCard>
   )
 }
@@ -517,15 +484,60 @@ function ProductDetails({ products, item, onSelect, months }) {
 // Tab 3: Sales
 // ---------------------------------------------------------------------------
 
-function LastThreeMonths({ monthly }) {
+// Period switch for the Sales tab. 'current' = this month so far (not over
+// yet); the others = that many COMPLETE months, ending last month.
+const PERIODS = [
+  { value: 'current', label: 'Current month' },
+  { value: '3', label: '3 months' },
+  { value: '6', label: '6 months' },
+  { value: '12', label: '12 months' },
+]
+const sumOf = (list, key) => list.reduce((t, m) => t + m[key], 0)
+
+// Sales figures for one period, cut from the backend's 12 months + current
+// month (salesMonths / product.sales, oldest first, current month last).
+function salesForPeriod(data, period) {
+  const last = data.salesMonths.length - 1 // index of the current month
+  const [from, to] = period === 'current' ? [last, last + 1] : [last - Number(period), last]
+  const months = data.salesMonths.slice(from, to)
+  const products = data.products.map((p) => {
+    const monthly = p.sales.slice(from, to)
+    const first = monthly[0].units
+    return {
+      ...p,
+      monthly,
+      unitsSold: sumOf(monthly, 'units'),
+      revenue: sumOf(monthly, 'revenue'),
+      // Last month of the period compared with the first (none for one month).
+      unitsChangePct: months.length > 1 && first > 0 ? ((monthly.at(-1).units - first) / first) * 100 : null,
+    }
+  })
+  const monthly = months.map((month, i) => ({ month, units: sumOf(products.map((p) => p.monthly[i]), 'units'), revenue: sumOf(products.map((p) => p.monthly[i]), 'revenue') }))
+  // Last complete month, to put "this month so far" in context.
+  const previous = { month: data.salesMonths[last - 1], units: sumOf(data.products.map((p) => p.sales[last - 1]), 'units'), revenue: sumOf(data.products.map((p) => p.sales[last - 1]), 'revenue') }
+  return { period, isCurrent: period === 'current', months, products, monthly, previous }
+}
+
+// "Aug – Oct 2026" or "1 – 25 Nov 2026 (so far)".
+function periodText(view, asOf) {
+  if (view.isCurrent) return `1 – ${new Date(asOf).getUTCDate()} ${monthLabel(view.months[0])}, so far`
+  return `${monthShort(view.months[0])} ${view.months[0].slice(0, 4)} – ${monthLabel(view.months.at(-1))}`
+}
+
+function SalesSummary({ view, asOf }) {
   const [measure, setMeasure] = useState('units')
   const isUnits = measure === 'units'
   const valueOf = (m) => (isUnits ? m.units : m.revenue)
   const fmt = (v) => (isUnits ? formatNumber(v) : moneyShort(v))
+  const { monthly, isCurrent, previous } = view
+  const count = monthly.length
+  const dense = count > 6
+  const units = sumOf(monthly, 'units')
+  const revenue = sumOf(monthly, 'revenue')
   return (
     <SectionCard
-      title="Last 3 months"
-      subtitle={isUnits ? 'Units sold, all products' : 'Revenue, all products'}
+      title={isCurrent ? 'Current month' : `Last ${count} months`}
+      subtitle={`${isUnits ? 'Units sold' : 'Revenue'}, all products · ${periodText(view, asOf)}`}
       sx={cardSx}
       actions={
         <Box sx={{ mt: 0.5 }}>
@@ -541,50 +553,69 @@ function LastThreeMonths({ monthly }) {
         </Box>
       }
     >
-      <ColumnChart
-        key={measure}
-        height={220}
-        ariaLabel={`${isUnits ? 'Units sold' : 'Revenue'} by month`}
-        bars={monthly.map((m) => ({
-          key: m.month,
-          value: valueOf(m),
-          display: fmt(valueOf(m)),
-          tip: { title: monthLabel(m.month), lines: [`Units: ${formatNumber(m.units)}`, `Revenue: ${formatCurrency(m.revenue)}`] },
-        }))}
-      />
-      {/* Month labels with the change from the month before */}
-      <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-        {monthly.map((m, i) => {
-          const prev = monthly[i - 1]
-          const change = prev && valueOf(prev) > 0 ? ((valueOf(m) - valueOf(prev)) / valueOf(prev)) * 100 : null
-          return (
-            <Box key={m.month} sx={{ flex: 1, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 600, color: C.navy }}>{monthShort(m.month)}</Typography>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, minHeight: 20, color: change === null ? C.muted : change >= 0 ? C.tealDark : C.redDark }}>
-                {change === null ? '' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(change))}%`}
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
+      {isCurrent ? (
+        // One month: no chart, just the figures so far against last month.
+        <Typography sx={{ fontSize: 14, color: C.muted }}>
+          The month is not over yet. Last month ({monthLabel(previous.month)}) closed at <strong>{formatNumber(previous.units)}</strong> units and{' '}
+          <strong>{money(previous.revenue)}</strong>.
+        </Typography>
+      ) : (
+        <>
+          <ColumnChart
+            key={`${measure}-${count}`}
+            height={220}
+            dense={dense}
+            ariaLabel={`${isUnits ? 'Units sold' : 'Revenue'} by month`}
+            bars={monthly.map((m) => ({
+              key: m.month,
+              value: valueOf(m),
+              // 12 columns are too narrow for money labels: hover shows them.
+              display: dense && !isUnits ? '' : fmt(valueOf(m)),
+              tip: { title: monthLabel(m.month), lines: [`Units: ${formatNumber(m.units)}`, `Revenue: ${formatCurrency(m.revenue)}`] },
+            }))}
+          />
+          {/* Month labels, with the change from the month before (up to 6 months) */}
+          <Box sx={{ display: 'flex', gap: dense ? 0.75 : 2, mt: 1 }}>
+            {monthly.map((m, i) => {
+              const prev = monthly[i - 1]
+              const change = !dense && prev && valueOf(prev) > 0 ? ((valueOf(m) - valueOf(prev)) / valueOf(prev)) * 100 : null
+              return (
+                <Box key={m.month} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: dense ? 11.5 : 14, fontWeight: 600, color: C.navy }}>{monthShort(m.month)}</Typography>
+                  {!dense && (
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, minHeight: 20, color: change === null ? C.muted : change >= 0 ? C.tealDark : C.redDark }}>
+                      {change === null ? '' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(change))}%`}
+                    </Typography>
+                  )}
+                </Box>
+              )
+            })}
+          </Box>
+        </>
+      )}
       <Divider sx={{ my: 2.5, borderColor: C.border }} />
       <Grid container spacing={2}>
         <Grid size={6}>
-          <Figure label="Units, 3 months" value={formatNumber(monthly.reduce((t, m) => t + m.units, 0))} note={`about ${Math.round(monthly.reduce((t, m) => t + m.units, 0) / monthly.length)} a month`} />
+          <Figure
+            label={isCurrent ? 'Units so far' : `Units, ${count} months`}
+            value={formatNumber(units)}
+            note={isCurrent ? `${monthShort(view.months[0])} to date` : `about ${Math.round(units / count)} a month`}
+          />
         </Grid>
         <Grid size={6}>
-          <Figure label="Revenue, 3 months" value={money(monthly.reduce((t, m) => t + m.revenue, 0))} note={`about ${money(monthly.reduce((t, m) => t + m.revenue, 0) / monthly.length)} a month`} />
+          <Figure
+            label={isCurrent ? 'Revenue so far' : `Revenue, ${count} months`}
+            value={money(revenue)}
+            note={isCurrent ? `${monthShort(view.months[0])} to date` : `about ${money(revenue / count)} a month`}
+          />
         </Grid>
       </Grid>
     </SectionCard>
   )
 }
 
-const TREND_VIEWS = {
-  top: { label: 'Top sellers', pick: (list) => list.filter((p) => p.unitsSold > 0).sort((a, b) => b.unitsSold - a.unitsSold) },
-  up: { label: 'Growing', pick: (list) => list.filter((p) => p.unitsChangePct > 0).sort((a, b) => b.unitsChangePct - a.unitsChangePct) },
-  down: { label: 'Declining', pick: (list) => list.filter((p) => p.unitsChangePct !== null && p.unitsChangePct < 0).sort((a, b) => a.unitsChangePct - b.unitsChangePct) },
-}
+// Top sellers: products that sold, most units first.
+const topSellers = (list) => list.filter((p) => p.unitsSold > 0).sort((a, b) => b.unitsSold - a.unitsSold)
 
 function TrendIcon({ pct }) {
   if (pct === null) return <Typography sx={{ fontSize: 13.5, color: C.muted }}>new</Typography>
@@ -598,21 +629,16 @@ function TrendIcon({ pct }) {
   )
 }
 
-function ProductTrends({ products, months, onView }) {
-  const [view, setView] = useState('top')
-  const list = TREND_VIEWS[view].pick([...products]).slice(0, 8)
+function ProductTrends({ view, asOf, onView }) {
+  const { products, months, isCurrent } = view
+  const list = topSellers([...products]).slice(0, 8)
   return (
     <SectionCard
-      title="Product trends"
-      subtitle={`${monthShort(months[0])} – ${monthLabel(months.at(-1))} · click a product to open it`}
+      title="Top sellers"
+      subtitle={`${periodText(view, asOf)} · click a product to open it`}
       sx={cardSx}
-      actions={
-        <Box sx={{ mt: 0.5 }}>
-          <Switch label="Trend view" value={view} onChange={setView} options={Object.entries(TREND_VIEWS).map(([value, v]) => ({ value, label: v.label }))} />
-        </Box>
-      }
     >
-      {list.length === 0 && <Typography sx={{ py: 4, textAlign: 'center', color: C.muted }}>No products in this view.</Typography>}
+      {list.length === 0 && <Typography sx={{ py: 4, textAlign: 'center', color: C.muted }}>{isCurrent ? 'No sales yet in the current month.' : 'No sales in these months.'}</Typography>}
       <Stack divider={<Divider flexItem sx={{ borderColor: C.border }} />}>
         {list.map((p, index) => (
           <Box
@@ -642,16 +668,18 @@ function ProductTrends({ products, months, onView }) {
                 {p.product.sku}
               </Typography>
               <Typography noWrap sx={{ fontSize: 13, color: C.muted }}>
-                {shortType(p.product)} · {trendNote(p, months)}
+                {shortType(p.product)} · {isCurrent ? `${money(p.revenue)} so far` : trendNote(p, months)}
               </Typography>
             </Box>
             <Typography sx={{ textAlign: 'right', fontWeight: 700, color: C.navy, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(p.unitsSold)}</Typography>
-            <TrendIcon pct={p.unitsChangePct} />
+            {isCurrent ? <span /> : <TrendIcon pct={p.unitsChangePct} />}
           </Box>
         ))}
       </Stack>
       <Typography sx={{ fontSize: 12.5, color: C.muted, mt: 1.5 }}>
-        Units sold in the 3 months; % = {monthShort(months.at(-1))} compared with {monthShort(months[0])}.
+        {isCurrent
+          ? 'Units sold in the current month so far.'
+          : `Units sold in the ${months.length} months; % = ${monthShort(months.at(-1))} compared with ${monthShort(months[0])}.`}
       </Typography>
     </SectionCard>
   )
@@ -665,10 +693,14 @@ function ProductTrends({ products, months, onView }) {
 export default function Inventory() {
   const navigate = useNavigate()
   const { data, loading, error, reload } = useAsyncData(getInventoryOverview)
-  const [tab, setTab] = useState('overview')
+  // ?tab=sales opens a tab directly (e.g. the Copilot's "Open sales report").
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => (['overview', 'stock', 'sales'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview'))
   const [selectedId, setSelectedId] = useState(null)
   const [category, setCategory] = useState(ALL)
   const [stockFilter, setStockFilter] = useState(ALL)
+  const [salesPeriod, setSalesPeriod] = useState('3')
+  const salesView = useMemo(() => (data?.salesMonths ? salesForPeriod(data, salesPeriod) : null), [data, salesPeriod])
 
   const products = useMemo(() => data?.products ?? [], [data])
   const selected = useMemo(() => {
@@ -742,21 +774,26 @@ export default function Inventory() {
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 5 }}>
-                    <ProductDetails products={products} item={selected} onSelect={setSelectedId} months={data.months} />
+                    <ProductDetails item={selected} months={data.months} />
                   </Grid>
                 </Grid>
               </Stack>
             )}
 
-            {tab === 'sales' && (
-              <Grid container spacing={2.5}>
-                <Grid size={{ xs: 12, md: 5 }}>
-                  <LastThreeMonths monthly={data.monthly} />
+            {tab === 'sales' && salesView && (
+              <Stack spacing={2.5}>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Switch label="Sales period" value={salesPeriod} onChange={setSalesPeriod} options={PERIODS} />
+                </Box>
+                <Grid container spacing={2.5}>
+                  <Grid size={{ xs: 12, md: 5 }}>
+                    <SalesSummary view={salesView} asOf={data.asOf} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 7 }}>
+                    <ProductTrends view={salesView} asOf={data.asOf} onView={viewProduct} />
+                  </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, md: 7 }}>
-                  <ProductTrends products={products} months={data.months} onView={viewProduct} />
-                </Grid>
-              </Grid>
+              </Stack>
             )}
           </>
         )}

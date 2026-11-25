@@ -31,9 +31,12 @@ const TWO_YEARS_AGO = new Date('2024-11-15T12:00:00Z')
 const ALL_MODULES = ['home', 'dealer360', 'orders', 'inventory', 'incentives', 'warranty', 'salesCoach']
 const load = (dealerId, permissions = ALL_MODULES) => getDealer360({ dealerId, permissions }, NOW)
 
-const revenue = async (dealerId, gte, lt) =>
-  (await prisma.order.aggregate({ where: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte, lt } }, _sum: { total: true } }))._sum
-    .total ?? 0
+// Revenue = what customers paid: quantity x selling price of the dealer's
+// sales (Place Orders).
+const revenue = async (dealerId, gte, lt) => {
+  const sales = await prisma.dealerSale.findMany({ where: { dealerId, createdAt: { gte, lt } }, select: { quantity: true, sellingPrice: true } })
+  return sales.reduce((sum, s) => sum + s.quantity * s.sellingPrice, 0)
+}
 
 let dealers = []
 before(async () => {
@@ -80,7 +83,7 @@ describe('Tiles (FR-D360-1)', () => {
 })
 
 describe('Revenue trend (FR-D360-2)', () => {
-  test('24 months, each equal to that month\'s fulfilled orders', async () => {
+  test('24 months, each equal to that month\'s sales to customers', async () => {
     for (const dealer of dealers) {
       const { trend } = await load(dealer.id)
       assert.equal(trend.length, 24)

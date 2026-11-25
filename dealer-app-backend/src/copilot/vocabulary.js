@@ -11,7 +11,8 @@ import { MODULES } from '../constants/domain.js'
 // from (see facts.js); `value` is summed per record (no value = count).
 export const METRICS = {
   revenue: {
-    label: 'sales',
+    // "Revenue", as on the dashboard (Home, Dealer 360).
+    label: 'revenue',
     words: ['sales', 'revenue', 'turnover', 'sell', 'sold', 'selling', 'income', 'how much business', 'invoiced', 'bought', 'buy', 'buys', 'purchased', 'spent', 'spend', 'money came in', 'money in', 'money', 'takings', 'billing', 'billed'],
     fact: 'sales',
     value: (r) => r.revenue,
@@ -113,7 +114,14 @@ export const DIMENSIONS = {
   customerType: { label: 'customer type', plural: 'customer types', words: ['customer type', 'customer types', 'residential vs commercial', 'commercial vs residential', 'segment', 'segments'], facts: ['sales', 'orders', 'quotes', 'claims', 'registrations'] },
   month: { label: 'month', plural: 'months', words: ['month', 'months', 'monthly', 'trend', 'trends', 'over time', 'each month', 'per month', 'month wise'], facts: ['sales', 'orders', 'quotes', 'claims', 'registrations'] },
   status: { label: 'status', plural: 'statuses', words: ['status', 'statuses', 'stage', 'stages'], facts: ['orders', 'quotes', 'claims'] },
+  // Manufacturer Copilot only (the whole dealer network): "revenue by dealer".
+  dealer: { label: 'dealer', plural: 'dealers', words: ['dealer', 'dealers', 'dealership', 'dealerships', 'dealer wise'], facts: ['sales', 'orders', 'quotes', 'claims', 'registrations'], networkOnly: true },
 }
+
+// The breakdowns a user can ask for: "by dealer" only on the manufacturer's
+// network Copilot (a dealer only sees its own data).
+export const dimensionsFor = (network) =>
+  network ? DIMENSIONS : Object.fromEntries(Object.entries(DIMENSIONS).filter(([, d]) => !d.networkOnly))
 
 // Product categories (fixed by the catalogue).
 export const CATEGORY_WORDS = {

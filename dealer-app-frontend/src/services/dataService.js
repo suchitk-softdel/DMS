@@ -288,6 +288,20 @@ export function getMonthlySales(range) {
   return mockResponse([])
 }
 
+// Place Orders: the dealer sells its stock to customers.
+// -> { products: [{ productId, sku, name, category, available, status, basePrice, lastSellingPrice }],
+//      recent: [{ id, product, quantity, basePrice, sellingPrice, total, profit, soldBy, createdAt }] }
+export function getPlaceOrders() {
+  if (!env.useMockData) return apiRequest('/place-orders')
+  return mockResponse({ products: [], recent: [] })
+}
+
+// Sells one product. input: { productId, quantity, sellingPrice } -> the sale
+export function placeOrder(input) {
+  if (!env.useMockData) return apiRequest('/place-orders', { method: 'POST', body: JSON.stringify(input) })
+  return mockError('Placing orders needs the backend.')
+}
+
 // Inventory (SRS 3.5) -> [{ onHand, onOrder, reorderPoint, updatedAt, product }]
 export function getInventory() {
   if (!env.useMockData) return apiRequest('/inventory')
@@ -378,6 +392,19 @@ export function askCopilot(question, context = null) {
     corrections: [],
     context: null,
   })
+}
+
+// Changing a filter chip under a Copilot answer re-runs it.
+// change: { metric } | { groupBy } | { period } -> the new answer
+export function rerunCopilot(context, change) {
+  if (!env.useMockData) return apiRequest('/copilot/rerun', { method: 'POST', body: JSON.stringify({ context, change }) })
+  return mockError('The Copilot needs the backend.')
+}
+
+// The records a Copilot answer is based on -> { title, columns, rows, total }
+export function getCopilotRecords(context) {
+  if (!env.useMockData) return apiRequest('/copilot/records', { method: 'POST', body: JSON.stringify({ context }) })
+  return mockError('The Copilot needs the backend.')
 }
 
 // Sales Coach opportunities (SRS 3.8). Filter: { stage }

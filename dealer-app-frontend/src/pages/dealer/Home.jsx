@@ -32,7 +32,6 @@ import { getHome } from '@/services/dataService'
 const QUICK_ACTIONS = [
   { key: 'createOrder', label: '+ Create Order', module: MODULES.ORDERS },
   { key: 'registerWarranty', label: 'Register Warranty', module: MODULES.WARRANTY },
-  { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },
 ]
 // These two open their form right here on Home instead of going to another page.
@@ -125,7 +124,7 @@ export default function Home() {
   const insightActions = insight
     ? [
         ...(can(insight.action.module)
-          ? [{ key: 'action', label: insight.action.label, to: MODULE_PATHS[insight.action.module] }]
+          ? [{ key: 'action', label: insight.action.label, to: `${MODULE_PATHS[insight.action.module]}${insight.action.action ? `?action=${insight.action.action}` : ''}` }]
           : []),
         { key: 'copilot', label: 'Ask Copilot →', to: COPILOT_PATH, primary: true },
       ]

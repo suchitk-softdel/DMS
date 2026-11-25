@@ -4,31 +4,52 @@
     "d-1001": {
       "dealer": "Summit Comfort Heating & Air",
       "healthScore": {
-        "score": 77,
+        "score": 83,
         "components": {
-          "revenueGrowth": 80,
+          "revenueGrowth": 99,
           "orderVelocity": 100,
           "warrantyCompliance": 68,
           "trainingCompletion": 55
         }
       },
       "forecast": {
-        "unitGrowth": 0.979,
-        "expectedUnitsNext30Days": 189,
+        "unitGrowth": 1.074,
+        "expectedUnitsNext30Days": 183,
         "atRisk": [
           {
-            "sku": "FN-H96-80",
-            "expected": 12,
-            "onHand": 4,
+            "sku": "FN-H96-100",
+            "expected": 60,
+            "onHand": 14,
+            "onOrder": 0,
+            "shortfall": 46
+          },
+          {
+            "sku": "HP-CC-48",
+            "expected": 25,
+            "onHand": 7,
+            "onOrder": 2,
+            "shortfall": 16
+          },
+          {
+            "sku": "FN-S80-60",
+            "expected": 13,
+            "onHand": 3,
+            "onOrder": 1,
+            "shortfall": 9
+          },
+          {
+            "sku": "AH-M-36",
+            "expected": 11,
+            "onHand": 3,
             "onOrder": 0,
             "shortfall": 8
           },
           {
-            "sku": "FN-S80-80",
-            "expected": 8,
-            "onHand": 0,
+            "sku": "FN-H96-80",
+            "expected": 5,
+            "onHand": 4,
             "onOrder": 0,
-            "shortfall": 8
+            "shortfall": 1
           }
         ]
       }
@@ -36,35 +57,51 @@
     "d-1002": {
       "dealer": "Coastal Climate Solutions",
       "healthScore": {
-        "score": 78,
+        "score": 64,
         "components": {
-          "revenueGrowth": 73,
+          "revenueGrowth": 27,
           "orderVelocity": 100,
           "warrantyCompliance": 77,
           "trainingCompletion": 59
         }
       },
       "forecast": {
-        "unitGrowth": 1.252,
-        "expectedUnitsNext30Days": 37,
-        "atRisk": []
+        "unitGrowth": 1.07,
+        "expectedUnitsNext30Days": 25,
+        "atRisk": [
+          {
+            "sku": "TS-COMM",
+            "expected": 12,
+            "onHand": 11,
+            "onOrder": 0,
+            "shortfall": 1
+          }
+        ]
       }
     },
     "d-1003": {
       "dealer": "Prairie Air Systems",
       "healthScore": {
-        "score": 41,
+        "score": 42,
         "components": {
-          "revenueGrowth": 22,
+          "revenueGrowth": 25,
           "orderVelocity": 29,
           "warrantyCompliance": 58,
           "trainingCompletion": 63
         }
       },
       "forecast": {
-        "unitGrowth": 0.756,
-        "expectedUnitsNext30Days": 17,
-        "atRisk": []
+        "unitGrowth": 1.214,
+        "expectedUnitsNext30Days": 112,
+        "atRisk": [
+          {
+            "sku": "FN-S80-80",
+            "expected": 66,
+            "onHand": 3,
+            "onOrder": 0,
+            "shortfall": 63
+          }
+        ]
       }
     },
     "d-1004": {
@@ -80,42 +117,72 @@
       },
       "forecast": {
         "unitGrowth": 1.5,
-        "expectedUnitsNext30Days": 33,
-        "atRisk": []
+        "expectedUnitsNext30Days": 58,
+        "atRisk": [
+          {
+            "sku": "HP-C15-36",
+            "expected": 21,
+            "onHand": 3,
+            "onOrder": 0,
+            "shortfall": 18
+          },
+          {
+            "sku": "AC-V20-36",
+            "expected": 8,
+            "onHand": 1,
+            "onOrder": 0,
+            "shortfall": 7
+          },
+          {
+            "sku": "FN-S80-80",
+            "expected": 5,
+            "onHand": 2,
+            "onOrder": 0,
+            "shortfall": 3
+          }
+        ]
       }
     },
     "d-1005": {
       "dealer": "Lone Star Air & Heat",
       "healthScore": {
-        "score": 62,
+        "score": 59,
         "components": {
-          "revenueGrowth": 66,
+          "revenueGrowth": 58,
           "orderVelocity": 50,
           "warrantyCompliance": 75,
           "trainingCompletion": 54
         }
       },
       "forecast": {
-        "unitGrowth": 1.287,
-        "expectedUnitsNext30Days": 262,
+        "unitGrowth": 1.282,
+        "expectedUnitsNext30Days": 142,
         "atRisk": []
       }
     },
     "d-1006": {
       "dealer": "Cascade Comfort Systems",
       "healthScore": {
-        "score": 43,
+        "score": 45,
         "components": {
-          "revenueGrowth": 34,
+          "revenueGrowth": 41,
           "orderVelocity": 50,
           "warrantyCompliance": 29,
           "trainingCompletion": 64
         }
       },
       "forecast": {
-        "unitGrowth": 1.328,
-        "expectedUnitsNext30Days": 28,
-        "atRisk": []
+        "unitGrowth": 1.249,
+        "expectedUnitsNext30Days": 38,
+        "atRisk": [
+          {
+            "sku": "FN-H96-60",
+            "expected": 16,
+            "onHand": 2,
+            "onOrder": 0,
+            "shortfall": 14
+          }
+        ]
       }
     }
   }

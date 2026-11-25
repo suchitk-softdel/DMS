@@ -23,7 +23,7 @@ process.env.DATABASE_URL = `file:${path.join(tempDir, 'test.db')}`
 process.env.SESSION_SECRET ??= 'test-secret'
 
 const { prisma } = await import('../src/db/prisma.js')
-const { askCopilot } = await import('../src/services/copilotService.js')
+const { askCopilot, copilotRecords, rerunCopilot } = await import('../src/services/copilotService.js')
 
 // The dataset runs up to 15 Nov 2026; questions are asked as of that day.
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -39,22 +39,18 @@ const ask = (dealerId, question, permissions = ALL_MODULES, context = null) =>
   askCopilot({ id: null, dealerId, permissions }, question, context, NOW)
 
 // Independent calculations ----------------------------------------------------
-const revenue = async (dealerId, createdAt) =>
-  (await prisma.order.aggregate({ where: { dealerId, type: 'order', status: 'fulfilled', createdAt }, _sum: { total: true } }))._sum.total ?? 0
+// Sales = the dealer's sales to its customers (Place Orders): revenue at the
+// selling price, profit = selling price - base price.
+const salesIn = (dealerId, createdAt, where = {}) =>
+  prisma.dealerSale.findMany({ where: { dealerId, createdAt, ...where }, select: { quantity: true, basePrice: true, sellingPrice: true } })
 
-const profit = async (dealerId, createdAt) => {
-  const lines = await prisma.orderItem.findMany({
-    where: { order: { dealerId, type: 'order', status: 'fulfilled', createdAt } },
-    select: { quantity: true, unitPrice: true, product: { select: { unitCost: true } } },
-  })
-  return lines.reduce((sum, l) => sum + l.quantity * (l.unitPrice - l.product.unitCost), 0)
-}
+const revenue = async (dealerId, createdAt) => (await salesIn(dealerId, createdAt)).reduce((sum, s) => sum + s.quantity * s.sellingPrice, 0)
+
+const profit = async (dealerId, createdAt) =>
+  (await salesIn(dealerId, createdAt)).reduce((sum, s) => sum + s.quantity * (s.sellingPrice - s.basePrice), 0)
 
 const unitsOf = async (dealerId, category, createdAt) =>
-  (await prisma.orderItem.aggregate({
-    where: { product: { category }, order: { dealerId, type: 'order', status: 'fulfilled', createdAt } },
-    _sum: { quantity: true },
-  }))._sum.quantity ?? 0
+  (await salesIn(dealerId, createdAt, { product: { category } })).reduce((sum, s) => sum + s.quantity, 0)
 
 const orderCount = (dealerId, createdAt) =>
   prisma.order.count({ where: { dealerId, type: 'order', status: { not: 'draft' }, createdAt } })
@@ -131,20 +127,25 @@ describe('Copilot answers match independently calculated values, for every deale
     }
   })
 
-  test('top customer by sales last year', async () => {
+  test('revenue by customer: says it is not recorded by customer (never "No customer")', async () => {
+    const answer = await ask('d-1001', 'which customer bought the most last year')
+    assert.match(answer.text, /isn't recorded by customer/, answer.text)
+    assert.doesNotMatch(answer.text, /No customer/)
+  })
+
+  test('top product by sales last year', async () => {
     for (const { id } of dealers) {
-      const rows = await prisma.order.groupBy({
-        by: ['customerId'],
-        where: { dealerId: id, type: 'order', status: 'fulfilled', createdAt: Y2025 },
-        _sum: { total: true },
-        orderBy: { _sum: { total: 'desc' } },
-        take: 1,
+      const sales = await prisma.dealerSale.findMany({
+        where: { dealerId: id, createdAt: Y2025 },
+        select: { quantity: true, sellingPrice: true, product: { select: { sku: true } } },
       })
-      if (!rows.length) continue // a dealer with no 2025 sales
-      const customer = await prisma.customer.findUnique({ where: { id: rows[0].customerId } })
-      const answer = await ask(id, 'which customer bought the most last year')
-      assert.ok(answer.text.startsWith(customer.name), `${id}: expected ${customer.name}, got: ${answer.text}`)
-      assert.ok(answer.text.includes(money(rows[0]._sum.total)), `${id}: ${answer.text}`)
+      if (!sales.length) continue // a dealer with no 2025 sales
+      const bySku = new Map()
+      for (const s of sales) bySku.set(s.product.sku, (bySku.get(s.product.sku) ?? 0) + s.quantity * s.sellingPrice)
+      const [sku, total] = [...bySku.entries()].sort((a, b) => b[1] - a[1])[0]
+      const answer = await ask(id, 'which product had the highest sales last year')
+      assert.ok(answer.text.includes(sku), `${id}: expected ${sku}, got: ${answer.text}`)
+      assert.ok(answer.text.includes(money(total)), `${id}: ${answer.text}`)
     }
   })
 
@@ -160,12 +161,12 @@ describe('Copilot answers match independently calculated values, for every deale
 
 describe('Understanding different wordings', () => {
   const CASES = [
-    ['What were my total sales last year?', 'Sales · 2025'],
-    ['how much did i sell in 2025', 'Sales · 2025'],
-    ['revenue last yr', 'Sales · 2025'],
-    ['sles last year', 'Sales · 2025'],
-    ['total turnover for the previous year', 'Sales · 2025'],
-    ['how much money came in this year', 'Sales · 2026 so far'],
+    ['What were my total sales last year?', 'Revenue · 2025'],
+    ['how much did i sell in 2025', 'Revenue · 2025'],
+    ['revenue last yr', 'Revenue · 2025'],
+    ['sles last year', 'Revenue · 2025'],
+    ['total turnover for the previous year', 'Revenue · 2025'],
+    ['how much money came in this year', 'Revenue · 2026 so far'],
     ['profit by category last year', 'Profit · by category · 2025'],
     ['top 3 products by profit in 2025', 'Profit · by product · 2025'],
     ['how many claims are pending', 'Claims · Pending · all time'],
@@ -173,9 +174,9 @@ describe('Understanding different wordings', () => {
     ['warranty claims by status', 'Claims · by status · 2026 so far'],
     ['What is my total pending order quantity?', 'Units on order · Pending · all time'],
     ['how many quotes are open', 'Quotes · Pending · all time'],
-    ['commercial sales vs last year', 'Sales · Commercial · 2026 so far · vs the same period in 2025'],
-    ['sales in march 2025', 'Sales · March 2025'],
-    ['sales for the last 6 months', 'Sales · last 6 months'],
+    ['commercial sales vs last year', 'Revenue · Commercial · 2026 so far · vs the same period in 2025'],
+    ['sales in march 2025', 'Revenue · March 2025'],
+    ['sales for the last 6 months', 'Revenue · last 6 months'],
     ['what should I stock next month', 'Demand forecast · next 30 days'],
     ['which incentive am i closest to', 'Incentive programs'],
     ['what is my health score', 'Health Score'],
@@ -191,13 +192,13 @@ describe('Understanding different wordings', () => {
 describe('Follow-up questions', () => {
   test('topic, period and filters carry over', async () => {
     const first = await ask('d-1001', 'furnace sales last year')
-    assert.equal(first.understood, 'Sales · Furnaces · 2025')
+    assert.equal(first.understood, 'Revenue · Furnaces · 2025')
     const second = await ask('d-1001', 'and the year before?', ALL_MODULES, first.context)
-    assert.equal(second.understood, 'Sales · Furnaces · 2024')
+    assert.equal(second.understood, 'Revenue · Furnaces · 2024')
     const third = await ask('d-1001', 'what about heat pumps', ALL_MODULES, second.context)
-    assert.equal(third.understood, 'Sales · Heat pumps · 2024')
+    assert.equal(third.understood, 'Revenue · Heat pumps · 2024')
     const fourth = await ask('d-1001', 'by month', ALL_MODULES, third.context)
-    assert.equal(fourth.understood, 'Sales · Heat pumps · by month · 2024')
+    assert.equal(fourth.understood, 'Revenue · Heat pumps · by month · 2024')
   })
 })
 
@@ -225,7 +226,7 @@ describe('Common misspellings', () => {
   test('misspelled "revenue" is read as revenue, not "review"', async () => {
     for (const question of ['what is reviewne?', 'revinue last year', 'what is my revenu']) {
       const answer = await ask('d-1001', question)
-      assert.ok(answer.understood.startsWith('Sales'), `${question}: ${answer.understood}`)
+      assert.ok(answer.understood.startsWith('Revenue'), `${question}: ${answer.understood}`)
     }
   })
 })
@@ -342,5 +343,78 @@ describe('Safety', () => {
       assert.match(answer.text, /only answer questions about your dealership|not .*sure what you mean/, `${question}: ${answer.text}`)
       assert.doesNotMatch(answer.text, /\$\d/)
     }
+  })
+})
+
+describe('Answer card: big number, summary, two-year chart, filter chips, records', () => {
+  const dealer = { id: null, dealerId: 'd-1001', permissions: ALL_MODULES }
+  // The context as the browser sends it back (JSON, dates as text).
+  const contextOf = (answer) => JSON.parse(JSON.stringify(answer.context))
+
+  test('a monthly answer: chart with last year, best month, partial month, and a summary that does not repeat the big number', async () => {
+    const answer = await askCopilot(dealer, 'show revenue by month this year', null, NOW)
+    const { chart, highlight, summary } = answer
+    assert.equal(chart.points.length, 11, 'Jan to Nov 2026')
+    assert.deepEqual(chart.points.slice(0, 3).map((p) => p.label), ['Jan', 'Feb', 'Mar'])
+    assert.equal(chart.currentLabel, '2026')
+    assert.equal(chart.previousLabel, '2025')
+    // Each month next to the same month of 2025.
+    for (const p of chart.points) {
+      const from = new Date(Date.UTC(p.year - 1, Number(p.key.slice(5, 7)) - 1, 1))
+      // The month still running is compared over the same days last year.
+      const to = p.partial ? SAME_DAYS_2025.lt : new Date(Date.UTC(p.year - 1, Number(p.key.slice(5, 7)), 1))
+      assert.ok(Math.abs(p.previous - (await revenue('d-1001', { gte: from, lt: to }))) < 0.01, p.key)
+    }
+    // November is still running on 15 Nov: partial, never the best month.
+    assert.deepEqual(chart.points.filter((p) => p.partial).map((p) => p.key), ['2026-11'])
+    const best = chart.points.filter((p) => !p.partial).reduce((a, b) => (b.value > a.value ? b : a))
+    assert.equal(chart.best, best.key)
+    assert.match(summary, new RegExp(`Best month: ${best.label} 2026`))
+    assert.ok(!summary.includes(highlight.value), 'the summary does not repeat the big number')
+    assert.ok(highlight.change && !summary.includes(highlight.change.percent), 'nor the % change')
+  })
+
+  test('filter chips: metric, breakdown and period, with the current choice selected', async () => {
+    const answer = await askCopilot(dealer, 'show revenue by month this year', null, NOW)
+    const byKey = Object.fromEntries(answer.controls.map((c) => [c.key, c]))
+    assert.equal(byKey.metric.value, 'revenue')
+    assert.deepEqual(byKey.metric.options.map((o) => o.value), ['revenue', 'profit', 'units'])
+    assert.equal(byKey.groupBy.value, 'month')
+    assert.ok(!byKey.groupBy.options.some((o) => o.value === 'customer'), 'revenue is not recorded by customer')
+    assert.equal(byKey.period.value, 'ytd')
+  })
+
+  test('changing a chip re-runs the answer with only that change', async () => {
+    const answer = await askCopilot(dealer, 'show revenue by month this year', null, NOW)
+    const lastYear = await rerunCopilot(dealer, contextOf(answer), { period: 'lastYear' }, NOW)
+    assert.ok(lastYear.text.includes(money(await revenue('d-1001', Y2025))), lastYear.text)
+    assert.equal(lastYear.chart.points.length, 12)
+    const profit = await rerunCopilot(dealer, contextOf(answer), { metric: 'profit' }, NOW)
+    assert.equal(profit.controls.find((c) => c.key === 'metric').value, 'profit')
+    assert.ok(profit.chart, 'still by month')
+    const total = await rerunCopilot(dealer, contextOf(answer), { groupBy: '' }, NOW)
+    assert.equal(total.chart, null)
+    assert.ok(total.text.includes(money(await revenue('d-1001', YTD))), total.text)
+    // Unknown or mismatched choices are refused.
+    assert.equal(await rerunCopilot(dealer, contextOf(answer), { metric: 'claimCount' }, NOW), null)
+    assert.equal(await rerunCopilot(dealer, contextOf(answer), { period: 'nextYear' }, NOW), null)
+    assert.equal(await rerunCopilot(dealer, null, { period: 'ytd' }, NOW), null)
+  })
+
+  test('the records behind an answer match its record count, newest first', async () => {
+    const answer = await askCopilot(dealer, 'What was my total revenue last year?', null, NOW)
+    const records = await copilotRecords(dealer, contextOf(answer))
+    assert.equal(records.total, answer.records.count)
+    assert.deepEqual(records.columns, ['Date', 'Product', 'Units', 'Revenue', 'Profit'])
+    assert.ok(records.rows.every((r) => r[0].startsWith('2025')))
+    assert.ok(records.rows[0][0] >= records.rows.at(-1)[0])
+  })
+
+  test('chips and records follow role access: a technician gets no sales figures', async () => {
+    const answer = await askCopilot(dealer, 'show revenue by month this year', null, NOW)
+    const tech = { id: null, dealerId: 'd-1001', permissions: ['home', 'warranty', 'incentives'] }
+    const rerun = await rerunCopilot(tech, contextOf(answer), { period: 'lastYear' }, NOW)
+    assert.match(rerun.text, /doesn't have access/)
+    assert.equal(await copilotRecords(tech, contextOf(answer)), null)
   })
 })

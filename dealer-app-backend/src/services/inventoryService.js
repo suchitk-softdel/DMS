@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma.js'
 import { DAY_MS } from '../utils/query.js'
+import { sellingPrices } from './salesService.js'
 
 // The dealer's product list with current stock (SRS 3.5). Also used by the
 // Copilot (stock answers).
@@ -33,15 +34,20 @@ export function lastCompleteMonths(now, count = 3) {
 const changePct = (before, after) => (before > 0 ? round2(((after - before) / before) * 100) : null)
 
 // Everything the Inventory screen shows, calculated from the dealer's own data:
-//   pricing   - stock value at price and at cost, incoming value, margin, price range
+//   pricing   - stock value at selling price and at base price (what the dealer
+//               paid), incoming value, margin, selling price range
 //   products  - each product with stock, status and its last 3 months of sales
 //   months    - the 3 complete months used for "recent performance"
+//   salesMonths - the last 12 complete months plus the current month (so far),
+//               oldest first; each product's `sales` lines up with it (Sales tab
+//               period switch: this month / 3 / 6 / 12 months)
 //   monthly   - units and revenue per month (all products)
 //   orders    - the dealer's orders with the manufacturer, by step, and approval time
 //   manufacturer - who supplies the dealer
 //   insights  - best seller, fastest growing, slow movers, highest margin
 export async function getInventoryOverview(dealerId, now = new Date()) {
   const months = lastCompleteMonths(now, 3)
+  const salesMonths = [...lastCompleteMonths(now, 12), monthKey(now)]
   const ninetyDaysAgo = new Date(now.getTime() - 90 * DAY_MS)
 
   const [stock, sales, dealer, openOrders, reviewed] = await Promise.all([
@@ -53,7 +59,7 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
       },
     }),
     prisma.sale.findMany({
-      where: { dealerId, month: { in: months } },
+      where: { dealerId, month: { in: salesMonths } },
       select: { productId: true, month: true, units: true, revenue: true },
     }),
     prisma.dealer.findUnique({
@@ -79,6 +85,9 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
     salesOf.get(row.productId).set(row.month, row)
   }
 
+  // Selling price = what the dealer actually charges its customers (salesService).
+  const sellPrice = await sellingPrices(dealerId, stock.map((row) => row.product), now)
+
   const products = stock.map((row) => {
     const byMonth = salesOf.get(row.productId) ?? new Map()
     const monthly = months.map((month) => ({
@@ -86,7 +95,13 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
       units: byMonth.get(month)?.units ?? 0,
       revenue: round2(byMonth.get(month)?.revenue ?? 0),
     }))
+    const sales = salesMonths.map((month) => ({
+      month,
+      units: byMonth.get(month)?.units ?? 0,
+      revenue: round2(byMonth.get(month)?.revenue ?? 0),
+    }))
     const p = row.product
+    const sellingPrice = sellPrice.get(p.id)
     return {
       product: p,
       onHand: row.onHand,
@@ -94,8 +109,11 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
       reorderPoint: row.reorderPoint,
       updatedAt: row.updatedAt,
       status: stockStatus(row),
-      marginPct: p.unitPrice > 0 ? round2(((p.unitPrice - p.unitCost) / p.unitPrice) * 100) : 0,
+      sellingPrice,
+      // Dealer's margin: selling price over the base price it pays.
+      marginPct: sellingPrice > 0 ? round2(((sellingPrice - p.unitPrice) / sellingPrice) * 100) : 0,
       monthly,
+      sales,
       unitsSold: monthly.reduce((sum, m) => sum + m.units, 0),
       revenue: round2(monthly.reduce((sum, m) => sum + m.revenue, 0)),
       // First vs last of the 3 months.
@@ -103,16 +121,17 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
     }
   })
 
-  // Pricing summary (stock valued at list price and at cost).
-  const prices = products.map((p) => p.product.unitPrice)
-  const stockValue = round2(products.reduce((sum, p) => sum + p.onHand * p.product.unitPrice, 0))
-  const stockCost = round2(products.reduce((sum, p) => sum + p.onHand * p.product.unitCost, 0))
+  // Pricing summary: stock valued at selling price and at base price (cost).
+  const prices = products.map((p) => p.sellingPrice)
+  const stockValue = round2(products.reduce((sum, p) => sum + p.onHand * p.sellingPrice, 0))
+  const stockCost = round2(products.reduce((sum, p) => sum + p.onHand * p.product.unitPrice, 0))
   const pricing = {
     stockValue,
     stockCost,
-    // Profit the stock on hand would make if sold at list price.
+    // Profit the stock on hand would make if sold at the usual selling price.
     potentialMargin: round2(stockValue - stockCost),
     marginPct: stockValue > 0 ? round2(((stockValue - stockCost) / stockValue) * 100) : 0,
+    // What the stock on order costs the dealer (base price).
     incomingValue: round2(products.reduce((sum, p) => sum + p.onOrder * p.product.unitPrice, 0)),
     averagePrice: prices.length ? round2(prices.reduce((a, b) => a + b, 0) / prices.length) : 0,
     lowestPrice: prices.length ? Math.min(...prices) : 0,
@@ -166,6 +185,7 @@ export async function getInventoryOverview(dealerId, now = new Date()) {
   return {
     asOf: now,
     months,
+    salesMonths,
     pricing,
     products,
     monthly,

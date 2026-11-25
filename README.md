@@ -6,8 +6,7 @@ and follow their performance, with an in-house AI Copilot.
 
 - **Requirements:** [`docs/SRS.md`](docs/SRS.md) (SRS v1.0) is the main document.
 - **Project decision:** all AI features (Copilot, Health Score, Forecast, insights) are **our own
-  code in the backend**. No third-party AI service, API, key or AI library is used
-  (see [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md), sections 7–9).
+  code in the backend**. No third-party AI service, API, key or AI library is used.
 
 ## Tech stack
 
@@ -104,7 +103,7 @@ fictional manufacturer **Aerovance Climate Systems** and its 6 dealers. All name
 
 - [Backend README](dealer-app-backend/README.md): API endpoints, database, demo data, scripts
 - [Frontend README](dealer-app-frontend/README.md): structure, configuration, roles
-- [Demo data](docs/DEMO_DATA.md): how the 2-year manufacturer and dealer data is built and linked
 - [Requirement traceability](docs/REQUIREMENT_TRACEABILITY.md): status of every SRS requirement and where it is implemented
-- [Demo script](docs/DEMO_SCRIPT.md): 10-minute client demo, step by step
+- [Screen data guide](docs/SCREEN_DATA_GUIDE.md): where every number on each screen comes from
+- [Demo script](docs/DEMO_SCRIPT.md): 11-minute client demo, step by step
 - [SRS v1.0](docs/SRS.md): full requirements

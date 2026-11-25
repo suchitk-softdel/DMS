@@ -6,6 +6,8 @@ export const MODULES = Object.freeze({
   HOME: 'home',
   DEALER_360: 'dealer360',
   ORDERS: 'orders',
+  // Dealer sells its stock to customers at its own price (Place Orders).
+  PLACE_ORDERS: 'placeOrders',
   INVENTORY: 'inventory',
   INCENTIVES: 'incentives',
   WARRANTY: 'warranty',

@@ -118,7 +118,7 @@ function RevenueTrend({ trend }) {
           <SectionTitle sx={{ mb: 0.5 }}>Revenue Trend</SectionTitle>
           <Typography variant="body2" color="text.secondary">
             {formatCurrency(total)} from {monthYear(shown[0].month)} to {monthYear(shown[shown.length - 1].month)}
-            {shown[shown.length - 1].partial ? ' (to date)' : ''} · fulfilled orders
+            {shown[shown.length - 1].partial ? ' (to date)' : ''} · sales to customers
           </Typography>
         </Box>
         <ToggleButtonGroup
@@ -272,7 +272,7 @@ export default function Dealer360() {
         skeleton="dashboard"
         empty={Boolean(data) && !data.kpis}
         emptyTitle="No performance data"
-        emptyMessage="Dealer 360 needs the backend: start dealer-app-backend and set VITE_USE_MOCK_DATA=false."
+        emptyMessage="Your performance figures will show here once your dealership has orders."
       >
         {data?.kpis && (
           <Stack spacing={3.5}>

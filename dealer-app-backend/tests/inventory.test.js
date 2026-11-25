@@ -54,16 +54,31 @@ describe('Inventory overview', () => {
 
   test('pricing summary matches the stock records', async () => {
     const stock = await prisma.inventory.findMany({ where: { dealerId: DEALER }, include: { product: true } })
-    const value = stock.reduce((s, r) => s + r.onHand * r.product.unitPrice, 0)
-    const cost = stock.reduce((s, r) => s + r.onHand * r.product.unitCost, 0)
+    // Selling price, from the raw sales to customers of the last 12 months
+    // (Dec 2025 - Nov 2026); unsold products: base price x overall markup.
+    const sales = await prisma.dealerSale.findMany({ where: { dealerId: DEALER, createdAt: { gte: new Date('2025-12-01T00:00:00Z') } } })
+    const byProduct = new Map()
+    for (const s of sales) {
+      const t = byProduct.get(s.productId) ?? { units: 0, revenue: 0 }
+      byProduct.set(s.productId, { units: t.units + s.quantity, revenue: t.revenue + s.quantity * s.sellingPrice })
+    }
+    const markup = sales.reduce((a, s) => a + s.quantity * s.sellingPrice, 0) / sales.reduce((a, s) => a + s.quantity * s.basePrice, 0)
+    const sellOf = (r) => {
+      const t = byProduct.get(r.productId)
+      return Math.round((t ? t.revenue / t.units : r.product.unitPrice * markup) * 100) / 100
+    }
+    const value = stock.reduce((s, r) => s + r.onHand * sellOf(r), 0)
+    const cost = stock.reduce((s, r) => s + r.onHand * r.product.unitPrice, 0)
     const incoming = stock.reduce((s, r) => s + r.onOrder * r.product.unitPrice, 0)
     const { pricing } = overview
-    assert.ok(near(pricing.stockValue, value))
+    assert.ok(near(pricing.stockValue, value), `${pricing.stockValue} vs ${value}`)
     assert.ok(near(pricing.stockCost, cost))
     assert.ok(near(pricing.potentialMargin, value - cost))
+    assert.ok(pricing.stockValue > pricing.stockCost, 'dealers sell above the base price')
     assert.ok(near(pricing.incomingValue, incoming))
-    assert.equal(pricing.lowestPrice, Math.min(...stock.map((r) => r.product.unitPrice)))
-    assert.equal(pricing.highestPrice, Math.max(...stock.map((r) => r.product.unitPrice)))
+    assert.equal(pricing.lowestPrice, Math.min(...stock.map(sellOf)))
+    assert.equal(pricing.highestPrice, Math.max(...stock.map(sellOf)))
+    for (const p of overview.products) assert.ok(p.sellingPrice > p.product.unitPrice, p.product.sku)
   })
 
   test('monthly units and revenue match the sales records', async () => {
@@ -72,6 +87,19 @@ describe('Inventory overview', () => {
       assert.equal(m.units, agg._sum.units ?? 0, m.month)
       assert.ok(near(m.revenue, agg._sum.revenue ?? 0), m.month)
     }
+  })
+
+  test('sales history covers the last 12 complete months plus the current month', async () => {
+    assert.equal(overview.salesMonths.length, 13)
+    assert.deepEqual(overview.salesMonths.slice(0, 12), lastCompleteMonths(NOW, 12))
+    assert.equal(overview.salesMonths.at(-1), NOW.toISOString().slice(0, 7))
+    for (const [i, month] of overview.salesMonths.entries()) {
+      const agg = await prisma.sale.aggregate({ where: { dealerId: DEALER, month }, _sum: { units: true } })
+      const units = overview.products.reduce((s, p) => s + p.sales[i].units, 0)
+      assert.equal(units, agg._sum.units ?? 0, month)
+    }
+    // The last 3 complete months match the recent-performance figures.
+    for (const p of overview.products) assert.deepEqual(p.sales.slice(9, 12), p.monthly, p.product.sku)
   })
 
   test('open orders with the manufacturer are counted by step', async () => {

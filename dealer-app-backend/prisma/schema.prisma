@@ -64,6 +64,7 @@ model Dealer {
   customers         Customer[]
   orders            Order[]
   sales             Sale[]
+  dealerSales       DealerSale[]
   inventory         Inventory[]
   claims            Claim[]
   registrations     WarrantyRegistration[]
@@ -101,6 +102,7 @@ model User {
   respondedOrders  Order[]            @relation("OrderResponder")
   trainingProgress TrainingProgress[]
   auditLogs        AuditLog[]
+  dealerSales      DealerSale[]
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +123,7 @@ model Product {
 
   orderItems    OrderItem[]
   sales         Sale[]
+  dealerSales   DealerSale[]
   inventory     Inventory[]
   claims        Claim[]
   registrations WarrantyRegistration[]
@@ -220,6 +223,28 @@ model Sale {
 
   @@unique([dealerId, productId, month])
   @@index([dealerId, month])
+}
+
+// One sale from the dealer to its customer (Place Orders screen). The dealer
+// can only sell what it has on hand; each sale takes the units off its stock.
+// basePrice is the manufacturer's price for the product at the time of sale;
+// sellingPrice is what the dealer charged and must be higher.
+// Kept apart from Sale (the revenue aggregate built from manufacturer orders).
+model DealerSale {
+  id           Int      @id @default(autoincrement())
+  dealerId     String
+  productId    String
+  quantity     Int
+  basePrice    Float
+  sellingPrice Float
+  soldById     String?
+  createdAt    DateTime @default(now())
+
+  dealer  Dealer  @relation(fields: [dealerId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  soldBy  User?   @relation(fields: [soldById], references: [id])
+
+  @@index([dealerId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

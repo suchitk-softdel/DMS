@@ -47,7 +47,7 @@ const STAGES = [
   { value: 'closed', label: 'Closed', statuses: ['rejected', 'declined'] },
 ]
 // Quick actions from Home and Copilot open the form directly (?action=createOrder).
-const OPEN_FORM_ACTIONS = ['createOrder', 'createQuote']
+const OPEN_FORM_ACTIONS = ['createOrder']
 const COLUMNS = [
   { field: 'id', label: 'Order ID', sortable: true },
   { field: 'units', label: 'Quantity', align: 'right' },

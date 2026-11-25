@@ -4,7 +4,7 @@ import { DAY_MS } from '../utils/query.js'
 import { forecastDemand } from './forecastService.js'
 import { computeHealthScore } from './healthScoreService.js'
 import { recentActivity } from './homeService.js'
-import { monthlySalesTotals } from './salesService.js'
+import { monthlySalesTotals, salesRevenue } from './salesService.js'
 
 // Dealer 360 / My Performance (SRS 3.3, FR-D360-1 to 5), built in-house from
 // the dealer's own data. Every recommendation carries the evidence behind it
@@ -32,22 +32,14 @@ const money = (value) => `$${Math.round(value).toLocaleString('en-US')}`
 const ageInDays = (date, now) => Math.ceil((now - date) / DAY_MS)
 const plural = (count, word, many = `${word}s`) => `${count} ${count === 1 ? word : many}`
 
-async function fulfilledRevenue(dealerId, from, to) {
-  const result = await prisma.order.aggregate({
-    where: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte: from, lt: to } },
-    _sum: { total: true },
-  })
-  return result._sum.total ?? 0
-}
-
 // Revenue of the 12 months up to `asOf` and the 12 months before.
 // change is null when the dealer joined after the earlier period started
 // (e.g. a new dealer), because the two periods are not comparable.
 async function revenueYear(dealerId, joinedAt, asOf) {
   const yearAgo = yearBefore(asOf)
   const [current, previous] = await Promise.all([
-    fulfilledRevenue(dealerId, yearAgo, asOf),
-    fulfilledRevenue(dealerId, yearBefore(yearAgo), yearAgo),
+    salesRevenue(dealerId, yearAgo, asOf),
+    salesRevenue(dealerId, yearBefore(yearAgo), yearAgo),
   ])
   const comparable = joinedAt <= yearBefore(yearAgo) && previous > 0
   return { current, previous, changePct: comparable ? round1((current / previous - 1) * 100) : null }
@@ -142,9 +134,9 @@ async function trainingRule(dealerId) {
     key: 'training',
     component: 'trainingCompletion',
     title: `Help ${plural(people.size, 'team member')} finish training`,
-    detail: `${plural(open.length, 'assigned course is', 'assigned courses are')} not finished yet. Completed courses raise Training Completion and count toward the Certified Dealer Bonus.`,
+    detail: `${plural(open.length, 'assigned course is', 'assigned courses are')} not finished yet. Completed courses raise the Training Completion part of your Health Score.`,
     evidence: [`${done} of ${rows.length} assigned courses completed (${Math.round((done / rows.length) * 100)}%)`],
-    action: { label: 'View Training', module: MODULES.INCENTIVES },
+    action: null, // no Training screen in the app any more
   }
 }
 
@@ -186,7 +178,7 @@ async function recommendations(dealerId, health, can, now) {
         component: { key: component.key, label: component.label, score: component.score },
         pointsMissing: round1(missing),
         priority: points,
-        action: can(rec.action.module) ? rec.action : null,
+        action: rec.action && can(rec.action.module) ? rec.action : null,
       }
     })
     .sort((a, b) => b.priority - a.priority)

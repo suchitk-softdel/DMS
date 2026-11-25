@@ -86,7 +86,86 @@ describe('Who can see and do what', () => {
     for (const url of ['/home', '/orders', '/dealer360', '/claims', '/customers']) {
       assert.equal((await desk.get(url)).status, 403, url)
     }
-    assert.equal((await desk.post('/copilot/ask', { question: 'total sales' })).status, 403)
+  })
+})
+
+describe('Network Copilot (manufacturer)', () => {
+  const NETWORK = { manufacturerId: 'm-01' }
+  const ask = async (client, question, context = null) => {
+    const res = await client.post('/copilot/ask', { question, context })
+    assert.equal(res.status, 200, question)
+    return res.body
+  }
+  const dollars = (text) => Number(String(text).replace(/[^0-9.]/g, ''))
+
+  test('answers over every dealer of the network, broken down by dealer', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const dealers = await prisma.dealer.findMany({ where: NETWORK })
+    const answer = await ask(desk, 'revenue by dealer last year')
+    assert.deepEqual(answer.table.columns.slice(0, 2), ['Dealer', 'Revenue'])
+    assert.equal(answer.table.rows.length, dealers.length)
+    assert.ok(answer.controls.find((c) => c.key === 'groupBy').options.some((o) => o.value === 'dealer'))
+
+    // Each dealer's row = its own sales to customers in 2025.
+    const sales = await prisma.dealerSale.findMany({
+      where: { dealer: NETWORK, createdAt: { gte: new Date('2025-01-01T00:00:00Z'), lt: new Date('2026-01-01T00:00:00Z') } },
+      include: { dealer: { select: { name: true } } },
+    })
+    for (const [name, value] of answer.table.rows) {
+      const expected = sales.filter((s) => s.dealer.name === name).reduce((sum, s) => sum + s.quantity * s.sellingPrice, 0)
+      assert.equal(dollars(value), Math.round(expected), name)
+    }
+  })
+
+  test('one dealer by its short name, with the dealer in the records', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const answer = await ask(desk, 'revenue for Lone Star last year')
+    assert.ok(answer.text.startsWith("Lone Star Air & Heat's revenue in 2025"), answer.text)
+    assert.ok(answer.tags.includes('Lone Star Air & Heat'))
+
+    const records = await desk.post('/copilot/records', { context: answer.context })
+    assert.equal(records.status, 200)
+    assert.equal(records.body.columns[1], 'Dealer')
+    assert.ok(records.body.rows.length > 0)
+    assert.ok(records.body.rows.every((row) => row[1] === 'Lone Star Air & Heat'))
+
+    // A filter chip re-runs it over the same dealer.
+    const rerun = await desk.post('/copilot/rerun', { context: answer.context, change: { metric: 'profit' } })
+    assert.equal(rerun.status, 200)
+    assert.ok(rerun.body.text.startsWith("Lone Star Air & Heat's profit"), rerun.body.text)
+  })
+
+  test('network totals, Health Scores and the dealer list', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const claims = await ask(desk, 'how many warranty claims last year')
+    const expected = await prisma.claim.count({
+      where: { dealer: NETWORK, filedAt: { gte: new Date('2025-01-01T00:00:00Z'), lt: new Date('2026-01-01T00:00:00Z') } },
+    })
+    assert.ok(claims.text.startsWith(`Your dealers had ${expected} claim`), claims.text)
+
+    const health = await ask(desk, "how are my dealers' health scores")
+    assert.equal(health.understood, 'Health Score · all dealers')
+    assert.equal(health.table.rows.length, await prisma.dealer.count({ where: NETWORK }))
+
+    const list = await ask(desk, 'how many dealers are in my network')
+    assert.equal(list.understood, 'Dealer network')
+
+    // Stock belongs to each dealer.
+    const stock = await ask(desk, 'what should I reorder')
+    assert.match(stock.text, /managed by each dealer/)
+  })
+
+  test('a dealer user still only sees its own data (no "by dealer")', async () => {
+    const principal = await signIn('principal@demo.com')
+    const answer = await ask(principal, 'revenue by dealer last year')
+    assert.ok(!answer.table || answer.table.columns[0] !== 'Dealer')
+    assert.ok(!answer.controls?.find((c) => c.key === 'groupBy')?.options.some((o) => o.value === 'dealer'))
+    const own = await ask(principal, 'total revenue last year')
+    const records = await principal.post('/copilot/records', { context: own.context })
+    assert.notEqual(records.body.columns[1], 'Dealer')
+    // Tampering with the context cannot add a "by dealer" breakdown.
+    const rerun = await principal.post('/copilot/rerun', { context: own.context, change: { groupBy: 'dealer' } })
+    assert.equal(rerun.status, 400)
   })
 })
 

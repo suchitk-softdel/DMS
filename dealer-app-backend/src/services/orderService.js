@@ -1,6 +1,6 @@
 import { MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
-import { badRequest, forbidden, notFound } from '../utils/httpError.js'
+import { badRequest, forbidden, HttpError, notFound } from '../utils/httpError.js'
 import { refreshDealerAggregates } from './aggregationService.js'
 import { logAudit } from './auditLog.js'
 
@@ -133,6 +133,25 @@ export async function createOrder(user, input) {
   return getOrder(dealerId, order.id)
 }
 
+// Adds a fulfilled order's quantities to the dealer's stock: on hand goes up,
+// on order goes down (never below 0). A product the dealer had no stock row
+// for gets one.
+async function receiveIntoStock(tx, orderId, dealerId, now) {
+  const items = await tx.orderItem.findMany({ where: { orderId }, select: { productId: true, quantity: true } })
+  for (const { productId, quantity } of items) {
+    const where = { dealerId_productId: { dealerId, productId } }
+    const stock = await tx.inventory.findUnique({ where })
+    if (stock) {
+      await tx.inventory.update({
+        where,
+        data: { onHand: stock.onHand + quantity, onOrder: Math.max(0, stock.onOrder - quantity), updatedAt: now },
+      })
+    } else {
+      await tx.inventory.create({ data: { dealerId, productId, onHand: quantity, onOrder: 0, reorderPoint: 0, updatedAt: now } })
+    }
+  }
+}
+
 // Moves an order or quote to its next status. Every change re-runs the
 // dealer's aggregates so KPIs, trends, forecast and incentives include it
 // straight away. Fulfilled equipment units are then registered by the dealer
@@ -165,24 +184,33 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
   }
 
   const now = new Date()
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      status,
-      updatedAt: now,
-      ...(accepting && {
-        reviewedById: user.id,
-        reviewedAt: now,
-        acceptanceMethod: acceptance.method,
-        acceptanceContact: acceptance.contact,
-        acceptanceNote: acceptance.note ?? null,
-      }),
-      ...(responding && {
-        dealerRespondedById: user.id,
-        dealerRespondedAt: now,
-        declineReason: status === 'declined' ? reason : null,
-      }),
-    },
+  await prisma.$transaction(async (tx) => {
+    // Only if the order is still in the status checked above: two requests at
+    // once can't both move it (and fulfil it twice).
+    const changed = await tx.order.updateMany({
+      where: { id: order.id, status: order.status },
+      data: {
+        status,
+        updatedAt: now,
+        ...(accepting && {
+          reviewedById: user.id,
+          reviewedAt: now,
+          acceptanceMethod: acceptance.method,
+          acceptanceContact: acceptance.contact,
+          acceptanceNote: acceptance.note ?? null,
+        }),
+        ...(responding && {
+          dealerRespondedById: user.id,
+          dealerRespondedAt: now,
+          declineReason: status === 'declined' ? reason : null,
+        }),
+      },
+    })
+    if (changed.count === 0) throw new HttpError(409, 'This order was just changed. Please reload it.')
+    // The goods have arrived: they go into the dealer's stock (on hand) and
+    // are no longer incoming (on order). Same transaction as the status, so
+    // stock is added exactly once, and only for a fulfilled order.
+    if (order.type === 'order' && status === 'fulfilled') await receiveIntoStock(tx, order.id, user.dealerId, now)
   })
 
   await refreshDealerAggregates(user.dealerId)

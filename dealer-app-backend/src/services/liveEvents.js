@@ -17,7 +17,8 @@ export function addLiveClient(res, user) {
 
 export const liveClientCount = () => clients.size
 
-// Pushes a warranty event to the dealer's users and its manufacturer.
+// Pushes a warranty event to the dealer's users and its manufacturer
+// (investigation events: to the manufacturer only).
 // event: { action: 'claim.submitted' | 'registration.created' | 'investigation.opened' | 'investigation.closed',
 //          dealerId, id?, by? (user id) }
 // Never throws: a live update must not break the request that caused it.
@@ -28,8 +29,13 @@ export async function publishWarrantyEvent({ action, dealerId, id = null, by = n
     if (!dealer) return
     const payload = JSON.stringify({ topic: 'warranty', action, id, dealerId, dealerName: dealer.name, by, at: new Date().toISOString() })
     const message = `event: warranty\ndata: ${payload}\n\n`
+    // An investigation is the manufacturer's internal matter: the dealer
+    // being investigated must never be told.
+    const manufacturerOnly = action.startsWith('investigation.')
     for (const client of clients) {
-      if (client.dealerId === dealerId || client.manufacturerId === dealer.manufacturerId) client.res.write(message)
+      const isDealer = client.dealerId === dealerId
+      const isManufacturer = client.manufacturerId === dealer.manufacturerId
+      if (isManufacturer || (isDealer && !manufacturerOnly)) client.res.write(message)
     }
   } catch (error) {
     console.error('Live update failed:', error.message)

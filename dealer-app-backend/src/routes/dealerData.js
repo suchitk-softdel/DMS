@@ -18,12 +18,12 @@ import {
   previewSerialNumber,
   registerWarranty,
 } from '../services/claimService.js'
-import { askCopilot } from '../services/copilotService.js'
 import { getDealer360 } from '../services/dealer360Service.js'
 import { getHomeSummary } from '../services/homeService.js'
 import { listIncentives } from '../services/incentiveService.js'
 import { getInventoryOverview, listInventory } from '../services/inventoryService.js'
 import { listOpportunities } from '../services/opportunityService.js'
+import { getPlaceOrders, placeOrder } from '../services/placeOrderService.js'
 import { getOrdersSummary } from '../services/orderInsightService.js'
 import { createOrder, getOrder, listOrders, ORDER_SORT_FIELDS, ORDER_STAGES, updateOrderStatus } from '../services/orderService.js'
 import { listSales, monthlySalesTotals } from '../services/salesService.js'
@@ -161,6 +161,24 @@ dealerDataRouter.get('/inventory/overview', requireModule(MODULES.INVENTORY), as
   res.json(await getInventoryOverview(req.user.dealerId))
 })
 
+// Place Orders: the dealer sells its stock to customers ------------------------
+// Products with available quantity and base price, and the latest sales.
+dealerDataRouter.get('/place-orders', requireModule(MODULES.PLACE_ORDERS), async (req, res) => {
+  res.json(await getPlaceOrders(req.user.dealerId))
+})
+
+// Sell one product. Body: { productId, quantity, sellingPrice }. The service
+// checks stock and that the selling price is above the base price.
+dealerDataRouter.post('/place-orders', requireModule(MODULES.PLACE_ORDERS), async (req, res) => {
+  const body = req.body ?? {}
+  const sale = await placeOrder(req.user, {
+    productId: requiredString(body.productId, 'productId', { maxLength: 40 }),
+    quantity: requiredNumber(body.quantity, 'quantity', { min: 1, max: 500, integer: true }),
+    sellingPrice: Math.round(requiredNumber(body.sellingPrice, 'sellingPrice', { min: 0.01, max: 1000000 }) * 100) / 100,
+  })
+  res.status(201).json(sale)
+})
+
 // Warranty & Claims (SRS 3.7) -------------------------------------------------
 // Board tiles: open claims, average resolution time, approval rate (FR-WAR-4).
 dealerDataRouter.get('/claims/summary', requireModule(MODULES.WARRANTY), async (req, res) => {
@@ -236,12 +254,3 @@ dealerDataRouter.get('/opportunities', requireModule(MODULES.SALES_COACH), async
   )
 })
 
-// Dealer Copilot (SRS 3.2): in-house question engine over the dealer's data.
-// Body: { question, context? } where context is the previous answer's
-// context (for follow-up questions such as "and last year?").
-// Open to every role; each answer checks the module its data comes from.
-dealerDataRouter.post('/copilot/ask', async (req, res) => {
-  const question = requiredString(req.body?.question, 'question', { maxLength: 300 })
-  const context = req.body?.context && typeof req.body.context === 'object' ? req.body.context : null
-  res.json(await askCopilot(req.user, question, context))
-})

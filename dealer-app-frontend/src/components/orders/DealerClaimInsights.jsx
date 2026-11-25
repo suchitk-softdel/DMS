@@ -11,7 +11,6 @@ import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
-import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -22,7 +21,7 @@ import { useState } from 'react'
 import { HBarChart } from '@/components/patterns/BarCharts'
 import SectionCard from '@/components/patterns/SectionCard'
 import { DASH } from '@/constants/dashboardColors'
-import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
+import { formatDate, formatNumber } from '@/lib/format'
 import LiveBadge from '@/components/ui/LiveBadge'
 import { describeLiveEvent, useLiveEvents } from '@/lib/live'
 import { usePermissions } from '@/lib/rbac'
@@ -41,7 +40,6 @@ const RISK = {
   medium: { label: 'Watch', icon: WarningAmberRounded, color: DASH.amber, text: DASH.amberDark, bg: DASH.amberLight },
   normal: { label: 'Normal', icon: CheckCircleOutlineRounded, color: DASH.teal, text: DASH.tealDark, bg: DASH.tealLight },
 }
-const STAGE_LABEL = { submitted: 'Submitted', underReview: 'Under review', approved: 'Approved', reimbursed: 'Reimbursed', rejected: 'Rejected' }
 
 // Risk as icon + text (never colour alone).
 function RiskBadge({ risk }) {
@@ -95,82 +93,46 @@ function DealerClaimsDialog({ dealer, network, busy, error, onFlag, onCloseInves
           </Box>
         )}
 
-        <Typography sx={{ fontWeight: 700, color: DASH.navy, mb: 1 }}>Why it {dealer.flags.length ? 'stands out' : 'looks normal'}</Typography>
-        {dealer.flags.length ? (
-          <Stack spacing={1} sx={{ mb: 2.5 }}>
-            {dealer.flags.map((f) => (
-              <Box key={f.key} sx={{ p: 1.25, borderRadius: '8px', borderLeft: `3px solid ${RISK[dealer.risk].color}`, bgcolor: DASH.boxGrey }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 14, color: DASH.navy }}>{f.label}</Typography>
-                <Typography sx={{ fontSize: 13.5, color: DASH.muted }}>{f.detail}</Typography>
-              </Box>
-            ))}
-          </Stack>
-        ) : (
-          <Typography sx={{ color: DASH.muted, mb: 2.5 }}>No unusual claim patterns compared with the network.</Typography>
-        )}
-
+        {/* Key figures: how this dealer compares with the average dealer */}
         <Grid container spacing={1.25} sx={{ mb: 2.5 }}>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Claims" value={formatNumber(dealer.claims)} note={`${formatNumber(dealer.units)} units installed`} />
+          <Grid size={4}>
+            <GreyBox label="Claims per 100 units" value={dealer.ratePer100.toFixed(1)} note={`average ${network.ratePer100.toFixed(1)}`} />
           </Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Per 100 units" value={dealer.ratePer100.toFixed(1)} note={`${dealer.rateVsNetwork.toFixed(1)}× network`} />
+          <Grid size={4}>
+            <GreyBox label="Total claims" value={formatNumber(dealer.claims)} note={`${formatNumber(dealer.units)} units sold`} />
           </Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Last 90 days" value={formatNumber(dealer.last90)} note={`${dealer.previous90} the 90 days before`} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Avg. claim" value={formatCurrency(dealer.avgAmount)} note={`network ${formatCurrency(network.avgAmount)}`} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Rejected" value={`${dealer.rejected} of ${dealer.decided}`} note="decided claims" />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 4 }}>
-            <GreyBox label="Open" value={formatNumber(dealer.open)} note={formatCurrency(dealer.openValue)} />
+          <Grid size={4}>
+            <GreyBox label="Last 90 days" value={formatNumber(dealer.last90)} note="claims" />
           </Grid>
         </Grid>
 
-        <Typography sx={{ fontWeight: 700, color: DASH.navy, mb: 0.5 }}>Recent claims</Typography>
-        <Stack divider={<Divider flexItem sx={{ borderColor: DASH.border }} />}>
-          {dealer.recentClaims.map((c) => (
-            <Stack key={c.id} direction="row" spacing={1.5} sx={{ py: 1, alignItems: 'center' }}>
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 14, color: DASH.navy }}>
-                  {c.id} · {c.product.sku}
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: DASH.muted }}>
-                  {formatDate(c.filedAt)} · {c.serialNumber} · {STAGE_LABEL[c.stage]}
-                </Typography>
-                {(c.daysAfterInstall <= 30 || c.repeat) && (
-                  <Stack direction="row" spacing={0.75} sx={{ mt: 0.5 }}>
-                    {c.daysAfterInstall <= 30 && (
-                      <Chip size="small" label={`${c.daysAfterInstall} days after install`} sx={{ height: 22, fontSize: 12, bgcolor: DASH.amberLight, color: DASH.amberDark, fontWeight: 600 }} />
-                    )}
-                    {c.repeat && <Chip size="small" label="Repeat unit" sx={{ height: 22, fontSize: 12, bgcolor: DASH.redLight, color: DASH.redDark, fontWeight: 600 }} />}
-                  </Stack>
-                )}
-              </Box>
-              <Typography sx={{ fontWeight: 700, color: DASH.navy, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(c.amount)}</Typography>
-            </Stack>
-          ))}
-          {dealer.recentClaims.length === 0 && <Typography sx={{ color: DASH.muted, py: 2 }}>No claims yet.</Typography>}
-        </Stack>
+        {/* Reasons, as a short list of plain headlines */}
+        <Typography sx={{ fontWeight: 700, color: DASH.navy, mb: 0.5 }}>{dealer.flags.length ? 'Why it stands out' : 'Looks normal'}</Typography>
+        {dealer.flags.length ? (
+          <Box component="ul" sx={{ m: 0, pl: 2.5, color: DASH.navy }}>
+            {dealer.flags.map((f) => (
+              <Typography component="li" key={f.key} sx={{ fontSize: 14.5, py: 0.25 }}>
+                {f.label}
+              </Typography>
+            ))}
+          </Box>
+        ) : (
+          <Typography sx={{ color: DASH.muted }}>No unusual claim patterns compared with other dealers.</Typography>
+        )}
 
         {flagging && (
-          <Box sx={{ mt: 2.5 }}>
-            <TextField
-              label="Note (optional)"
-              fullWidth
-              multiline
-              minRows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Check the claims of the last 90 days with the dealer"
-              slotProps={{ htmlInput: { maxLength: 300 } }}
-              helperText="Who flagged the dealer, and when, is recorded."
-              autoFocus
-            />
-          </Box>
+          <TextField
+            label="Note (optional)"
+            fullWidth
+            multiline
+            minRows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. Check the last 90 days of claims with the dealer"
+            slotProps={{ htmlInput: { maxLength: 300 } }}
+            sx={{ mt: 2.5 }}
+            autoFocus
+          />
         )}
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -224,6 +186,8 @@ export default function DealerClaimInsights() {
 
   const { dealers, network } = data
   const high = dealers.filter((d) => d.risk === 'high')
+  // The banner names only the dealer furthest above the network average.
+  const worst = high.reduce((top, d) => (!top || d.rateVsNetwork > top.rateVsNetwork ? d : top), null)
   const toReview = dealers.filter((d) => d.risk !== 'normal' || d.investigation)
   const open = dealers.find((d) => d.id === openId)
 
@@ -268,10 +232,15 @@ export default function DealerClaimInsights() {
           >
             <GppMaybeOutlined sx={{ color: DASH.red, flexShrink: 0 }} />
             <Typography sx={{ flexGrow: 1, color: DASH.redDark, fontWeight: 600, py: 0.75 }}>
-              {high.length === 1 ? '1 dealer shows' : `${high.length} dealers show`} unusually high warranty claim activity:{' '}
-              {high.map((d) => `${d.name} (${d.rateVsNetwork.toFixed(1)}× the network)`).join(', ')}.
+              {high.length === 1
+                ? `1 dealer has too many warranty claims: ${high[0].name}`
+                : `${high.length} dealers have too many warranty claims (highest: ${worst.name})`}
             </Typography>
-            <Button variant="contained" onClick={() => openDealer(high[0].id)} sx={{ minHeight: 44, px: 2.5, flexShrink: 0, bgcolor: DASH.navy, '&:hover': { bgcolor: '#2a2f63' } }}>
+            <Button
+              variant="contained"
+              onClick={() => document.getElementById('dealers-to-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              sx={{ minHeight: 44, px: 2.5, flexShrink: 0, bgcolor: DASH.navy, '&:hover': { bgcolor: '#2a2f63' } }}
+            >
               Review
             </Button>
           </Box>
@@ -289,17 +258,31 @@ export default function DealerClaimInsights() {
         >
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 7 }}>
+              <Typography sx={{ fontSize: 13.5, color: DASH.muted, mb: 1 }}>
+                Claims per 100 units sold. The black line is the average of all dealers.
+              </Typography>
+              {/* Colour key: what red, amber and green mean */}
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 0.5 }}>
+                {Object.values(RISK).map((r) => (
+                  <Stack key={r.label} direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '3px', bgcolor: r.color }} />
+                    <Typography sx={{ fontSize: 13, color: DASH.muted }}>{r.label}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
               <HBarChart
                 rows={chartRows}
                 onRowClick={openDealer}
+                tooltips={false}
                 formatValue={(v) => v.toFixed(1)}
-                valueLabel="Claims per 100 units"
-                markerLabel={`Network average (${network.ratePer100.toFixed(1)})`}
+                markerLabel={`Average ${network.ratePer100.toFixed(1)}`}
                 ariaLabel="Warranty claims per 100 installed units by dealer"
               />
             </Grid>
             <Grid size={{ xs: 12, md: 5 }}>
-              <Typography sx={{ fontWeight: 700, color: DASH.navy, mb: 1 }}>Dealers to review</Typography>
+              <Typography id="dealers-to-review" sx={{ fontWeight: 700, color: DASH.navy, mb: 1, scrollMarginTop: 96 }}>
+                Dealers to review
+              </Typography>
               {toReview.length === 0 && <Typography sx={{ color: DASH.muted }}>No dealer shows unusual claim activity.</Typography>}
               <Stack spacing={1}>
                 {toReview.map((d) => (

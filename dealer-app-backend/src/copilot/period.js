@@ -149,6 +149,19 @@ export function previousYear(period) {
   return { from, to, label, kind: period.kind }
 }
 
+// The periods offered in the Copilot's period filter (the chip under an
+// answer). value is what the client sends back to re-run the answer.
+export function periodChoices(today) {
+  return [
+    { value: 'ytd', period: yearToDate(today) },
+    { value: 'lastYear', period: extractPeriod(' last year ', today) },
+    { value: 'last12', period: extractPeriod(' last 12 months ', today) },
+    { value: 'thisQuarter', period: extractPeriod(' this quarter ', today) },
+    { value: 'lastQuarter', period: extractPeriod(' last quarter ', today) },
+    { value: 'all', period: allTime(today) },
+  ]
+}
+
 // monthKey(date) -> "2025-07", used to group records by month.
 export const monthKey = (date) => date.toISOString().slice(0, 7)
 // monthLabel("2025-07") -> "Jul 2025", the label shown in month charts and tables.

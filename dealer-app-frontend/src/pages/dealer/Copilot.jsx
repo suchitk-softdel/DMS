@@ -1,52 +1,39 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import AddCommentOutlinedIcon from '@mui/icons-material/AddCommentOutlined'
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
-import SendRoundedIcon from '@mui/icons-material/SendRounded'
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded'
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined'
-import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined'
-import { keyframes } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import ButtonBase from '@mui/material/ButtonBase'
 import Card from '@mui/material/Card'
 import Grid from '@mui/material/Grid'
-import IconButton from '@mui/material/IconButton'
-import InputBase from '@mui/material/InputBase'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { useDispatch, useSelector } from 'react-redux'
-import CopilotAnswer from '@/components/patterns/CopilotAnswer'
+import CopilotChat from '@/components/copilot/CopilotChat'
 import QuickActions from '@/components/patterns/QuickActions'
 import PageHeader from '@/components/ui/PageHeader'
 import SectionTitle from '@/components/ui/SectionTitle'
 import { MODULE_PATHS, MODULES } from '@/constants/modules'
 import { usePermissions } from '@/lib/rbac'
-import { askCopilot } from '@/services/dataService'
-import {
-  addAnswer,
-  addQuestion,
-  clearChat,
-  markShown,
-  selectCopilotContext,
-  selectCopilotMessages,
-} from '@/store/slices/copilotSlice'
+import { useCopilotChat } from '@/lib/useCopilotChat'
 
 // Dealer Copilot, SRS v1.0 section 3.2, laid out as in the UI Design Concept.
 // Answers come from the backend's own question engine (no third-party AI
 // service, FR-COP-2), always from the dealer's own data, with the evidence.
-// The conversation lives in the store, so it survives switching pages.
+// The conversation lives in the store, so it survives switching pages, and
+// it is the same chat as the Copilot side panel (components/copilot).
 
 // FR-COP-5: example questions on the welcome screen, by topic. Each topic is
 // only shown if the role can see that data.
 const TOPICS = [
   {
-    title: 'Sales & profit',
+    title: 'Revenue & profit',
     icon: TrendingUpRoundedIcon,
     module: MODULES.DEALER_360,
-    questions: ['Compare my sales with last year', 'Top 5 products by profit in 2025', 'Show sales by month'],
+    questions: ['Compare my revenue with last year', 'Top 5 products by profit in 2025', 'Show revenue by month'],
   },
   {
     title: 'Orders',
@@ -66,24 +53,18 @@ const TOPICS = [
     module: MODULES.INVENTORY,
     questions: ['What should I stock next month?', 'How many furnaces are in stock?', 'What is the price of FN-H96-80?'],
   },
-  {
-    title: 'Incentives & training',
-    icon: WorkspacePremiumOutlinedIcon,
-    module: MODULES.INCENTIVES,
-    questions: ['Which incentive am I closest to?', 'How is my training going?', 'What is my health score?'],
-  },
 ]
 
 // Side panel (scrollable). Each prompt is only shown if the role can see that
 // data; every one is checked to give a full answer from the 2-year data.
 const SUGGESTED_PROMPTS = [
-  { text: 'What were my total sales last year?', module: MODULES.DEALER_360 },
-  { text: 'Compare my sales with last year', module: MODULES.DEALER_360 },
+  { text: 'What was my total revenue last year?', module: MODULES.DEALER_360 },
+  { text: 'Compare my revenue with last year', module: MODULES.DEALER_360 },
   { text: 'What was my total profit last year?', module: MODULES.DEALER_360 },
   { text: 'Which products generated the highest profit?', module: MODULES.DEALER_360 },
-  { text: 'Show sales by month', module: MODULES.DEALER_360 },
-  { text: 'Sales by category this year', module: MODULES.DEALER_360 },
-  { text: 'Top 5 products by sales this year', module: MODULES.DEALER_360 },
+  { text: 'Show revenue by month', module: MODULES.DEALER_360 },
+  { text: 'Revenue by category this year', module: MODULES.DEALER_360 },
+  { text: 'Top 5 products by revenue this year', module: MODULES.DEALER_360 },
   { text: 'What is my health score?', module: MODULES.DEALER_360 },
   { text: 'What is my territory coverage?', module: MODULES.DEALER_360 },
   { text: 'How many orders did I place last year?', module: MODULES.ORDERS },
@@ -99,8 +80,6 @@ const SUGGESTED_PROMPTS = [
   { text: 'How many units did we install last year?', module: MODULES.WARRANTY },
   { text: 'What is the average claim amount?', module: MODULES.WARRANTY },
   { text: 'What is the price of FN-H96-80?', module: MODULES.HOME },
-  { text: 'How is my training going?', module: MODULES.INCENTIVES },
-  { text: 'Which incentive am I closest to?', module: MODULES.INCENTIVES },
   { text: 'How many years of data do we have?', module: MODULES.HOME },
   { text: 'How many dealers are in the network?', module: MODULES.HOME },
 ]
@@ -109,40 +88,8 @@ const SUGGESTED_PROMPTS = [
 const QUICK_ACTIONS = [
   { key: 'createOrder', label: 'Create Order', module: MODULES.ORDERS },
   { key: 'registerWarranty', label: 'Register Warranty', module: MODULES.WARRANTY },
-  { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },
 ]
-
-const bounce = keyframes`
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-  40% { transform: translateY(-5px); opacity: 1; }
-`
-
-function ThinkingDots() {
-  return (
-    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }} role="status" aria-label="Copilot is thinking">
-      <Box sx={{ width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', bgcolor: 'primary.main', color: 'common.white' }}>
-        <AutoAwesomeRoundedIcon fontSize="small" />
-      </Box>
-      <Stack direction="row" spacing={0.75} sx={{ px: 2, py: 1.5, borderRadius: 1.5, border: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-        {[0, 1, 2].map((i) => (
-          <Box
-            key={i}
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: 'primary.main',
-              animation: `${bounce} 1.2s infinite ease-in-out`,
-              animationDelay: `${i * 0.15}s`,
-              '@media (prefers-reduced-motion: reduce)': { animation: 'none', opacity: 0.7 },
-            }}
-          />
-        ))}
-      </Stack>
-    </Stack>
-  )
-}
 
 function Welcome({ topics, onAsk }) {
   return (
@@ -196,54 +143,18 @@ function Welcome({ topics, onAsk }) {
 
 export default function Copilot() {
   const { can } = usePermissions()
-  const dispatch = useDispatch()
-  const messages = useSelector(selectCopilotMessages)
-  const context = useSelector(selectCopilotContext)
-  const [draft, setDraft] = useState('')
-  const [thinking, setThinking] = useState(false)
-  const endRef = useRef(null)
+  const chat = useCopilotChat()
+  const { thinking } = chat
   const inputRef = useRef(null)
 
-  // Follow the conversation; an empty chat stays at the top (welcome screen).
-  useEffect(() => {
-    if (messages.length || thinking) endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
-  }, [messages, thinking])
-
   const ask = async (text) => {
-    const question = text.trim()
-    if (!question || thinking) return
-    const id = `${Date.now()}`
-    dispatch(addQuestion({ id: `q-${id}`, text: question }))
-    setDraft('')
-    setThinking(true)
-    try {
-      const answer = await askCopilot(question, context)
-      dispatch(addAnswer({ id: `a-${id}`, answer }))
-    } catch (error) {
-      dispatch(addAnswer({ id: `a-${id}`, error: true, answer: { text: error.message || 'Something went wrong. Please try again.' } }))
-    } finally {
-      setThinking(false)
-      inputRef.current?.focus()
-    }
-  }
-
-  const handleShown = useCallback((id) => dispatch(markShown(id)), [dispatch])
-
-  const startNewChat = () => {
-    dispatch(clearChat())
-    setDraft('')
+    await chat.ask(text)
     inputRef.current?.focus()
   }
 
-  // ↑ in an empty input brings back the last question to edit.
-  const handleKeyDown = (event) => {
-    if (event.key === 'ArrowUp' && !draft) {
-      const last = [...messages].reverse().find((m) => m.author === 'user')
-      if (last) {
-        event.preventDefault()
-        setDraft(last.text)
-      }
-    }
+  const startNewChat = () => {
+    chat.newChat()
+    inputRef.current?.focus()
   }
 
   const topics = TOPICS.filter((topic) => can(topic.module))
@@ -284,87 +195,7 @@ export default function Copilot() {
               </Button>
             </Stack>
 
-            <Stack spacing={3} sx={{ flexGrow: 1, overflowY: 'auto', pb: 2, pr: 0.5 }} aria-live="polite">
-              {messages.length === 0 && !thinking && <Welcome topics={topics} onAsk={ask} />}
-              {messages.map((message) =>
-                message.author === 'user' ? (
-                  <Box
-                    key={message.id}
-                    sx={{
-                      alignSelf: 'flex-end',
-                      maxWidth: '75%',
-                      bgcolor: 'primary.main',
-                      color: 'common.white',
-                      borderRadius: '18px 18px 4px 18px',
-                      px: 2.25,
-                      py: 1.5,
-                    }}
-                  >
-                    <Typography sx={{ fontSize: 16 }}>{message.text}</Typography>
-                  </Box>
-                ) : (
-                  <CopilotAnswer
-                    key={message.id}
-                    answer={message.answer}
-                    error={message.error}
-                    onAsk={ask}
-                    animate={message.fresh}
-                    onShown={message.fresh ? () => handleShown(message.id) : undefined}
-                  />
-                ),
-              )}
-              {thinking && <ThinkingDots />}
-              <div ref={endRef} />
-            </Stack>
-
-            <Box
-              component="form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                ask(draft)
-              }}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 60,
-                pl: 3,
-                pr: 0.75,
-                borderRadius: 30,
-                bgcolor: 'background.paper',
-                border: 1,
-                borderColor: 'divider',
-                '&:focus-within': { borderColor: 'primary.main', boxShadow: '0 0 0 3px rgba(0, 168, 150, 0.15)' },
-              }}
-            >
-              <InputBase
-                inputRef={inputRef}
-                autoFocus
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about sales, orders, claims, stock..."
-                inputProps={{ 'aria-label': 'Ask Copilot', maxLength: 300 }}
-                sx={{ flexGrow: 1, fontSize: 16 }}
-              />
-              <IconButton
-                type="submit"
-                aria-label="Send"
-                disabled={!draft.trim() || thinking}
-                sx={{
-                  width: 46,
-                  height: 46,
-                  bgcolor: 'primary.main',
-                  color: 'common.white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  '&.Mui-disabled': { bgcolor: 'primary.main', color: 'common.white', opacity: 0.5 },
-                }}
-              >
-                <SendRoundedIcon fontSize="small" />
-              </IconButton>
-            </Box>
-            <Typography sx={{ mt: 0.75, ml: 3, fontSize: 12, color: 'text.secondary' }}>
-              Press Enter to send · ↑ to edit your last question
-            </Typography>
+            <CopilotChat chat={chat} inputRef={inputRef} welcome={<Welcome topics={topics} onAsk={ask} />} />
           </Card>
         </Grid>
 

@@ -7,6 +7,7 @@ export const MODULES = Object.freeze({
   HOME: 'home', // FR-HOME
   DEALER_360: 'dealer360', // FR-D360
   ORDERS: 'orders', // FR-ORD (orders and quotes)
+  PLACE_ORDERS: 'placeOrders', // the dealer sells its stock to customers
   INVENTORY: 'inventory', // FR-INV
   INCENTIVES: 'incentives', // FR-INC (incentives and training)
   WARRANTY: 'warranty', // FR-WAR (warranty and claims)
@@ -18,6 +19,7 @@ export const MODULE_PATHS = Object.freeze({
   [MODULES.HOME]: '/',
   [MODULES.DEALER_360]: '/dealer-360',
   [MODULES.ORDERS]: '/orders',
+  [MODULES.PLACE_ORDERS]: '/place-orders',
   [MODULES.INVENTORY]: '/inventory',
   [MODULES.INCENTIVES]: '/incentives',
   [MODULES.WARRANTY]: '/warranty',
@@ -33,7 +35,4 @@ export const PUBLIC_PATHS = Object.freeze({
 
 // Destinations in the navigation rail that are not separate modules:
 // - Copilot is available to every role (SRS FR-COP-1), so it has no module key.
-// - Training is part of the Incentives & Training module (SRS 3.6) but has its
-//   own entry in the rail, as in the UI Design Concept.
 export const COPILOT_PATH = '/copilot'
-export const TRAINING_PATH = '/training'
