@@ -1,11 +1,12 @@
 import { prisma } from '../db/prisma.js'
+import { sellingPrices } from './salesService.js'
 
 // Demand Forecast model (in-house): expected units per product for the next
 // 30 days = units sold in the same month last year x the dealer's unit growth
 // over the last 12 months (capped to 0.5x..1.5x). Compared with stock on hand
 // + on order, it gives the shortfall used for stock-out alerts (SRS 3.5).
 //
-// Reads the Sale aggregate, so new fulfilled orders feed into it as soon as
+// Reads the Sale aggregate, so new sales to customers feed into it as soon as
 // aggregationService has run.
 
 const yearBefore = (date) => {
@@ -40,13 +41,15 @@ export async function forecastDemand(dealerId, now = new Date()) {
   const growth = olderUnits._sum.units
     ? Math.min(1.5, Math.max(0.5, recentUnits._sum.units / olderUnits._sum.units))
     : 1
+  // Revenue at risk is valued at the dealer's real selling price.
+  const sellPrice = await sellingPrices(dealerId, inventory.map((row) => row.product), now)
   const unitsLastYear = new Map(lastYearSales.map((row) => [row.productId, row.units]))
 
   const items = inventory
     .map((row) => {
       const expected = Math.round((unitsLastYear.get(row.product.id) ?? 0) * growth)
       const shortfall = expected - row.onHand - row.onOrder
-      return { ...row, expected, shortfall, revenueAtRisk: shortfall * row.product.unitPrice }
+      return { ...row, expected, shortfall, revenueAtRisk: Math.round(shortfall * sellPrice.get(row.product.id) * 100) / 100 }
     })
     .sort((a, b) => b.revenueAtRisk - a.revenueAtRisk)
 

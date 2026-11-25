@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import { Route, Routes } from 'react-router-dom'
 import PageLoader from '@/components/common/PageLoader'
-import { COPILOT_PATH, MODULE_PATHS, MODULES, PUBLIC_PATHS, TRAINING_PATH } from '@/constants/modules'
+import { COPILOT_PATH, MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
 import MainLayout from '@/layouts/MainLayout'
 import ProtectedRoute from '@/routes/ProtectedRoute'
 import { verifySession } from '@/store/slices/authSlice'
@@ -16,10 +16,9 @@ const Home = lazy(() => import('@/pages/dealer/Home'))
 const Copilot = lazy(() => import('@/pages/dealer/Copilot'))
 const Dealer360 = lazy(() => import('@/pages/dealer/Dealer360'))
 const Orders = lazy(() => import('@/pages/dealer/Orders'))
+const PlaceOrders = lazy(() => import('@/pages/dealer/PlaceOrders'))
 const Inventory = lazy(() => import('@/pages/dealer/Inventory'))
-const Incentives = lazy(() => import('@/pages/dealer/Incentives'))
 const Warranty = lazy(() => import('@/pages/dealer/Warranty'))
-const SalesCoach = lazy(() => import('@/pages/dealer/SalesCoach'))
 const OrderApprovals = lazy(() => import('@/pages/manufacturer/OrderApprovals'))
 
 // Permission-controlled pages, each guarded by its module key.
@@ -27,12 +26,9 @@ const MODULE_ROUTES = [
   { path: MODULE_PATHS[MODULES.HOME], moduleKey: MODULES.HOME, Page: Home },
   { path: MODULE_PATHS[MODULES.DEALER_360], moduleKey: MODULES.DEALER_360, Page: Dealer360 },
   { path: MODULE_PATHS[MODULES.ORDERS], moduleKey: MODULES.ORDERS, Page: Orders },
+  { path: MODULE_PATHS[MODULES.PLACE_ORDERS], moduleKey: MODULES.PLACE_ORDERS, Page: PlaceOrders },
   { path: MODULE_PATHS[MODULES.INVENTORY], moduleKey: MODULES.INVENTORY, Page: Inventory },
-  { path: MODULE_PATHS[MODULES.INCENTIVES], moduleKey: MODULES.INCENTIVES, Page: Incentives },
-  // Training has its own rail entry but is part of the Incentives & Training screen (SRS 3.6).
-  { path: TRAINING_PATH, moduleKey: MODULES.INCENTIVES, Page: Incentives },
   { path: MODULE_PATHS[MODULES.WARRANTY], moduleKey: MODULES.WARRANTY, Page: Warranty },
-  { path: MODULE_PATHS[MODULES.SALES_COACH], moduleKey: MODULES.SALES_COACH, Page: SalesCoach },
   // Manufacturer login only.
   { path: MODULE_PATHS[MODULES.ORDER_APPROVALS], moduleKey: MODULES.ORDER_APPROVALS, Page: OrderApprovals },
 ]

@@ -171,7 +171,7 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     )
   })
 
-  test('dealer requests, manufacturer quotes, dealer accepts and fulfils; fulfilling updates revenue and registers units', async () => {
+  test('dealer requests, manufacturer quotes, dealer accepts and fulfils; fulfilling adds stock, not revenue', async () => {
     const customer = await prisma.customer.findFirst({ where: { dealerId: 'd-1001', type: 'commercial' } })
     const heatPump = await prisma.product.findFirst({ where: { category: 'heatPump' } })
     const revenueBefore = (await prisma.sale.aggregate({ where: { dealerId: 'd-1001' }, _sum: { revenue: true } }))._sum.revenue
@@ -200,10 +200,103 @@ describe('Create, submit, approve and fulfil (FR-ORD-1)', () => {
     const fulfilled = await updateOrderStatus(user, order.id, 'fulfilled')
     assert.equal(fulfilled.status, 'fulfilled')
 
+    // Units are registered by the dealer afterwards (Register Warranty), not automatically.
     const registrations = await prisma.warrantyRegistration.count({ where: { orderId: order.id } })
-    assert.equal(registrations, 4)
+    assert.equal(registrations, 0)
+    // Buying from the manufacturer is not revenue: revenue comes from the
+    // dealer's sales to customers (Place Orders), so it does not change here.
     const revenueAfter = (await prisma.sale.aggregate({ where: { dealerId: 'd-1001' }, _sum: { revenue: true } }))._sum.revenue
-    assert.ok(Math.abs(revenueAfter - revenueBefore - quoted.total) < 0.01)
+    assert.ok(Math.abs(revenueAfter - revenueBefore) < 0.01)
     await assert.rejects(updateOrderStatus(user, order.id, 'submitted'), /cannot be changed/)
+  })
+
+  // Runs an order through request -> quote -> accept and returns it, ready to fulfil.
+  async function acceptedOrder(items) {
+    const order = await createOrder(user, { type: 'order', status: 'draft', items })
+    await updateOrderStatus(user, order.id, 'submitted')
+    await approveOrder(ORDER_DESK, order.id)
+    await updateOrderStatus(user, order.id, 'accepted')
+    return order
+  }
+  const stockOf = (productId) => prisma.inventory.findUnique({ where: { dealerId_productId: { dealerId: 'd-1001', productId } } })
+
+  test('fulfilling an order puts its goods into stock: on hand up, on order down (never below 0)', async () => {
+    const [a, b] = await prisma.inventory.findMany({ where: { dealerId: 'd-1001' }, orderBy: { productId: 'asc' }, take: 2 })
+    // b has less on order than is delivered, so its on order stops at 0.
+    await prisma.inventory.update({ where: { id: b.id }, data: { onOrder: 2 } })
+    const order = await acceptedOrder([
+      { productId: a.productId, quantity: 3 },
+      { productId: b.productId, quantity: 5 },
+    ])
+
+    // Stock does not change until the goods arrive.
+    assert.equal((await stockOf(a.productId)).onHand, a.onHand)
+    await updateOrderStatus(user, order.id, 'fulfilled')
+
+    const afterA = await stockOf(a.productId)
+    const afterB = await stockOf(b.productId)
+    assert.equal(afterA.onHand, a.onHand + 3)
+    assert.equal(afterA.onOrder, Math.max(0, a.onOrder - 3))
+    assert.equal(afterB.onHand, b.onHand + 5)
+    assert.equal(afterB.onOrder, 0)
+  })
+
+  test('a product the dealer had no stock of gets a stock row when its order is fulfilled', async () => {
+    const stocked = new Set((await prisma.inventory.findMany({ where: { dealerId: 'd-1001' }, select: { productId: true } })).map((r) => r.productId))
+    let product = (await prisma.product.findMany()).find((p) => !stocked.has(p.id))
+    if (!product) {
+      // Every product is stocked in the demo data: remove one row for this test.
+      const row = await prisma.inventory.findFirst({ where: { dealerId: 'd-1001' } })
+      await prisma.inventory.delete({ where: { id: row.id } })
+      product = { id: row.productId }
+    }
+    const order = await acceptedOrder([{ productId: product.id, quantity: 2 }])
+    await updateOrderStatus(user, order.id, 'fulfilled')
+    const stock = await stockOf(product.id)
+    assert.equal(stock.onHand, 2)
+    assert.equal(stock.onOrder, 0)
+  })
+
+  test('the same order fulfilled twice at once adds its goods to stock only once', async () => {
+    const row = await prisma.inventory.findFirst({ where: { dealerId: 'd-1001' }, orderBy: { productId: 'desc' } })
+    const order = await acceptedOrder([{ productId: row.productId, quantity: 4 }])
+    const results = await Promise.allSettled([updateOrderStatus(user, order.id, 'fulfilled'), updateOrderStatus(user, order.id, 'fulfilled')])
+    assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
+    assert.equal((await stockOf(row.productId)).onHand, row.onHand + 4)
+  })
+})
+
+describe('Order insights (top of the Orders screen)', () => {
+  test('quotes, waiting requests and orders to receive match the order records', async () => {
+    for (const dealerId of DEALERS) {
+      const { insights } = await getOrdersSummary({ dealerId }, NOW)
+      const rows = (status) => prisma.order.findMany({ where: { dealerId, type: 'order', status } })
+      const quotes = await rows('approved')
+      assert.equal(insights.quotes.count, quotes.length, dealerId)
+      assert.ok(Math.abs(insights.quotes.value - quotes.reduce((s, o) => s + o.total, 0)) < 0.01, dealerId)
+      assert.equal(insights.waiting.count, (await rows('submitted')).length, dealerId)
+      assert.equal(insights.toReceive.count, (await rows('accepted')).length, dealerId)
+      if (quotes.length) {
+        // The oldest quote waited at least as long as every other one.
+        const waited = quotes.map((q) => Math.floor((NOW - (q.reviewedAt ?? q.createdAt)) / 86_400_000))
+        assert.equal(insights.quotes.oldest.days, Math.max(...waited), dealerId)
+      } else {
+        assert.equal(insights.quotes.oldest, null, dealerId)
+      }
+    }
+  })
+
+  test('last 30 days counts the orders sent in that window', async () => {
+    const { insights } = await getOrdersSummary({ dealerId: 'd-1001' }, NOW)
+    const from = new Date(NOW.getTime() - 30 * 86_400_000)
+    const count = await prisma.order.count({ where: { dealerId: 'd-1001', type: 'order', status: { not: 'draft' }, createdAt: { gte: from, lte: NOW } } })
+    assert.equal(insights.last30.count, count)
+  })
+
+  test('approval rate is approved / decided in the last 90 days', async () => {
+    const { insights } = await getOrdersSummary({ dealerId: 'd-1001' }, NOW)
+    const { decided, rejected, rate } = insights.approval
+    if (decided) assert.equal(rate, Math.round(((decided - rejected) / decided) * 100) / 100)
+    else assert.equal(rate, null)
   })
 })

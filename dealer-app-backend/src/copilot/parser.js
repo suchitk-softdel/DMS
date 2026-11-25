@@ -20,11 +20,17 @@ import {
   RANKING_WORDS,
   STATE_WORDS,
   STOP_WORDS,
+  dimensionsFor,
 } from './vocabulary.js'
 
+// The classifier's guess is trusted from 45% confidence (or when clearly ahead).
 const CONFIDENT = 0.45
+// Follow-ups like "and the year before?": move the period back one year.
 const RELATIVE_BEFORE = / (?:the )?(?:year before|before that|year earlier|one year earlier|previous one|prior one) /
 
+// Keywords for SPECIAL topics that have their own answer (not a calculation).
+// Checked in this order; the first topic whose word is in the question wins.
+// e.g. "what is my health score" -> health, "how many furnaces in stock" -> stock.
 export const SPECIAL_KEYWORDS = {
   coverage: ['years of data', 'year of data', 'months of data', 'how much data', 'data do we have', 'data do i have', 'data range', 'date range', 'data available', 'data from', 'how far back', 'how old is the data', 'since when', 'first order', 'oldest order', 'oldest data', 'historical data', 'history of data', 'data period', 'data coverage', 'latest data', 'last updated'],
   // After "coverage" (data range), so "data coverage" stays a data question.
@@ -44,12 +50,14 @@ export const SPECIAL_KEYWORDS = {
 
 // "how many customers do I have" is about the customer list, not sales.
 const CUSTOMER_COUNT = [' how many customers ', ' how many customer ', ' number of customers ', ' customer count ', ' total customers ', ' count of customers ', ' how many clients ']
+// Greetings and help words -> a welcome message with example questions.
 const GREETINGS = ['hi', 'hello', 'hey', 'hey there', 'good morning', 'good afternoon', 'good evening', 'help', 'what can you do', 'what can i ask', 'who are you', 'thanks', 'thank you', 'ok', 'okay']
 
-// Intent from the classifier -> metric.
+// Topic guessed by the classifier -> the metric to calculate.
 const INTENT_METRIC = { revenue: 'revenue', profit: 'profit', units: 'units', orders: 'orderCount', quotes: 'quoteCount', claims: 'claimCount' }
 
-// Longest dictionary phrase found in the text, e.g. "claim amount" beats "claims".
+// Finds the longest dictionary phrase in the text, e.g. "claim amount" beats "claims".
+// Used to find the metric ("claim amount", "sales") and the breakdown ("by month").
 function longestMatch(text, entries) {
   let best = null
   for (const [key, { words }] of Object.entries(entries)) {
@@ -60,11 +68,18 @@ function longestMatch(text, entries) {
   return best
 }
 
+// Finds the FILTERS in the question:
+//   category ("furnaces"), status ("pending"), customer type ("residential"),
+//   product SKU ("FN-H96-80"), city ("Denver"), customer name, and on the
+//   manufacturer's Copilot a dealer name ("Summit Comfort", "Lone Star").
+// "pending furnace claims in Denver" -> { state: pending, category: furnace, city: Denver }
 function findFilters(raw, text, lexicon) {
   const filters = {}
+  // Product category, e.g. "heat pumps" -> heatPump
   for (const [category, words] of Object.entries(CATEGORY_WORDS)) {
     if (hasAny(text, words)) filters.category = category
   }
+  // Status: the longest matching phrase wins ("under review" beats "review").
   let stateLength = 0
   for (const [state, { words }] of Object.entries(STATE_WORDS)) {
     for (const word of words) {
@@ -74,6 +89,7 @@ function findFilters(raw, text, lexicon) {
       }
     }
   }
+  // Customer type: residential or commercial
   for (const [type, words] of Object.entries(CUSTOMER_TYPE_WORDS)) {
     if (hasAny(text, words)) filters.customerType = type
   }
@@ -87,6 +103,17 @@ function findFilters(raw, text, lexicon) {
   for (const customer of lexicon.customers) {
     if (customer.length > 6 && hasPhrase(raw, customer.toLowerCase())) filters.customer = customer
   }
+  // Dealers (network Copilot): the longest matching name or short name wins.
+  let dealerLength = 0
+  for (const dealer of lexicon.dealers ?? []) {
+    for (const alias of dealer.aliases) {
+      if (alias.length > dealerLength && hasPhrase(raw, alias)) {
+        filters.dealerId = dealer.id
+        filters.dealerName = dealer.name
+        dealerLength = alias.length
+      }
+    }
+  }
   return filters
 }
 
@@ -94,10 +121,14 @@ function findFilters(raw, text, lexicon) {
 // "by month" breakdown, so they are removed before looking for a breakdown.
 const PERIOD_PHRASE = / (?:last|past|previous|this|current|next) (?:\d+ |one |two |three |four |five |six |seven |eight |nine |ten |eleven |twelve )?(?:day|days|week|weeks|month|months|year|years|quarter|quarters) /g
 
-function findGroupBy(fullText, fact) {
+// Finds the BREAKDOWN: "sales by month", "top 5 products", "which category sold most".
+// -> { key: "month" | "product" | ..., singular } or null (no breakdown, just a total).
+// singular = true when the question asks for one winner ("which product"),
+// false when it asks for a list ("top products", "by product").
+function findGroupBy(fullText, fact, dimensions) {
   const text = fullText.replace(PERIOD_PHRASE, ' ')
-  const match = longestMatch(text, DIMENSIONS)
-  if (!match || !DIMENSIONS[match.key].facts.includes(fact)) return null
+  const match = longestMatch(text, dimensions)
+  if (!match || !dimensions[match.key].facts.includes(fact)) return null
   const asksBreakdown =
     match.key === 'month' ||
     hasAny(text, [...RANKING_WORDS, ...LOWEST_WORDS, 'by', 'per', 'each', 'wise', 'breakdown', 'break down', 'split', 'across'])
@@ -110,6 +141,11 @@ function findGroupBy(fullText, fact) {
 // the period being asked about.
 const COMPARE_TARGET = / (?:with|to|vs|versus|than|against) (?:the )?(?:last|previous|prior) year(?:s)? /
 
+// Finds the PERIOD (dates) of the question, with sensible defaults:
+//   time words in the question -> those dates (period.js)
+//   "pending" / "draft" questions -> all time (open items can be old)
+//   "by month" with no dates   -> last 12 months
+//   otherwise                  -> this year so far
 function findPeriod(text, today, recipe) {
   const withoutTarget = text.replace(COMPARE_TARGET, ' ')
   const found = extractPeriod(withoutTarget, today)
@@ -119,20 +155,39 @@ function findPeriod(text, today, recipe) {
   return yearToDate(today)
 }
 
-export function parseQuestion(question, { model, lexicon, today, context }) {
+// MAIN FUNCTION: question text -> what to do.
+// model   = the trained classifier (classifier.js)
+// lexicon = SKUs, cities, customer names and all known words (from the database)
+// today   = the date questions like "this year" are based on
+// context = the previous answer's recipe, for follow-up questions
+// network = true on the manufacturer's Copilot (all its dealers)
+//
+// Example: "top 3 products by profit last year" ->
+//   { kind: "query", recipe: { metric: "profit", groupBy: "product", limit: 3,
+//     sort: "desc", period: 2025, filters: {} } }
+export function parseQuestion(question, { model, lexicon, today, context, network = false }) {
+  const dimensions = dimensionsFor(network)
+  // STEP 1: clean the text and fix spelling (text.js).
+  // raw = cleaned text (used for SKUs/cities), text = spelling-corrected text.
   const raw = normalize(question)
   const { text, corrections } = correctSpelling(raw, lexicon.knownWords)
   const trimmed = text.trim()
 
+  // STEP 2: a greeting ("hi", "help") -> welcome answer.
   if (GREETINGS.includes(trimmed)) return { kind: 'special', intent: 'greeting', corrections }
 
+  // STEP 3: "how many customers do I have" -> customer list answer
+  // (not a sales question, unless it also says sales/orders/...).
   if (CUSTOMER_COUNT.some((phrase) => text.includes(phrase)) && !hasAny(text, ['bought', 'sales', 'revenue', 'profit', 'orders', 'claims'])) {
     return { kind: 'special', intent: 'customers', corrections }
   }
 
-  // Strong topic words for the special answers.
+  // STEP 4: special topics (health score, stock, price, territory, ...).
+  // "forecast" is skipped for past questions ("stock sold last year").
   for (const [intent, words] of Object.entries(SPECIAL_KEYWORDS)) {
-    if (hasAny(text, words) && !(intent === 'forecast' && hasAny(text, ['sold', 'last year', 'last month']))) {
+    // Network Copilot: "top dealers by revenue" is a data question, not the dealer list.
+    const networkQuery = network && intent === 'network' && (longestMatch(text, METRICS) || hasAny(text, [...RANKING_WORDS, ...LOWEST_WORDS, 'by', 'per', 'each']))
+    if (hasAny(text, words) && !networkQuery && !(intent === 'forecast' && hasAny(text, ['sold', 'last year', 'last month']))) {
       // Stock and price answers can be about one product or category.
       const wants = hasAny(text, ['cheapest', 'least expensive', 'lowest price']) ? 'cheapest'
         : hasAny(text, ['most expensive', 'priciest', 'highest price']) ? 'mostExpensive'
@@ -141,24 +196,28 @@ export function parseQuestion(question, { model, lexicon, today, context }) {
     }
   }
 
+  // STEP 5: find WHAT to calculate (the metric).
   // Metric from the dictionary first, then from the trained classifier.
   const metricMatch = longestMatch(text, METRICS)
   let metric = metricMatch?.key ?? null
   const ranking = predict(model, text)
   const top = ranking[0]
 
+  // Fix the metric for some wordings:
   // "pending order quantity" = units on orders, not units sold.
   const mentionsOrders = hasAny(text, METRICS.orderCount.words)
   const mentionsUnits = hasAny(text, METRICS.units.words)
   if ((metric === 'orderCount' && mentionsUnits) || (metric === 'units' && mentionsOrders && !hasAny(text, ['sold', 'sell', 'selling']))) {
     metric = 'orderUnits'
   }
+  // "how many ... sold" asks for a count of units, not money.
   if (metric === 'revenue' && hasPhrase(text, 'how many')) metric = 'units'
 
+  // STEP 6: is this a follow-up to the previous question?
   // A follow-up ("and last year?", "by month", "compare with last year",
   // "what about heat pumps") changes the previous question instead of
   // starting a new one.
-  const dimensionMatch = longestMatch(text.replace(PERIOD_PHRASE, ' '), DIMENSIONS)
+  const dimensionMatch = longestMatch(text.replace(PERIOD_PHRASE, ' '), dimensions)
   const onlyModifiers =
     !metricMatch &&
     (hasAny(text, COMPARE_WORDS) ||
@@ -179,6 +238,8 @@ export function parseQuestion(question, { model, lexicon, today, context }) {
       (FOLLOW_UP_STARTS.some((start) => trimmed.startsWith(start.trim())) || (!metricMatch && onlyModifiers)),
   )
 
+  // STEP 7: no metric in the dictionary -> use the classifier if it is confident.
+  // It may also point to a special topic (e.g. health), answered directly.
   // Confident = a clear winner: high on its own, or well ahead of the runner-up.
   const clearWinner = top && (top.confidence >= CONFIDENT || (top.confidence >= 0.25 && top.confidence >= 2 * (ranking[1]?.confidence ?? 0)))
   if (!metric && clearWinner && !isFollowUp) {
@@ -188,13 +249,16 @@ export function parseQuestion(question, { model, lexicon, today, context }) {
   // "who bought the most", "top 3 cities", "2024?": with no metric, sales is meant.
   if (!metric && !isFollowUp && onlyModifiers && unknownWords.length === 0) metric = 'revenue'
 
+  // STEP 8: still no metric -> unknown question (no known words) or ask back
+  // with the 2 most likely topics ("Did you mean sales or profit?").
   if (!metric && !isFollowUp) {
     const meaningful = tokenize(text).filter((word) => !STOP_WORDS.has(word) && lexicon.knownWords.has(word))
     if (meaningful.length === 0 || !top) return { kind: 'unknown', corrections }
     return { kind: 'clarify', options: ranking.slice(0, 2).map((r) => r.intent), corrections }
   }
 
-  // Build the recipe (starting from the previous one for a follow-up).
+  // STEP 9: build the RECIPE that the engine (engine.js) will run
+  // (starting from the previous recipe for a follow-up).
   const base = isFollowUp ? context.recipe : null
   metric ??= base.metric
   const fact = METRICS[metric].fact
@@ -205,7 +269,9 @@ export function parseQuestion(question, { model, lexicon, today, context }) {
   // "residential vs commercial" asks for a split, not one type compared with last year.
   const bothCustomerTypes = Object.values(CUSTOMER_TYPE_WORDS).every((words) => hasAny(text, words))
   if (bothCustomerTypes) delete filters.customerType
-  const group = findGroupBy(text, fact)
+  const group = findGroupBy(text, fact, dimensions)
+  // The recipe: what to calculate, how to break it down, filters, comparison,
+  // sort order and how many rows to show.
   const recipe = {
     metric,
     groupBy: bothCustomerTypes ? 'customerType' : group?.key ?? (base && !metricMatch ? base.groupBy : null),
@@ -223,5 +289,6 @@ export function parseQuestion(question, { model, lexicon, today, context }) {
   else recipe.period = explicitPeriod ?? base?.period ?? findPeriod(text, today, recipe)
   recipe.previousPeriod = recipe.compare ? previousYear(recipe.period) : null
 
+  // Done: a data question with its recipe, plus any spelling corrections made.
   return { kind: 'query', recipe, corrections }
 }

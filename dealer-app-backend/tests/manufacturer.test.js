@@ -86,7 +86,86 @@ describe('Who can see and do what', () => {
     for (const url of ['/home', '/orders', '/dealer360', '/claims', '/customers']) {
       assert.equal((await desk.get(url)).status, 403, url)
     }
-    assert.equal((await desk.post('/copilot/ask', { question: 'total sales' })).status, 403)
+  })
+})
+
+describe('Network Copilot (manufacturer)', () => {
+  const NETWORK = { manufacturerId: 'm-01' }
+  const ask = async (client, question, context = null) => {
+    const res = await client.post('/copilot/ask', { question, context })
+    assert.equal(res.status, 200, question)
+    return res.body
+  }
+  const dollars = (text) => Number(String(text).replace(/[^0-9.]/g, ''))
+
+  test('answers over every dealer of the network, broken down by dealer', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const dealers = await prisma.dealer.findMany({ where: NETWORK })
+    const answer = await ask(desk, 'revenue by dealer last year')
+    assert.deepEqual(answer.table.columns.slice(0, 2), ['Dealer', 'Revenue'])
+    assert.equal(answer.table.rows.length, dealers.length)
+    assert.ok(answer.controls.find((c) => c.key === 'groupBy').options.some((o) => o.value === 'dealer'))
+
+    // Each dealer's row = its own sales to customers in 2025.
+    const sales = await prisma.dealerSale.findMany({
+      where: { dealer: NETWORK, createdAt: { gte: new Date('2025-01-01T00:00:00Z'), lt: new Date('2026-01-01T00:00:00Z') } },
+      include: { dealer: { select: { name: true } } },
+    })
+    for (const [name, value] of answer.table.rows) {
+      const expected = sales.filter((s) => s.dealer.name === name).reduce((sum, s) => sum + s.quantity * s.sellingPrice, 0)
+      assert.equal(dollars(value), Math.round(expected), name)
+    }
+  })
+
+  test('one dealer by its short name, with the dealer in the records', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const answer = await ask(desk, 'revenue for Lone Star last year')
+    assert.ok(answer.text.startsWith("Lone Star Air & Heat's revenue in 2025"), answer.text)
+    assert.ok(answer.tags.includes('Lone Star Air & Heat'))
+
+    const records = await desk.post('/copilot/records', { context: answer.context })
+    assert.equal(records.status, 200)
+    assert.equal(records.body.columns[1], 'Dealer')
+    assert.ok(records.body.rows.length > 0)
+    assert.ok(records.body.rows.every((row) => row[1] === 'Lone Star Air & Heat'))
+
+    // A filter chip re-runs it over the same dealer.
+    const rerun = await desk.post('/copilot/rerun', { context: answer.context, change: { metric: 'profit' } })
+    assert.equal(rerun.status, 200)
+    assert.ok(rerun.body.text.startsWith("Lone Star Air & Heat's profit"), rerun.body.text)
+  })
+
+  test('network totals, Health Scores and the dealer list', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const claims = await ask(desk, 'how many warranty claims last year')
+    const expected = await prisma.claim.count({
+      where: { dealer: NETWORK, filedAt: { gte: new Date('2025-01-01T00:00:00Z'), lt: new Date('2026-01-01T00:00:00Z') } },
+    })
+    assert.ok(claims.text.startsWith(`Your dealers had ${expected} claim`), claims.text)
+
+    const health = await ask(desk, "how are my dealers' health scores")
+    assert.equal(health.understood, 'Health Score · all dealers')
+    assert.equal(health.table.rows.length, await prisma.dealer.count({ where: NETWORK }))
+
+    const list = await ask(desk, 'how many dealers are in my network')
+    assert.equal(list.understood, 'Dealer network')
+
+    // Stock belongs to each dealer.
+    const stock = await ask(desk, 'what should I reorder')
+    assert.match(stock.text, /managed by each dealer/)
+  })
+
+  test('a dealer user still only sees its own data (no "by dealer")', async () => {
+    const principal = await signIn('principal@demo.com')
+    const answer = await ask(principal, 'revenue by dealer last year')
+    assert.ok(!answer.table || answer.table.columns[0] !== 'Dealer')
+    assert.ok(!answer.controls?.find((c) => c.key === 'groupBy')?.options.some((o) => o.value === 'dealer'))
+    const own = await ask(principal, 'total revenue last year')
+    const records = await principal.post('/copilot/records', { context: own.context })
+    assert.notEqual(records.body.columns[1], 'Dealer')
+    // Tampering with the context cannot add a "by dealer" breakdown.
+    const rerun = await principal.post('/copilot/rerun', { context: own.context, change: { groupBy: 'dealer' } })
+    assert.equal(rerun.status, 400)
   })
 })
 
@@ -143,7 +222,8 @@ describe('Order Approvals', () => {
     assert.equal(accepted.items[0]?.id, order.id)
     const fulfilled = await dealer.patch(`/orders/${order.id}/status`, { status: 'fulfilled' })
     assert.equal(fulfilled.status, 200)
-    assert.equal(await prisma.warrantyRegistration.count({ where: { orderId: order.id } }), 3)
+    // Units are registered by the dealer afterwards (Register Warranty), not automatically.
+    assert.equal(await prisma.warrantyRegistration.count({ where: { orderId: order.id } }), 0)
   })
 
   test('reject needs a reason, and the dealer sees it', async () => {
@@ -183,5 +263,51 @@ describe('Order Approvals', () => {
     const draft = await prisma.order.findFirst({ where: { type: 'order', status: 'fulfilled' } })
     assert.equal((await desk.post(`/manufacturer/orders/${draft.id}/approve`)).status, 400)
     assert.equal((await desk.post('/manufacturer/orders/ORD-999999/approve')).status, 404)
+  })
+})
+
+describe('Dealer claim insights (on Order Approvals)', () => {
+  test('only the manufacturer can see them; rates are claims per 100 installed units', async () => {
+    const dealer = await signIn('principal@demo.com')
+    assert.equal((await dealer.get('/manufacturer/claim-insights')).status, 403)
+
+    const desk = await signIn('manufacturer@demo.com')
+    const { status, body } = await desk.get('/manufacturer/claim-insights')
+    assert.equal(status, 200)
+    const dealerIds = (await prisma.dealer.findMany({ where: { manufacturerId: 'm-01' }, select: { id: true } })).map((d) => d.id)
+    assert.equal(body.dealers.length, dealerIds.length)
+    assert.equal(body.network.claims, await prisma.claim.count({ where: { dealerId: { in: dealerIds } } }))
+    assert.equal(body.network.units, await prisma.warrantyRegistration.count({ where: { dealerId: { in: dealerIds } } }))
+    for (const d of body.dealers) {
+      if (d.units) assert.ok(Math.abs(d.ratePer100 - (d.claims / d.units) * 100) < 0.01, d.id)
+      for (const f of d.flags) assert.ok(f.label && f.detail, `${d.id} ${f.key}`)
+    }
+  })
+
+  test('the high-rate flag follows the rule; dealers are sorted by risk', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const { body } = await desk.get('/manufacturer/claim-insights')
+    for (const d of body.dealers) {
+      assert.equal(d.flags.some((f) => f.key === 'highRate'), d.claims >= 3 && d.rateVsNetwork >= body.rules.highRate - 0.005, d.id)
+      assert.equal(d.risk, d.score >= 4 ? 'high' : d.score >= 1 ? 'medium' : 'normal', d.id)
+    }
+    const scores = body.dealers.map((d) => d.score)
+    assert.deepEqual(scores, [...scores].sort((a, b) => b - a))
+    assert.equal(body.flaggedCount, body.dealers.filter((d) => d.risk !== 'normal').length)
+  })
+
+  test('a dealer can be flagged for investigation and the flag closed again', async () => {
+    const desk = await signIn('manufacturer@demo.com')
+    const { body } = await desk.get('/manufacturer/claim-insights')
+    const target = body.dealers[0]
+    const opened = await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: true, note: 'Check the last claims' })
+    assert.equal(opened.status, 200)
+    const flagged = opened.body.dealers.find((d) => d.id === target.id)
+    assert.equal(flagged.investigation.note, 'Check the last claims')
+    assert.equal(opened.body.underInvestigation, 1)
+    const closed = await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: false })
+    assert.equal(closed.body.dealers.find((d) => d.id === target.id).investigation, null)
+    assert.equal((await desk.post('/manufacturer/claim-insights/dealers/d-unknown/investigation', { open: true })).status, 404)
+    assert.equal((await desk.post(`/manufacturer/claim-insights/dealers/${target.id}/investigation`, { open: 'yes' })).status, 400)
   })
 })

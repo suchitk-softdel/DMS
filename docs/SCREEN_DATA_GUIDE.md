@@ -3,7 +3,7 @@
 This guide explains every number, chart and message shown in the Dealers App: where it comes from, how it is calculated, and what to say about it in a demo.
 
 - **Nothing is hard-coded and nothing is made up.** Every figure is calculated live by the backend from the database each time a page opens.
-- **The data:** the fixed 2-year demo dataset (see [DEMO_DATA.md](DEMO_DATA.md)), plus anything entered in the app.
+- **The data:** the fixed 2-year demo dataset (`dealer-app-backend/prisma/demo.db`), plus anything entered in the app.
 - **Example values** below are for **Summit Comfort Heating & Air** (login `principal@demo.com`) on **19 Nov 2026**. Your numbers can differ slightly: they depend on today's date and on any orders you created while testing (`npm run db:reset` restores the original data).
 
 ---

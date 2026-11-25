@@ -71,7 +71,7 @@ export function stockAnswer(rows, filters) {
     tags: ['Stock on hand', ...(what ? [what] : []), 'today'],
     understood: ['Stock on hand', what].filter(Boolean).join(' · '),
     actions: [{ label: 'Open Inventory', module: MODULES.INVENTORY }],
-    suggestions: ['What should I stock next month?', 'How many furnaces did we sell this year?', 'Sales by category this year'],
+    suggestions: ['What should I stock next month?', 'How many furnaces did we sell this year?', 'Revenue by category this year'],
   }
 }
 
@@ -137,8 +137,8 @@ export function trainingAnswer(overview, team) {
     evidence: ['Your course progress', 'team totals across all staff at your dealership'],
     tags: ['Training'],
     understood: 'Training',
-    actions: [{ label: 'View Training', module: MODULES.INCENTIVES }],
-    suggestions: ['Which incentive am I closest to?', 'What is my health score?', 'How many users are there?'],
+    actions: [], // the Training screen is no longer in the app
+    suggestions: ['What is my health score?', 'How many users are there?', 'Compare my revenue with last year'],
   }
 }
 
@@ -175,7 +175,7 @@ export function opportunitiesAnswer(rows, now) {
     evidence: [`${plural(rows.length, 'opportunity')} in your Sales Coach`],
     tags: ['Sales opportunities'],
     understood: 'Sales opportunities',
-    actions: [{ label: 'Open Sales Coach', module: MODULES.SALES_COACH }],
-    suggestions: ['Top 5 customers by sales this year', 'What is my average order value?', 'Compare my sales with last year'],
+    actions: [], // the Sales Coach screen is no longer in the app
+    suggestions: ['What is my average order value?', 'Compare my revenue with last year', 'What is my health score?'],
   }
 }

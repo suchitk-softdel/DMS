@@ -1,5 +1,6 @@
 import { CLAIM_AGING_DAYS, HEALTH_SCORE_WEIGHTS } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
+import { salesRevenue } from './salesService.js'
 import { DAY_MS, daysSince } from '../utils/query.js'
 
 // Dealer Health Score (FR-D360-3), built in-house from the dealer's own data.
@@ -22,20 +23,12 @@ const yearBefore = (date) => {
 const scoreFromChange = (change) => Math.round(clamp(50 + change * 250))
 const percent = (change) => `${change >= 0 ? '+' : ''}${round1(change * 100)}%`
 
-async function fulfilledRevenue(dealerId, from, to) {
-  const result = await prisma.order.aggregate({
-    where: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte: from, lt: to } },
-    _sum: { total: true },
-  })
-  return result._sum.total ?? 0
-}
-
 // Revenue of the last 12 months vs the 12 months before.
 async function revenueGrowth(dealerId, asOf) {
   const yearAgo = yearBefore(asOf)
   const [current, previous] = await Promise.all([
-    fulfilledRevenue(dealerId, yearAgo, asOf),
-    fulfilledRevenue(dealerId, yearBefore(yearAgo), yearAgo),
+    salesRevenue(dealerId, yearAgo, asOf),
+    salesRevenue(dealerId, yearBefore(yearAgo), yearAgo),
   ])
   if (previous === 0) return { score: null, evidence: 'Not enough history to compare revenue.' }
   const change = current / previous - 1

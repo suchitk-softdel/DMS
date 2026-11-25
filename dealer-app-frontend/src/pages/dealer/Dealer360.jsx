@@ -23,6 +23,7 @@ import SectionTitle from '@/components/ui/SectionTitle'
 import { COPILOT_PATH, MODULE_PATHS } from '@/constants/modules'
 import { toTimelineItems } from '@/lib/activity'
 import { formatCurrency, formatPercent } from '@/lib/format'
+import { useLiveEvents } from '@/lib/live'
 import { useAsyncData } from '@/lib/useAsyncData'
 import { getDealer360 } from '@/services/dataService'
 
@@ -117,7 +118,7 @@ function RevenueTrend({ trend }) {
           <SectionTitle sx={{ mb: 0.5 }}>Revenue Trend</SectionTitle>
           <Typography variant="body2" color="text.secondary">
             {formatCurrency(total)} from {monthYear(shown[0].month)} to {monthYear(shown[shown.length - 1].month)}
-            {shown[shown.length - 1].partial ? ' (to date)' : ''} · fulfilled orders
+            {shown[shown.length - 1].partial ? ' (to date)' : ''} · sales to customers
           </Typography>
         </Box>
         <ToggleButtonGroup
@@ -250,7 +251,9 @@ function Recommendations({ items }) {
 }
 
 export default function Dealer360() {
-  const { data, loading, error, reload } = useAsyncData(getDealer360)
+  const { data, loading, error, reload, refresh } = useAsyncData(getDealer360)
+  // Live: warranty changes move the Health Score and the timeline.
+  useLiveEvents(refresh)
   const dealer = data?.dealer
   const status = dealer ? STATUS_LABELS[dealer.status] : null
   const subtitle = dealer
@@ -269,7 +272,7 @@ export default function Dealer360() {
         skeleton="dashboard"
         empty={Boolean(data) && !data.kpis}
         emptyTitle="No performance data"
-        emptyMessage="Dealer 360 needs the backend: start dealer-app-backend and set VITE_USE_MOCK_DATA=false."
+        emptyMessage="Your performance figures will show here once your dealership has orders."
       >
         {data?.kpis && (
           <Stack spacing={3.5}>

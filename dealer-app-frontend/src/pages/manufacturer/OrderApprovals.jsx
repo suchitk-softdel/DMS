@@ -23,6 +23,7 @@ import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ApprovalDrawer from '@/components/orders/ApprovalDrawer'
+import DealerClaimInsights from '@/components/orders/DealerClaimInsights'
 import EmptyState from '@/components/patterns/EmptyState'
 import KpiGrid from '@/components/patterns/KpiGrid'
 import NameWithInitial from '@/components/ui/NameWithInitial'
@@ -184,6 +185,9 @@ export default function OrderApprovals() {
       <Stack spacing={3}>
         {summaryError && <Alert severity="error">{summaryError.message}</Alert>}
         {summary && <KpiGrid items={buildKpis(summary, queue, showQueue)} columns={4} spacing={3} />}
+
+        {/* Dealer claim insights: unusual warranty claim patterns, flag for investigation */}
+        <DealerClaimInsights />
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap', rowGap: 2 }}>
           <TextField

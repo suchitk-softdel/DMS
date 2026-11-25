@@ -21,6 +21,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import NewOrderDialog from '@/components/orders/NewOrderDialog'
 import OrderDrawer from '@/components/orders/OrderDrawer'
+import OrderInsights from '@/components/orders/OrderInsights'
+import { DASH } from '@/constants/dashboardColors'
 import { hasPrices, statusLabel } from '@/components/orders/orderLabels'
 import EmptyState from '@/components/patterns/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
@@ -45,7 +47,7 @@ const STAGES = [
   { value: 'closed', label: 'Closed', statuses: ['rejected', 'declined'] },
 ]
 // Quick actions from Home and Copilot open the form directly (?action=createOrder).
-const OPEN_FORM_ACTIONS = ['createOrder', 'createQuote']
+const OPEN_FORM_ACTIONS = ['createOrder']
 const COLUMNS = [
   { field: 'id', label: 'Order ID', sortable: true },
   { field: 'units', label: 'Quantity', align: 'right' },
@@ -53,6 +55,32 @@ const COLUMNS = [
   { field: 'status', label: 'Status', sortable: true },
   { field: 'createdAt', label: 'Date', sortable: true },
 ]
+
+// Coloured strip on each row's left edge: who has to act next.
+const ROW_STRIP = {
+  approved: { color: DASH.amber }, // quote waiting for the dealer: action needed
+  submitted: { color: DASH.navy }, // with the manufacturer
+  accepted: { color: DASH.teal }, // to receive
+  rejected: { color: DASH.red },
+  declined: { color: DASH.red },
+}
+const DAY_MS = 24 * 60 * 60 * 1000
+const QUOTE_URGENT_DAYS = 7
+const daysSince = (date) => (date ? Math.max(0, Math.floor((Date.now() - new Date(date)) / DAY_MS)) : 0)
+
+// Short note under the status: how long the order has been waiting, and for whom.
+function waitingNote(order) {
+  if (order.status === 'approved') {
+    const d = daysSince(order.reviewedAt ?? order.createdAt)
+    return { text: `Action needed · ${d} day${d === 1 ? '' : 's'}`, color: d > QUOTE_URGENT_DAYS ? DASH.redDark : DASH.amberDark }
+  }
+  if (order.status === 'submitted') {
+    const d = daysSince(order.createdAt)
+    return { text: `With manufacturer · ${d} day${d === 1 ? '' : 's'}`, color: DASH.muted }
+  }
+  if (order.status === 'accepted') return { text: 'To receive', color: DASH.tealDark }
+  return null
+}
 
 const countFor = (counts, stage) =>
   (stage.statuses ?? Object.keys(counts.order)).reduce((sum, status) => sum + (counts.order[status] ?? 0), 0)
@@ -167,30 +195,15 @@ export default function Orders() {
       <PageHeader title="Orders" subtitle={subtitle} />
 
       <Stack spacing={3}>
-        {/* FR-ORD-6: requests waiting for the manufacturer */}
-        {summary?.awaitingApproval > 0 && (
-          <Alert
-            severity="warning"
-            action={
-              <Button color="inherit" size="small" onClick={() => showStatus('submitted')}>
-                Show {summary.awaitingApproval === 1 ? 'it' : 'them'}
-              </Button>
-            }
-          >
-            {summary.awaitingApproval === 1 ? '1 order request is' : `${summary.awaitingApproval} order requests are`} waiting for the manufacturer.
-          </Alert>
-        )}
-        {summary?.quotesToAccept > 0 && (
-          <Alert
-            severity="info"
-            action={
-              <Button color="inherit" size="small" onClick={() => showStatus('approved')}>
-                Review
-              </Button>
-            }
-          >
-            {summary.quotesToAccept === 1 ? '1 manufacturer quote is' : `${summary.quotesToAccept} manufacturer quotes are`} waiting for you to accept or decline.
-          </Alert>
+        {/* Key order insights: strips for what needs attention (FR-ORD-6), then 4 cards */}
+        {summary?.insights && (
+          <OrderInsights
+            summary={summary}
+            activeStatus={status}
+            activeStage={stage}
+            onStatus={(value) => (value ? showStatus(value) : setStageFilter('all'))}
+            onStage={setStageFilter}
+          />
         )}
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap', rowGap: 2 }}>
@@ -278,7 +291,12 @@ export default function Orders() {
                         onClick={() => setOpenOrderId(o.id)}
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setOpenOrderId(o.id))}
                         tabIndex={0}
-                        sx={{ cursor: 'pointer' }}
+                        sx={{
+                          cursor: 'pointer',
+                          // Coloured strip on the left: what this order needs (see ROW_STRIP).
+                          boxShadow: `inset 4px 0 0 ${ROW_STRIP[o.status]?.color ?? 'transparent'}`,
+                          ...(o.status === 'approved' && { bgcolor: DASH.amberLight }),
+                        }}
                       >
                         <TableCell>
                           <Typography sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{o.id}</Typography>
@@ -300,6 +318,11 @@ export default function Orders() {
                         </TableCell>
                         <TableCell>
                           <StatusChip status={o.status} label={statusLabel(o.type, o.status)} sx={{ minWidth: 96, fontWeight: 600 }} />
+                          {waitingNote(o) && (
+                            <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600, color: waitingNote(o).color, whiteSpace: 'nowrap' }}>
+                              {waitingNote(o).text}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           {formatDayMonth(o.createdAt)} {new Date(o.createdAt).getFullYear()}

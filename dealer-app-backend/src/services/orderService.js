@@ -1,6 +1,6 @@
-import { EQUIPMENT_CATEGORIES, MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
+import { MANUFACTURER_DECISIONS, ORDER_TRANSITIONS } from '../constants/domain.js'
 import { prisma } from '../db/prisma.js'
-import { badRequest, forbidden, notFound } from '../utils/httpError.js'
+import { badRequest, forbidden, HttpError, notFound } from '../utils/httpError.js'
 import { refreshDealerAggregates } from './aggregationService.js'
 import { logAudit } from './auditLog.js'
 
@@ -133,40 +133,30 @@ export async function createOrder(user, input) {
   return getOrder(dealerId, order.id)
 }
 
-// One warranty registration per equipment unit when an order is fulfilled
-// (the unit is installed and registered with the manufacturer).
-async function registerFulfilledUnits(tx, order, now) {
-  const items = await tx.orderItem.findMany({
-    where: { orderId: order.id, product: { category: { in: [...EQUIPMENT_CATEGORIES] } } },
-    select: { id: true, productId: true, quantity: true },
-  })
-  const [{ maxSerial }] = await tx.$queryRaw`
-    SELECT MAX(CAST(substr(serialNumber, 3) AS INTEGER)) AS maxSerial FROM "WarrantyRegistration"`
-  let serial = Number(maxSerial ?? 5000000)
-
-  const rows = items.flatMap((item) =>
-    Array.from({ length: item.quantity }, () => {
-      const serialNumber = `SN${++serial}`
-      return {
-        id: `wr-${serialNumber}`,
-        dealerId: order.dealerId,
-        orderId: order.id,
-        orderItemId: item.id,
-        productId: item.productId,
-        customerId: order.customerId,
-        serialNumber,
-        installDate: now,
-        createdAt: now,
-      }
-    }),
-  )
-  if (rows.length) await tx.warrantyRegistration.createMany({ data: rows })
-  return rows.length
+// Adds a fulfilled order's quantities to the dealer's stock: on hand goes up,
+// on order goes down (never below 0). A product the dealer had no stock row
+// for gets one.
+async function receiveIntoStock(tx, orderId, dealerId, now) {
+  const items = await tx.orderItem.findMany({ where: { orderId }, select: { productId: true, quantity: true } })
+  for (const { productId, quantity } of items) {
+    const where = { dealerId_productId: { dealerId, productId } }
+    const stock = await tx.inventory.findUnique({ where })
+    if (stock) {
+      await tx.inventory.update({
+        where,
+        data: { onHand: stock.onHand + quantity, onOrder: Math.max(0, stock.onOrder - quantity), updatedAt: now },
+      })
+    } else {
+      await tx.inventory.create({ data: { dealerId, productId, onHand: quantity, onOrder: 0, reorderPoint: 0, updatedAt: now } })
+    }
+  }
 }
 
-// Moves an order or quote to its next status. Fulfilling an order registers
-// its equipment units, and every change re-runs the dealer's aggregates so
-// KPIs, trends, forecast and incentives include it straight away.
+// Moves an order or quote to its next status. Every change re-runs the
+// dealer's aggregates so KPIs, trends, forecast and incentives include it
+// straight away. Fulfilled equipment units are then registered by the dealer
+// one by one with their serial number and install date (Register Warranty,
+// claimService.registerWarranty).
 // Approving or rejecting an ORDER is the manufacturer's decision
 // (manufacturerService.js); the dealer submits and fulfils.
 // Marking a QUOTE accepted records the customer's acceptance, so it needs
@@ -194,9 +184,11 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
   }
 
   const now = new Date()
-  const registered = await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: order.id },
+  await prisma.$transaction(async (tx) => {
+    // Only if the order is still in the status checked above: two requests at
+    // once can't both move it (and fulfil it twice).
+    const changed = await tx.order.updateMany({
+      where: { id: order.id, status: order.status },
       data: {
         status,
         updatedAt: now,
@@ -214,7 +206,11 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
         }),
       },
     })
-    return status === 'fulfilled' ? registerFulfilledUnits(tx, order, now) : 0
+    if (changed.count === 0) throw new HttpError(409, 'This order was just changed. Please reload it.')
+    // The goods have arrived: they go into the dealer's stock (on hand) and
+    // are no longer incoming (on order). Same transaction as the status, so
+    // stock is added exactly once, and only for a fulfilled order.
+    if (order.type === 'order' && status === 'fulfilled') await receiveIntoStock(tx, order.id, user.dealerId, now)
   })
 
   await refreshDealerAggregates(user.dealerId)
@@ -226,7 +222,6 @@ export async function updateOrderStatus(user, orderId, status, acceptance = null
     details: {
       from: order.status,
       to: status,
-      ...(registered && { unitsRegistered: registered }),
       ...(accepting && { acceptedBy: acceptance.contact, method: acceptance.method }),
       ...(status === 'declined' && { reason }),
     },

@@ -4,7 +4,7 @@ import { DAY_MS } from '../utils/query.js'
 import { getDealer } from './catalogService.js'
 import { forecastDemand } from './forecastService.js'
 import { computeHealthScore } from './healthScoreService.js'
-import { monthlySalesTotals } from './salesService.js'
+import { monthlySalesTotals, salesRevenue } from './salesService.js'
 
 // Home dashboard (SRS 3.1). Each part is only included when the user's role
 // can open the module it comes from, so e.g. a technician never receives
@@ -25,14 +25,6 @@ const startOfYear = (date) => new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
 const startOfMonth = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
 const changePct = (current, previous) => (previous ? round1((current / previous - 1) * 100) : null)
 
-async function fulfilledRevenue(dealerId, from, to) {
-  const result = await prisma.order.aggregate({
-    where: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte: from, lt: to } },
-    _sum: { total: true },
-  })
-  return result._sum.total ?? 0
-}
-
 const monthKey = (date) => date.toISOString().slice(0, 7)
 const monthsBack = (date, n) => monthKey(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - n, 1)))
 
@@ -42,8 +34,8 @@ const monthsBack = (date, n) => monthKey(new Date(Date.UTC(date.getUTCFullYear()
 async function revenueYtd(dealerId, now) {
   const lastYearNow = yearBefore(now)
   const [current, previous, months] = await Promise.all([
-    fulfilledRevenue(dealerId, startOfYear(now), now),
-    fulfilledRevenue(dealerId, startOfYear(lastYearNow), lastYearNow),
+    salesRevenue(dealerId, startOfYear(now), now),
+    salesRevenue(dealerId, startOfYear(lastYearNow), lastYearNow),
     monthlySalesTotals(dealerId, { from: monthsBack(now, 12), to: monthsBack(now, 1) }),
   ])
   const byMonth = new Map(months.map((m) => [m.month, m.revenue]))
@@ -102,7 +94,7 @@ async function stockOutInsight(dealerId, now) {
       ),
       `Forecast: same month last year, adjusted for ${round1((growth - 1) * 100)}% unit growth`,
     ],
-    action: { label: 'Place Reorder', module: MODULES.INVENTORY },
+    action: { label: 'Reorder now', module: MODULES.ORDERS, action: 'createOrder' }, // opens the new order form
   }
 }
 
@@ -123,7 +115,7 @@ async function revenueInsight(dealerId, now) {
   return {
     kind: 'revenueTrend',
     message: `Revenue is ${change >= 0 ? 'up' : 'down'} ${Math.abs(change)}% year-to-date compared with the same period last year.`,
-    evidence: ['Fulfilled orders this year vs the same dates last year'],
+    evidence: ['Sales to customers this year vs the same dates last year'],
     action: { label: 'Open Dealer 360', module: MODULES.DEALER_360 },
   }
 }

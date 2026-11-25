@@ -51,7 +51,7 @@ Of those 30: **20 done (67%)**, **28 done or partly done (93%)**. Still open: FR
 | ID | Requirement (short) | Status | Implementation / notes |
 |---|---|---|---|
 | FR-COP-1 | Conversational AI available from every screen | 🟡 Partly | Copilot is its own screen in the menu (one click from anywhere), not a panel inside every screen. |
-| FR-COP-2 | Natural-language answers grounded in the dealer's own data (SRS: RAG) | ✅ Done (in-house) | Project decision: built in-house, no third-party AI or RAG service (`REQUIREMENTS.md` 7–9). Classifier + business dictionary + query engine over the dealer's orders, quotes, claims, registrations, stock and training (`src/copilot/`). 42 accuracy tests. |
+| FR-COP-2 | Natural-language answers grounded in the dealer's own data (SRS: RAG) | ✅ Done (in-house) | Project decision: built in-house, no third-party AI or RAG service (see README). Classifier + business dictionary + query engine over the dealer's orders, quotes, claims, registrations, stock and training (`src/copilot/`). 42 accuracy tests. |
 | FR-COP-3 | Evidence shown with every recommendation | ✅ Done | Every answer has a "Based on" evidence line |
 | FR-COP-4 | One-click actions from responses | 🟡 Partly | Action buttons open the related screen (e.g. Open Inventory, Create Quote). They open the screen; they don't complete the action inside the chat. |
 | FR-COP-5 | Suggested prompts relevant to context | ✅ Done | 29 prompts filtered by role, plus follow-up suggestions after each answer |
@@ -155,8 +155,8 @@ Of those 30: **20 done (67%)**, **28 done or partly done (93%)**. Still open: FR
 | Item | Why |
 |---|---|
 | **Manufacturer Order Approvals** (separate manufacturer login) | Requested by the project lead: dealers send orders to the manufacturer, which approves or rejects them with a reason |
-| **Fixed 2-year demo dataset** with linked records | Requirement for the client demo (`docs/DEMO_DATA.md`) |
-| **In-house AI** (no third-party service) | Project decision (`REQUIREMENTS.md` 7–9) |
+| **Fixed 2-year demo dataset** with linked records | Requirement for the client demo (`dealer-app-backend/prisma/demo.db`) |
+| **In-house AI** (no third-party service) | Project decision (see README) |
 | **74 automated tests** and `db:verify` | Data accuracy, aggregation and Copilot correctness |
 
 ## Known limitations

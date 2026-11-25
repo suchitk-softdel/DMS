@@ -26,6 +26,7 @@ import UserAvatar from '@/components/ui/UserAvatar'
 import { MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
 import { usePageHeader } from '@/lib/pageHeader'
 import { usePermissions } from '@/lib/rbac'
+import { useLiveEvents } from '@/lib/live'
 import { getNotifications } from '@/services/dataService'
 import { signOut } from '@/store/slices/authSlice'
 import { toggleNav } from '@/store/slices/uiSlice'
@@ -48,6 +49,9 @@ const KIND_ICON = {
 function useNotifications() {
   const { pathname } = useLocation()
   const [data, setData] = useState({ count: 0, items: [] })
+  // Live: reload at once when warranty data changes (the timer is the fallback).
+  const [liveTick, setLiveTick] = useState(0)
+  useLiveEvents(() => setLiveTick((n) => n + 1))
   useEffect(() => {
     let cancelled = false
     const load = () =>
@@ -60,7 +64,7 @@ function useNotifications() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [pathname])
+  }, [pathname, liveTick])
   return data
 }
 

@@ -1,4 +1,4 @@
-// Shared labels for the Orders & Quotes screens.
+// Shared labels for the Orders screens (dealer order requests to the manufacturer).
 
 export const CATEGORY_LABELS = Object.freeze({
   airConditioner: 'Air conditioners',
@@ -10,29 +10,17 @@ export const CATEGORY_LABELS = Object.freeze({
   parts: 'Service parts',
 })
 
-export const TYPE_LABELS = Object.freeze({ order: 'Order', quote: 'Quote' })
-
-// The dealer's next step for an order or quote, and its button. Must match
+// The dealer's next step for an order, and its button. Must match
 // ORDER_TRANSITIONS in the backend (src/constants/domain.js).
 // Orders: the dealer sends a request with quantities; the manufacturer
 // approves it and quotes catalogue prices (or rejects it); the dealer accepts
 // or declines the quote (its own buttons), then fulfils the accepted order.
 export const NEXT_STEP = Object.freeze({
-  order: {
-    draft: { status: 'submitted', label: 'Send request to manufacturer' },
-    accepted: { status: 'fulfilled', label: 'Mark fulfilled' },
-  },
-  // A quote is accepted by the CUSTOMER; the dealer records it with proof.
-  quote: {
-    draft: { status: 'submitted', label: 'Send to customer' },
-    submitted: { status: 'approved', label: 'Customer accepted' },
-  },
+  draft: { status: 'submitted', label: 'Send request to manufacturer' },
+  accepted: { status: 'fulfilled', label: 'Mark fulfilled' },
 })
 
-export const STEPS = Object.freeze({
-  order: ['draft', 'submitted', 'approved', 'accepted', 'fulfilled'],
-  quote: ['draft', 'submitted', 'approved'],
-})
+export const STEPS = Object.freeze(['draft', 'submitted', 'approved', 'accepted', 'fulfilled'])
 
 export const STATUS_LABELS = Object.freeze({
   draft: 'Draft',
@@ -44,28 +32,16 @@ export const STATUS_LABELS = Object.freeze({
   fulfilled: 'Fulfilled',
 })
 
-// What each status means for orders and for quotes (shown on chips and steps).
-const TYPE_STATUS_LABELS = {
-  order: { submitted: 'Requested', approved: 'Quoted', accepted: 'Accepted', declined: 'Declined' },
-  quote: { submitted: 'Sent to customer', approved: 'Accepted by customer' },
-}
+// What each status means for an order request (shown on chips and steps).
+const ORDER_STATUS_LABELS = { submitted: 'Requested', approved: 'Quoted', accepted: 'Accepted', declined: 'Declined' }
 
 // An order has prices once the manufacturer has quoted it; before that the
 // dealer only asks for quantities.
-export const hasPrices = (order) =>
-  order.type === 'quote' || ['approved', 'accepted', 'declined', 'fulfilled'].includes(order.status)
+export const hasPrices = (order) => ['approved', 'accepted', 'declined', 'fulfilled'].includes(order.status)
 
-export const statusLabel = (type, status) => TYPE_STATUS_LABELS[type]?.[status] ?? STATUS_LABELS[status] ?? status
-
-// How a customer accepted a quote. Must match ACCEPTANCE_METHODS in the backend.
-export const ACCEPTANCE_METHODS = Object.freeze([
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'signedCopy', label: 'Signed copy' },
-  { value: 'inPerson', label: 'In person' },
-])
-export const acceptanceLabel = (method) => ACCEPTANCE_METHODS.find((m) => m.value === method)?.label.toLowerCase() ?? method
-
+// The type argument is kept so callers read statusLabel(order.type, status);
+// every dealer order is type 'order'.
+export const statusLabel = (_type, status) => ORDER_STATUS_LABELS[status] ?? STATUS_LABELS[status] ?? status
 // Quick reasons offered when the manufacturer rejects an order.
 export const REJECTION_REASONS = Object.freeze([
   'Out of stock',

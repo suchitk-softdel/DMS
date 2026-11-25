@@ -238,6 +238,24 @@ export function getNetworkOrder(orderId) {
   return mockError(`Order ${orderId} not found.`)
 }
 
+// Dealer claim insights (manufacturer, on Order Approvals): unusual claim patterns.
+// -> { asOf, rules, network, dealers: [{ ..., score, risk, flags, recentClaims, investigation }], flaggedCount, underInvestigation }
+export function getClaimInsights() {
+  if (!env.useMockData) return apiRequest('/manufacturer/claim-insights')
+  return mockError('Claim insights need the backend.')
+}
+
+// Open (open: true, optional note) or close an investigation of a dealer; returns the updated insights.
+export function setDealerInvestigation(dealerId, open, note = null) {
+  if (!env.useMockData) {
+    return apiRequest(`/manufacturer/claim-insights/dealers/${encodeURIComponent(dealerId)}/investigation`, {
+      method: 'POST',
+      body: JSON.stringify({ open, note }),
+    })
+  }
+  return mockError('Claim insights need the backend.')
+}
+
 export function approveOrder(orderId) {
   if (!env.useMockData) return apiRequest(`/manufacturer/orders/${encodeURIComponent(orderId)}/approve`, { method: 'POST' })
   return mockError('Approving orders needs the backend.')
@@ -270,10 +288,31 @@ export function getMonthlySales(range) {
   return mockResponse([])
 }
 
+// Place Orders: the dealer sells its stock to customers.
+// -> { products: [{ productId, sku, name, category, available, status, basePrice, lastSellingPrice }],
+//      recent: [{ id, product, quantity, basePrice, sellingPrice, total, profit, soldBy, createdAt }] }
+export function getPlaceOrders() {
+  if (!env.useMockData) return apiRequest('/place-orders')
+  return mockResponse({ products: [], recent: [] })
+}
+
+// Sells one product. input: { productId, quantity, sellingPrice } -> the sale
+export function placeOrder(input) {
+  if (!env.useMockData) return apiRequest('/place-orders', { method: 'POST', body: JSON.stringify(input) })
+  return mockError('Placing orders needs the backend.')
+}
+
 // Inventory (SRS 3.5) -> [{ onHand, onOrder, reorderPoint, updatedAt, product }]
 export function getInventory() {
   if (!env.useMockData) return apiRequest('/inventory')
   return mockResponse([])
+}
+
+// Inventory dashboard -> { asOf, months, pricing, products, monthly, orders, manufacturer, insights }
+// (see getInventoryOverview in the backend's inventoryService.js)
+export function getInventoryOverview() {
+  if (!env.useMockData) return apiRequest('/inventory/overview')
+  return mockError('The Inventory dashboard needs the backend.')
 }
 
 // Warranty board tiles (FR-WAR-4)
@@ -288,6 +327,41 @@ export function getClaimsSummary() {
 export function getClaims(filters) {
   if (!env.useMockData) return apiRequest(`/claims${toQuery(filters)}`)
   return mockResponse([])
+}
+
+// Register Warranty (FR-WAR-1): equipment units of fulfilled orders not registered yet.
+// -> [{ orderItemId, orderId, fulfilledAt, product: { id, sku, name }, quantity, registered }]
+export function getUnregisteredUnits() {
+  if (!env.useMockData) return apiRequest('/registrations/pending')
+  return mockResponse([])
+}
+
+// The serial number the next registered unit will get -> { serialNumber: 'SN5002946' }
+export function getNextSerialNumber() {
+  if (!env.useMockData) return apiRequest('/registrations/next-serial')
+  return mockResponse({ serialNumber: '' })
+}
+
+// Registers one installed unit. The serial number (next SN) and the install
+// date (today) are set by the system. input: { orderItemId }
+// -> { id, serialNumber, orderId, installDate, warrantyUntil, product }
+export function registerWarranty(input) {
+  if (!env.useMockData) return apiRequest('/registrations', { method: 'POST', body: JSON.stringify(input) })
+  return mockError('Registering warranties needs the backend.')
+}
+
+// Registered units to pick for a claim. Filter: { search, limit }
+// -> [{ id, serialNumber, orderId, installDate, warrantyUntil, expired, openClaimId, product }]
+export function getRegistrations(filters) {
+  if (!env.useMockData) return apiRequest(`/registrations${toQuery(filters)}`)
+  return mockResponse([])
+}
+
+// Submit Claim (FR-WAR-1). input: { registrationId, amount, description }
+// The backend refuses expired warranties, a second open claim and amounts above the product price.
+export function submitClaim(input) {
+  if (!env.useMockData) return apiRequest('/claims', { method: 'POST', body: JSON.stringify(input) })
+  return mockError('Submitting claims needs the backend.')
 }
 
 // Incentive programs with progress and peer rank (FR-INC-1, FR-INC-2).
@@ -318,6 +392,19 @@ export function askCopilot(question, context = null) {
     corrections: [],
     context: null,
   })
+}
+
+// Changing a filter chip under a Copilot answer re-runs it.
+// change: { metric } | { groupBy } | { period } -> the new answer
+export function rerunCopilot(context, change) {
+  if (!env.useMockData) return apiRequest('/copilot/rerun', { method: 'POST', body: JSON.stringify({ context, change }) })
+  return mockError('The Copilot needs the backend.')
+}
+
+// The records a Copilot answer is based on -> { title, columns, rows, total }
+export function getCopilotRecords(context) {
+  if (!env.useMockData) return apiRequest('/copilot/records', { method: 'POST', body: JSON.stringify({ context }) })
+  return mockError('The Copilot needs the backend.')
 }
 
 // Sales Coach opportunities (SRS 3.8). Filter: { stage }

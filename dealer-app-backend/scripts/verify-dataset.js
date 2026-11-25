@@ -5,7 +5,7 @@
 //
 // 1. Links: every claim -> registration -> order line -> fulfilled order, with
 //    matching dealer, product, customer and serial number.
-// 2. Aggregates: Sale and IncentiveProgress match what the source records add
+// 2. Aggregates: Sale (from customer sales) and IncentiveProgress match what the source records add
 //    up to (i.e. the aggregation logic is correct and up to date).
 // 3. Models: Dealer Health Score and Demand Forecast for every dealer, as of
 //    the dataset end date, must equal prisma/dataset/expected-outputs.json.
@@ -92,13 +92,17 @@ async function checkLinks() {
 // ---------------------------------------------------------------------------
 async function checkAggregates(dealers) {
   for (const { id } of dealers) {
-    const [orders, sales] = await Promise.all([
-      prisma.order.aggregate({ where: { dealerId: id, type: 'order', status: 'fulfilled' }, _sum: { total: true } }),
+    // Revenue comes from the dealer's sales to customers (Place Orders).
+    const [customerSales, summary] = await Promise.all([
+      prisma.dealerSale.findMany({ where: { dealerId: id }, select: { quantity: true, sellingPrice: true } }),
       prisma.sale.aggregate({ where: { dealerId: id }, _sum: { revenue: true } }),
     ])
-    const fromOrders = orders._sum.total ?? 0
-    const fromSales = sales._sum.revenue ?? 0
-    check(Math.abs(fromOrders - fromSales) < 1, `${id}: Sale revenue ${fromSales.toFixed(2)} vs fulfilled orders ${fromOrders.toFixed(2)}`)
+    const fromCustomerSales = customerSales.reduce((sum, s) => sum + s.quantity * s.sellingPrice, 0)
+    const fromSummary = summary._sum.revenue ?? 0
+    check(
+      Math.abs(fromCustomerSales - fromSummary) < 1,
+      `${id}: Sale revenue ${fromSummary.toFixed(2)} vs customer sales ${fromCustomerSales.toFixed(2)}`,
+    )
   }
 
   const progress = await prisma.incentiveProgress.findMany({ include: { program: true } })

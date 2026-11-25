@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 // Loads data from a dataService function and tracks loading and error state.
 // `load` must be stable (a module-level function or wrapped in useCallback).
-// -> { data, loading, error, reload }
+// -> { data, loading, error, reload, refresh }
+//   reload:  shows the loading state again (e.g. Retry after an error)
+//   refresh: loads again in the background and swaps the data in when it
+//            arrives, without a loading flash (live updates)
 export function useAsyncData(load) {
   const [state, setState] = useState({ data: null, loading: true, error: null })
   const [attempt, setAttempt] = useState(0)
@@ -22,5 +25,7 @@ export function useAsyncData(load) {
     setAttempt((value) => value + 1)
   }, [])
 
-  return { ...state, reload }
+  const refresh = useCallback(() => setAttempt((value) => value + 1), [])
+
+  return { ...state, reload, refresh }
 }

@@ -1,37 +1,33 @@
 import { prisma } from '../db/prisma.js'
 
-// Aggregation logic: turns source records (orders, training) into the summary
+// Aggregation logic: turns source records (customer sales, training) into the summary
 // tables the dashboards and models read (Sale, IncentiveProgress).
 //
 // The same code runs when the dataset is loaded (seed) and after every write
-// (new order, status change, completed training), so aggregates always match
+// (new sale, order change, completed training), so aggregates always match
 // the source records, whether they came from the dataset or were entered
 // in the app.
 
 const round2 = (value) => Math.round(value * 100) / 100
 const monthKey = (date) => date.toISOString().slice(0, 7)
 
-// Monthly sales per product, from fulfilled orders (month = order date).
+// Monthly sales per product, from the dealer's sales to its customers
+// (Place Orders; month = sale date). Revenue is what the customer paid
+// (selling price), cost is what the dealer paid the manufacturer (base price).
 async function rebuildSales(tx, dealerId) {
-  const items = await tx.orderItem.findMany({
-    where: { order: { dealerId, type: 'order', status: 'fulfilled' } },
-    select: {
-      productId: true,
-      quantity: true,
-      unitPrice: true,
-      order: { select: { createdAt: true } },
-      product: { select: { unitCost: true } },
-    },
+  const sales = await tx.dealerSale.findMany({
+    where: { dealerId },
+    select: { productId: true, quantity: true, basePrice: true, sellingPrice: true, createdAt: true },
   })
 
   const rows = new Map()
-  for (const item of items) {
-    const month = monthKey(item.order.createdAt)
-    const key = `${item.productId}|${month}`
-    const row = rows.get(key) ?? { dealerId, productId: item.productId, month, units: 0, revenue: 0, cost: 0 }
-    row.units += item.quantity
-    row.revenue += item.quantity * item.unitPrice
-    row.cost += item.quantity * item.product.unitCost
+  for (const sale of sales) {
+    const month = monthKey(sale.createdAt)
+    const key = `${sale.productId}|${month}`
+    const row = rows.get(key) ?? { dealerId, productId: sale.productId, month, units: 0, revenue: 0, cost: 0 }
+    row.units += sale.quantity
+    row.revenue += sale.quantity * sale.sellingPrice
+    row.cost += sale.quantity * sale.basePrice
     rows.set(key, row)
   }
   const data = [...rows.values()].map((row) => ({ ...row, revenue: round2(row.revenue), cost: round2(row.cost) }))

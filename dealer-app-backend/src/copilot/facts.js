@@ -2,59 +2,67 @@ import { prisma } from '../db/prisma.js'
 import { CATEGORY_LABELS, STATUS_LABELS } from './vocabulary.js'
 import { monthKey, monthLabel } from './period.js'
 
-// Loads the records a metric is calculated from, for one dealer and period,
+// Loads the records a metric is calculated from, for one dealer (or, on the
+// manufacturer's Copilot, all its dealers: dealers = { in: [ids] }) and period,
 // as flat rows with the same field names everywhere. The engine can then
 // filter and group any of them by any field, so new question combinations
 // need no new queries.
 //
-// Common fields: date, month, customerId, customer (name), customerType, city
-// sales:  orderId, product, sku, category, units, revenue, cost   (fulfilled order lines)
+// Common fields: date, month, dealerId, dealer (name), customerId, customer (name), customerType, city
+// sales:  orderId, product, sku, category, units, revenue, cost   (sales to customers, Place Orders)
 // orders/quotes: id, status, total, units
 // claims: id, status (= claim stage), product, sku, category, amount
 // registrations: id, product, sku, category   (installed units; date = install date)
 
 const customerFields = { select: { id: true, name: true, type: true, city: true } }
+const dealerFields = { dealerId: true, dealer: { select: { name: true } } }
 const productLabel = (p) => `${p.sku} · ${p.name}`
 
 // Orders sent to the manufacturer since customers were removed have no
 // customer (dealer <-> manufacturer only), so every customer field is optional.
-const common = (date, customer) => ({
+const common = (date, customer, row) => ({
   date,
   month: monthKey(date),
+  dealerId: row.dealerId,
+  dealer: row.dealer.name,
   customerId: customer?.id ?? null,
   customer: customer?.name ?? 'No customer',
   customerType: customer?.type ?? null,
   city: customer?.city ?? null,
 })
 
-async function salesFacts(dealerId, period) {
-  const items = await prisma.orderItem.findMany({
-    where: {
-      order: { dealerId, type: 'order', status: 'fulfilled', createdAt: { gte: period.from, lt: period.to } },
-    },
+// Revenue = selling price paid by the customer; cost = base price the dealer
+// paid the manufacturer. Each sale is one record (orderId = the sale).
+async function salesFacts(dealers, period) {
+  const sales = await prisma.dealerSale.findMany({
+    where: { dealerId: dealers, createdAt: { gte: period.from, lt: period.to } },
     select: {
+      ...dealerFields,
+      id: true,
       quantity: true,
-      unitPrice: true,
-      product: { select: { sku: true, name: true, category: true, unitCost: true } },
-      order: { select: { id: true, createdAt: true, customer: customerFields } },
+      basePrice: true,
+      sellingPrice: true,
+      createdAt: true,
+      product: { select: { sku: true, name: true, category: true } },
     },
   })
-  return items.map((item) => ({
-    ...common(item.order.createdAt, item.order.customer),
-    orderId: item.order.id,
-    product: productLabel(item.product),
-    sku: item.product.sku,
-    category: item.product.category,
-    units: item.quantity,
-    revenue: item.quantity * item.unitPrice,
-    cost: item.quantity * item.product.unitCost,
+  return sales.map((sale) => ({
+    ...common(sale.createdAt, null, sale),
+    orderId: `S-${sale.id}`,
+    product: productLabel(sale.product),
+    sku: sale.product.sku,
+    category: sale.product.category,
+    units: sale.quantity,
+    revenue: sale.quantity * sale.sellingPrice,
+    cost: sale.quantity * sale.basePrice,
   }))
 }
 
-async function orderFacts(dealerId, period, type) {
+async function orderFacts(dealers, period, type) {
   const orders = await prisma.order.findMany({
-    where: { dealerId, type, createdAt: { gte: period.from, lt: period.to } },
+    where: { dealerId: dealers, type, createdAt: { gte: period.from, lt: period.to } },
     select: {
+      ...dealerFields,
       id: true,
       status: true,
       total: true,
@@ -64,7 +72,7 @@ async function orderFacts(dealerId, period, type) {
     },
   })
   return orders.map((order) => ({
-    ...common(order.createdAt, order.customer),
+    ...common(order.createdAt, order.customer, order),
     id: order.id,
     status: order.status,
     total: order.total,
@@ -72,10 +80,11 @@ async function orderFacts(dealerId, period, type) {
   }))
 }
 
-async function claimFacts(dealerId, period) {
+async function claimFacts(dealers, period) {
   const claims = await prisma.claim.findMany({
-    where: { dealerId, filedAt: { gte: period.from, lt: period.to } },
+    where: { dealerId: dealers, filedAt: { gte: period.from, lt: period.to } },
     select: {
+      ...dealerFields,
       id: true,
       stage: true,
       amount: true,
@@ -85,7 +94,7 @@ async function claimFacts(dealerId, period) {
     },
   })
   return claims.map((claim) => ({
-    ...common(claim.filedAt, claim.customer),
+    ...common(claim.filedAt, claim.customer, claim),
     id: claim.id,
     status: claim.stage,
     amount: claim.amount,
@@ -95,10 +104,11 @@ async function claimFacts(dealerId, period) {
   }))
 }
 
-async function registrationFacts(dealerId, period) {
+async function registrationFacts(dealers, period) {
   const rows = await prisma.warrantyRegistration.findMany({
-    where: { dealerId, installDate: { gte: period.from, lt: period.to } },
+    where: { dealerId: dealers, installDate: { gte: period.from, lt: period.to } },
     select: {
+      ...dealerFields,
       id: true,
       installDate: true,
       product: { select: { sku: true, name: true, category: true } },
@@ -106,7 +116,7 @@ async function registrationFacts(dealerId, period) {
     },
   })
   return rows.map((row) => ({
-    ...common(row.installDate, row.customer),
+    ...common(row.installDate, row.customer, row),
     id: row.id,
     product: productLabel(row.product),
     sku: row.product.sku,
@@ -114,12 +124,12 @@ async function registrationFacts(dealerId, period) {
   }))
 }
 
-export function loadFacts(fact, dealerId, period) {
-  if (fact === 'sales') return salesFacts(dealerId, period)
-  if (fact === 'orders') return orderFacts(dealerId, period, 'order')
-  if (fact === 'quotes') return orderFacts(dealerId, period, 'quote')
-  if (fact === 'claims') return claimFacts(dealerId, period)
-  if (fact === 'registrations') return registrationFacts(dealerId, period)
+export function loadFacts(fact, dealers, period) {
+  if (fact === 'sales') return salesFacts(dealers, period)
+  if (fact === 'orders') return orderFacts(dealers, period, 'order')
+  if (fact === 'quotes') return orderFacts(dealers, period, 'quote')
+  if (fact === 'claims') return claimFacts(dealers, period)
+  if (fact === 'registrations') return registrationFacts(dealers, period)
   throw new Error(`Unknown fact "${fact}"`)
 }
 

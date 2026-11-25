@@ -5,6 +5,7 @@ import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Stack from '@mui/material/Stack'
+import { useState } from 'react'
 import ActivityTimeline from '@/components/patterns/ActivityTimeline'
 import AsyncContent from '@/components/patterns/AsyncContent'
 import EmptyState from '@/components/patterns/EmptyState'
@@ -13,10 +14,14 @@ import KpiGrid from '@/components/patterns/KpiGrid'
 import QuickActions from '@/components/patterns/QuickActions'
 import PageHeader from '@/components/ui/PageHeader'
 import SectionTitle from '@/components/ui/SectionTitle'
+import RegisterWarrantyDialog from '@/components/warranty/RegisterWarrantyDialog'
+import SubmitClaimDialog from '@/components/warranty/SubmitClaimDialog'
 import { COPILOT_PATH, MODULE_PATHS, MODULES } from '@/constants/modules'
 import { toTimelineItems } from '@/lib/activity'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 import { usePermissions } from '@/lib/rbac'
+import { useLiveEvents } from '@/lib/live'
+import { useToast } from '@/lib/toast'
 import { useAsyncData } from '@/lib/useAsyncData'
 import { getHome } from '@/services/dataService'
 
@@ -27,9 +32,10 @@ import { getHome } from '@/services/dataService'
 const QUICK_ACTIONS = [
   { key: 'createOrder', label: '+ Create Order', module: MODULES.ORDERS },
   { key: 'registerWarranty', label: 'Register Warranty', module: MODULES.WARRANTY },
-  { key: 'placeReorder', label: 'Place Reorder', module: MODULES.INVENTORY },
   { key: 'submitClaim', label: 'Submit Claim', module: MODULES.WARRANTY },
 ]
+// These two open their form right here on Home instead of going to another page.
+const IN_PLACE_FORMS = ['registerWarranty', 'submitClaim']
 
 function greeting(date = new Date()) {
   const hour = date.getHours()
@@ -98,7 +104,16 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
 
 export default function Home() {
   const { user, can } = usePermissions()
-  const { data, loading, error, reload } = useAsyncData(getHome)
+  const { data, loading, error, reload, refresh } = useAsyncData(getHome)
+  // Live: Pending Claims and Recent Activity follow warranty changes.
+  useLiveEvents(refresh)
+  const [form, setForm] = useState(null) // 'registerWarranty' | 'submitClaim' while its form is open
+  const toast = useToast()
+  const formDone = (message) => {
+    setForm(null)
+    toast(message)
+    reload() // Pending Claims and Recent Activity include it straight away
+  }
 
   const firstName = user?.name?.split(' ')[0] ?? ''
   const dealer = data?.dealer
@@ -109,16 +124,16 @@ export default function Home() {
   const insightActions = insight
     ? [
         ...(can(insight.action.module)
-          ? [{ key: 'action', label: insight.action.label, to: MODULE_PATHS[insight.action.module] }]
+          ? [{ key: 'action', label: insight.action.label, to: `${MODULE_PATHS[insight.action.module]}${insight.action.action ? `?action=${insight.action.action}` : ''}` }]
           : []),
         { key: 'copilot', label: 'Ask Copilot →', to: COPILOT_PATH, primary: true },
       ]
     : []
-  const quickActions = QUICK_ACTIONS.filter((action) => can(action.module)).map((action) => ({
-    key: action.key,
-    label: action.label,
-    to: `${MODULE_PATHS[action.module]}?action=${action.key}`,
-  }))
+  const quickActions = QUICK_ACTIONS.filter((action) => can(action.module)).map((action) =>
+    IN_PLACE_FORMS.includes(action.key)
+      ? { key: action.key, label: action.label, onClick: () => setForm(action.key) }
+      : { key: action.key, label: action.label, to: `${MODULE_PATHS[action.module]}?action=${action.key}` },
+  )
   const activity = toTimelineItems(data?.activity)
 
   return (
@@ -148,6 +163,16 @@ export default function Home() {
           </Card>
         </Stack>
       </AsyncContent>
+
+      {form === 'registerWarranty' && (
+        <RegisterWarrantyDialog
+          onClose={() => setForm(null)}
+          onRegistered={(r) => formDone(`Warranty registered · serial number ${r.serialNumber} · covered until ${formatDate(r.warrantyUntil)}`)}
+        />
+      )}
+      {form === 'submitClaim' && (
+        <SubmitClaimDialog onClose={() => setForm(null)} onSubmitted={(c) => formDone(`Claim ${c.id} submitted for ${c.serialNumber}`)} />
+      )}
     </>
   )
 }

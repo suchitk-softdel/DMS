@@ -36,6 +36,7 @@ export function usePermissions() {
       // manufacturer's order desk has no dealer data to ask about.
       can: (moduleKey) => (moduleKey === null ? Boolean(user?.dealerId) : canAccess(roles, roleId, moduleKey)),
       isDealer: Boolean(user?.dealerId),
+      isManufacturer: Boolean(user?.manufacturerId),
       homePath: getHomePath(roles, roleId),
     }
   }, [user, roles, rolesStatus])
