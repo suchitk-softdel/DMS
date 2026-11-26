@@ -532,6 +532,9 @@ function SalesSummary({ view, asOf }) {
   const { monthly, isCurrent, previous } = view
   const count = monthly.length
   const dense = count > 6
+  // Current month: last month next to this month so far, for comparison.
+  const chartMonths = isCurrent ? [previous, ...monthly] : monthly
+  const isPartial = (m) => isCurrent && m.month === view.months[0]
   const units = sumOf(monthly, 'units')
   const revenue = sumOf(monthly, 'revenue')
   return (
@@ -553,45 +556,41 @@ function SalesSummary({ view, asOf }) {
         </Box>
       }
     >
-      {isCurrent ? (
-        // One month: no chart, just the figures so far against last month.
-        <Typography sx={{ fontSize: 14, color: C.muted }}>
-          The month is not over yet. Last month ({monthLabel(previous.month)}) closed at <strong>{formatNumber(previous.units)}</strong> units and{' '}
-          <strong>{money(previous.revenue)}</strong>.
+      <ColumnChart
+        key={`${measure}-${view.period}`}
+        height={220}
+        dense={dense}
+        ariaLabel={`${isUnits ? 'Units sold' : 'Revenue'} by month`}
+        bars={chartMonths.map((m) => ({
+          key: m.month,
+          value: valueOf(m),
+          // 12 columns are too narrow for money labels: hover shows them.
+          display: dense && !isUnits ? '' : fmt(valueOf(m)),
+          tip: { title: `${monthLabel(m.month)}${isPartial(m) ? ' (so far)' : ''}`, lines: [`Units: ${formatNumber(m.units)}`, `Revenue: ${formatCurrency(m.revenue)}`] },
+        }))}
+      />
+      {/* Month labels, with the change from the month before (3 and 6 months only;
+          a month that is not over yet is not compared). */}
+      <Box sx={{ display: 'flex', gap: dense ? 0.75 : 2, mt: 1 }}>
+        {chartMonths.map((m, i) => {
+          const prev = chartMonths[i - 1]
+          const change = !dense && !isCurrent && prev && valueOf(prev) > 0 ? ((valueOf(m) - valueOf(prev)) / valueOf(prev)) * 100 : null
+          return (
+            <Box key={m.month} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: dense ? 11.5 : 14, fontWeight: 600, color: C.navy }}>{monthShort(m.month)}</Typography>
+              {!dense && (
+                <Typography sx={{ fontSize: 13, fontWeight: 700, minHeight: 20, color: change === null ? C.muted : change >= 0 ? C.tealDark : C.redDark }}>
+                  {isPartial(m) ? 'so far' : change === null ? '' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(change))}%`}
+                </Typography>
+              )}
+            </Box>
+          )
+        })}
+      </Box>
+      {isCurrent && (
+        <Typography sx={{ fontSize: 13, color: C.muted, mt: 1.5 }}>
+          {monthShort(view.months[0])} is not over yet; {monthShort(previous.month)} is shown for comparison.
         </Typography>
-      ) : (
-        <>
-          <ColumnChart
-            key={`${measure}-${count}`}
-            height={220}
-            dense={dense}
-            ariaLabel={`${isUnits ? 'Units sold' : 'Revenue'} by month`}
-            bars={monthly.map((m) => ({
-              key: m.month,
-              value: valueOf(m),
-              // 12 columns are too narrow for money labels: hover shows them.
-              display: dense && !isUnits ? '' : fmt(valueOf(m)),
-              tip: { title: monthLabel(m.month), lines: [`Units: ${formatNumber(m.units)}`, `Revenue: ${formatCurrency(m.revenue)}`] },
-            }))}
-          />
-          {/* Month labels, with the change from the month before (up to 6 months) */}
-          <Box sx={{ display: 'flex', gap: dense ? 0.75 : 2, mt: 1 }}>
-            {monthly.map((m, i) => {
-              const prev = monthly[i - 1]
-              const change = !dense && prev && valueOf(prev) > 0 ? ((valueOf(m) - valueOf(prev)) / valueOf(prev)) * 100 : null
-              return (
-                <Box key={m.month} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: dense ? 11.5 : 14, fontWeight: 600, color: C.navy }}>{monthShort(m.month)}</Typography>
-                  {!dense && (
-                    <Typography sx={{ fontSize: 13, fontWeight: 700, minHeight: 20, color: change === null ? C.muted : change >= 0 ? C.tealDark : C.redDark }}>
-                      {change === null ? '' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(change))}%`}
-                    </Typography>
-                  )}
-                </Box>
-              )
-            })}
-          </Box>
-        </>
       )}
       <Divider sx={{ my: 2.5, borderColor: C.border }} />
       <Grid container spacing={2}>
