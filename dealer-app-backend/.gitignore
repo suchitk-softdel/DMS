@@ -16,3 +16,6 @@ coverage
 
 # Database snapshot from npm run db:view (contains data)
 db-view.html
+
+# Local database backups and CSV exports (contain data)
+backups/

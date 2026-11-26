@@ -10,6 +10,7 @@
     "dev": "tsx watch src/server.js",
     "start": "tsx src/server.js",
     "db:reset": "tsx scripts/reset-demo.js",
+    "db:reset:keep-users": "tsx scripts/reset-demo.js --keep-users",
     "test": "tsx --test tests/*.test.js",
     "postinstall": "prisma generate",
     "db:verify": "tsx scripts/verify-dataset.js",

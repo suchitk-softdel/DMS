@@ -34,13 +34,13 @@ const singularLabel = (filters) => (filters.sku ? filters.sku : filters.category
 const matchesProduct = (filters) => (product) =>
   (!filters.sku || product.sku === filters.sku) && (!filters.category || product.category === filters.category)
 
-// rows: inventory [{ onHand, onOrder, reorderPoint, product: { sku, name, category, unitCost } }]
+// rows: inventory [{ onHand, onOrder, reorderPoint, product: { sku, name, category, unitPrice } }]. Stock is valued at the dealer price (unitPrice), as on the Inventory screen.
 export function stockAnswer(rows, filters) {
   const what = filterLabel(filters)
   const items = rows.filter((r) => matchesProduct(filters)(r.product))
   const onHand = items.reduce((sum, r) => sum + r.onHand, 0)
   const onOrder = items.reduce((sum, r) => sum + r.onOrder, 0)
-  const value = items.reduce((sum, r) => sum + r.onHand * r.product.unitCost, 0)
+  const value = items.reduce((sum, r) => sum + r.onHand * r.product.unitPrice, 0)
   const isLow = (r) => r.onHand + r.onOrder <= r.reorderPoint
   const low = items.filter(isLow)
 
@@ -51,7 +51,7 @@ export function stockAnswer(rows, filters) {
     if (isLow(r)) text += ' It is at or below its reorder point, so it should be reordered.'
   } else {
     // "26 furnaces in stock" / "276 units in stock"
-    text = `You have ${number(onHand)} ${filters.category ? what : onHand === 1 ? 'unit' : 'units'} in stock, worth ${money(value)} at cost, with ${number(onOrder)} more on order.`
+    text = `You have ${number(onHand)} ${filters.category ? what : onHand === 1 ? 'unit' : 'units'} in stock, worth ${money(value)} at dealer price, with ${number(onOrder)} more on order.`
     text += low.length
       ? ` ${plural(low.length, 'product')} ${low.length === 1 ? 'is' : 'are'} at or below the reorder point: ${low.slice(0, 4).map((r) => r.product.sku).join(', ')}.`
       : ' Every product is above its reorder point.'
@@ -62,10 +62,10 @@ export function stockAnswer(rows, filters) {
   const sorted = [...items].sort((a, b) => margin(a) - margin(b))
   return {
     text,
-    highlight: { value: plural(onHand, 'unit'), caption: `in stock${what ? ` · ${what}` : ''} · ${money(value)} at cost` },
+    highlight: { value: plural(onHand, 'unit'), caption: `in stock${what ? ` · ${what}` : ''} · ${money(value)} at dealer price` },
     table: {
-      columns: ['Product', 'On hand', 'On order', 'Reorder point', 'Value at cost'],
-      rows: sorted.slice(0, 20).map((r) => [r.product.sku, r.onHand, r.onOrder, r.reorderPoint, money(r.onHand * r.product.unitCost)]),
+      columns: ['Product', 'On hand', 'On order', 'Reorder point', 'Value at dealer price'],
+      rows: sorted.slice(0, 20).map((r) => [r.product.sku, r.onHand, r.onOrder, r.reorderPoint, money(r.onHand * r.product.unitPrice)]),
     },
     evidence: [`Current stock of ${plural(items.length, 'product')}`, 'lowest stock first'],
     tags: ['Stock on hand', ...(what ? [what] : []), 'today'],
