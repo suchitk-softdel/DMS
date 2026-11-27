@@ -1,30 +1,14 @@
 import { ROLES } from '@/constants/roles'
 
-// Demo accounts. Passwords live here only because there is no backend yet;
-// they are shipped in the client bundle and must never be real credentials.
+// Demo account for mock mode. The password lives here only because mock mode
+// has no backend; it is shipped in the client bundle and must never be real.
 export const users = [
   {
     id: 'u-002',
     name: 'Daniel Morgan',
-    email: 'principal@demo.com',
+    email: 'dealer@demo.com',
     password: 'demo123',
-    roleId: ROLES.PRINCIPAL,
-    dealerId: 'd-1001',
-  },
-  {
-    id: 'u-003',
-    name: 'Priya Sharma',
-    email: 'sales@demo.com',
-    password: 'demo123',
-    roleId: ROLES.SALES_REP,
-    dealerId: 'd-1001',
-  },
-  {
-    id: 'u-004',
-    name: 'Carlos Rivera',
-    email: 'tech@demo.com',
-    password: 'demo123',
-    roleId: ROLES.TECHNICIAN,
+    roleId: ROLES.DEALER,
     dealerId: 'd-1001',
   },
 ]

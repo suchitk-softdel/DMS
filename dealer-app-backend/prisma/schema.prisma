@@ -57,6 +57,8 @@ model Dealer {
   tier              String // Platinum | Gold | Silver
   status            String // active | pending | onHold
   territoryCoverage Float // 0..1 share of the assigned territory served (FR-D360-1)
+  latitude          Float? // dealer location for the manufacturer's map (demo: city centre)
+  longitude         Float?
   createdAt         DateTime @default(now()) // date the dealer joined the network
 
   manufacturer      Manufacturer           @relation(fields: [manufacturerId], references: [id])
@@ -75,7 +77,7 @@ model Dealer {
 // Role permissions are data, not code, so the Manufacturer Administrator can
 // change them without a release (SRS 2.3, 6.7).
 model Role {
-  id          String @id // principal | salesRep | technician | manufacturer
+  id          String @id // dealer | manufacturer
   name        String
   permissions String // JSON array of module keys, e.g. ["home","orders"]
 

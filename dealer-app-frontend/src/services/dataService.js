@@ -226,6 +226,15 @@ export function getApprovalSummary() {
   return mockError('Order Approvals needs the backend.')
 }
 
+// Order Details insights (manufacturer).
+// -> { days, staleDays, quotes: { count, value, stale: { count, value }, oldest: { id, dealer, days } | null },
+//      approval: { decided, approved, rejected, avgDays, topReason: { reason, count } | null },
+//      answers: { total, accepted, declined }, topDealer: { id, name, value, orders, share } | null }
+export function getOrderDeskInsights() {
+  if (!env.useMockData) return apiRequest('/manufacturer/orders/insights')
+  return mockError('Order insights need the backend.')
+}
+
 // Filters: { queue: pending|approved|accepted|closed|fulfilled, dealerId, search, limit, offset }
 // -> { total, items: [{ id, status, total, createdAt, reviewedAt, rejectionReason, dealer, customer, itemCount, units }] }
 export function getNetworkOrders(filters) {

@@ -79,13 +79,14 @@ export async function listNetworkOrders(user, { queue = 'pending', dealerId, sea
 // -> { manufacturer, pending: { count, value, oldestDays }, approvedRecent, rejectedRecent,
 //      counts: { pending, approved, accepted, closed, fulfilled },
 //      network: { revenue: { value, orders }, pipeline: { value, orders }, dealers, activeDealers, claims },
-//      dealers: [{ id, name, pending }] }
+//      dealers: [{ id, name, pending }],
+//      locations: [{ id, name, city, state, region, tier, status, latitude, longitude, pending }] }
 export async function getApprovalSummary(user, now = new Date()) {
   const where = networkWhere(user.manufacturerId)
   const since = new Date(now.getTime() - RECENT_DAYS * DAY_MS)
   const [manufacturer, dealers, pending, oldest, groups, approvedRecent, rejectedRecent, byDealer, revenue, pipeline, claims] = await Promise.all([
     prisma.manufacturer.findUnique({ where: { id: user.manufacturerId }, select: { id: true, name: true } }),
-    prisma.dealer.findMany({ where: { manufacturerId: user.manufacturerId }, orderBy: { name: 'asc' }, select: { id: true, name: true, status: true } }),
+    prisma.dealer.findMany({ where: { manufacturerId: user.manufacturerId }, orderBy: { name: 'asc' }, select: { id: true, name: true, status: true, city: true, state: true, region: true, tier: true, latitude: true, longitude: true } }),
     prisma.order.aggregate({ where: { ...where, status: 'submitted' }, _count: { _all: true }, _sum: { total: true } }),
     prisma.order.findFirst({ where: { ...where, status: 'submitted' }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
     prisma.order.groupBy({ by: ['status'], where, _count: { _all: true } }),
@@ -126,7 +127,83 @@ export async function getApprovalSummary(user, now = new Date()) {
       activeDealers: dealers.filter((d) => d.status === 'active').length,
       claims,
     },
-    dealers: dealers.map(({ status: _status, ...d }) => ({ ...d, pending: pendingByDealer[d.id] ?? 0 })),
+    dealers: dealers.map((d) => ({ id: d.id, name: d.name, pending: pendingByDealer[d.id] ?? 0 })),
+    // Dealer map: dealers that have a location.
+    locations: dealers
+      .filter((d) => d.latitude != null && d.longitude != null)
+      .map((d) => ({ ...d, pending: pendingByDealer[d.id] ?? 0 })),
+  }
+}
+
+// Insights for the Order Details screen, from the network's orders.
+//   quotes:   quoted orders waiting for the dealer to accept; `stale` = waiting
+//             more than STALE_QUOTE_DAYS since the quote was sent
+//   approval: decisions in the last 90 days: how fast (submitted -> decision),
+//             how many approved, and the most common rejection reason
+//   answers:  dealers' answers to quotes in the last 90 days (accepted / declined)
+//   topDealer: dealer with the highest confirmed order value (accepted or
+//             fulfilled, ordered in the last 90 days) and its share
+export const STALE_QUOTE_DAYS = 7
+const INSIGHT_DAYS = 90
+
+export async function getOrderDeskInsights(user, now = new Date()) {
+  const where = networkWhere(user.manufacturerId)
+  const since = new Date(now.getTime() - INSIGHT_DAYS * DAY_MS)
+  const staleBefore = new Date(now.getTime() - STALE_QUOTE_DAYS * DAY_MS)
+  const [quotes, decisions, answers, byDealer, dealers] = await Promise.all([
+    prisma.order.findMany({ where: { ...where, status: 'approved' }, orderBy: { reviewedAt: 'asc' }, select: { id: true, total: true, reviewedAt: true, dealer: { select: { name: true } } } }),
+    prisma.order.findMany({ where: { ...where, reviewedAt: { gte: since } }, select: { status: true, createdAt: true, reviewedAt: true, rejectionReason: true } }),
+    prisma.order.findMany({ where: { ...where, dealerRespondedAt: { gte: since } }, select: { status: true, declineReason: true } }),
+    prisma.order.groupBy({ by: ['dealerId'], where: { ...where, status: { in: ['accepted', 'fulfilled'] }, createdAt: { gte: since } }, _sum: { total: true }, _count: { _all: true } }),
+    prisma.dealer.findMany({ where: { manufacturerId: user.manufacturerId }, select: { id: true, name: true } }),
+  ])
+
+  const stale = quotes.filter((q) => q.reviewedAt && q.reviewedAt < staleBefore)
+  const oldest = quotes[0]
+  const sum = (rows) => round2(rows.reduce((s, r) => s + r.total, 0))
+
+  const rejected = decisions.filter((d) => d.status === 'rejected')
+  const reasons = new Map()
+  for (const r of rejected) if (r.rejectionReason) reasons.set(r.rejectionReason, (reasons.get(r.rejectionReason) ?? 0) + 1)
+  const topReason = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  const avgDays = decisions.length
+    ? Math.round((decisions.reduce((s, d) => s + (d.reviewedAt - d.createdAt), 0) / decisions.length / DAY_MS) * 10) / 10
+    : null
+
+  const declined = answers.filter((a) => a.status === 'declined').length
+
+  const totalValue = byDealer.reduce((s, g) => s + (g._sum.total ?? 0), 0)
+  const top = [...byDealer].sort((a, b) => (b._sum.total ?? 0) - (a._sum.total ?? 0))[0]
+  const names = Object.fromEntries(dealers.map((d) => [d.id, d.name]))
+
+  return {
+    days: INSIGHT_DAYS,
+    staleDays: STALE_QUOTE_DAYS,
+    quotes: {
+      count: quotes.length,
+      value: sum(quotes),
+      stale: { count: stale.length, value: sum(stale) },
+      oldest: oldest?.reviewedAt
+        ? { id: oldest.id, dealer: oldest.dealer.name, days: Math.floor((now - oldest.reviewedAt) / DAY_MS) }
+        : null,
+    },
+    approval: {
+      decided: decisions.length,
+      approved: decisions.length - rejected.length,
+      rejected: rejected.length,
+      avgDays,
+      topReason: topReason ? { reason: topReason[0], count: topReason[1] } : null,
+    },
+    answers: { total: answers.length, accepted: answers.length - declined, declined },
+    topDealer: top
+      ? {
+          id: top.dealerId,
+          name: names[top.dealerId] ?? top.dealerId,
+          value: round2(top._sum.total ?? 0),
+          orders: top._count._all,
+          share: totalValue ? Math.round(((top._sum.total ?? 0) / totalValue) * 100) : 0,
+        }
+      : null,
   }
 }
 

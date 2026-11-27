@@ -6,6 +6,7 @@ import {
   approveOrder,
   getApprovalSummary,
   getNetworkOrder,
+  getOrderDeskInsights,
   listNetworkOrders,
   rejectOrder,
 } from '../services/manufacturerService.js'
@@ -24,6 +25,12 @@ manufacturerRouter.use(requireAuth, requireManufacturer, requireModule(MODULES.O
 // Counts, waiting value, oldest waiting order and pending orders per dealer.
 manufacturerRouter.get('/orders/summary', async (req, res) => {
   res.json(await getApprovalSummary(req.user))
+})
+
+// Order Details insights: quotes waiting on dealers, approval speed and rate,
+// dealers' answers to quotes and the top dealer (last 90 days).
+manufacturerRouter.get('/orders/insights', async (req, res) => {
+  res.json(await getOrderDeskInsights(req.user))
 })
 
 // ?queue=pending|approved|accepted|closed|fulfilled &dealerId &search &limit &offset

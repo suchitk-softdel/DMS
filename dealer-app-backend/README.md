@@ -45,16 +45,18 @@ The data is fixed: there is no data generator in the project.
 
 All use the password `demo123`.
 
-| Email                 | Role                 | Dealership                       |
-| --------------------- | -------------------- | -------------------------------- |
-| `principal@demo.com`  | Dealer Principal     | Summit Comfort Heating & Air     |
-| `sales@demo.com`      | Sales Representative | Summit Comfort Heating & Air     |
-| `tech@demo.com`       | Service Technician   | Summit Comfort Heating & Air     |
-| `principal2@demo.com` | Dealer Principal     | Coastal Climate Solutions        |
-| `manufacturer@demo.com` | Manufacturer Order Desk | Aerovance Climate Systems (no dealer; Order Approvals only) |
+There are two roles: **Dealer** (every dealer screen) and **Manufacturer** (Order Approvals,
+Order Details, Claim Insights).
 
-`principal2` belongs to a different dealership, for testing that dealers can't see each other's
-data. Every dealership also has its own staff accounts (same password), in the `User` table.
+| Email                   | Role         | Organization                    |
+| ----------------------- | ------------ | ------------------------------- |
+| `dealer@demo.com`       | Dealer       | Summit Comfort Heating & Air    |
+| `dealer2@demo.com`      | Dealer       | Coastal Climate Solutions       |
+| `manufacturer@demo.com` | Manufacturer | Aerovance Climate Systems       |
+
+`dealer2` belongs to a different dealership, for testing that dealers can't see each other's
+data. Every dealership also has its own staff accounts (same password, role Dealer), in the
+`User` table, e.g. `sales@demo.com` and `tech@demo.com` at Summit Comfort.
 
 ## The demo dataset
 
@@ -247,7 +249,7 @@ Products, cities and customers are read from the database, so new ones are under
 automatically.
 
 **Safety:** answers use only the signed-in dealer's data and check the role's modules (a
-technician gets no sales figures). Off-topic questions are declined, never guessed. Questions are
+manufacturer user gets no dealer figures). Off-topic questions are declined, never guessed. Questions are
 logged in the audit log without the question text.
 
 **Tested:** `npm test` asks the Copilot natural-language questions for all 6 dealers and checks

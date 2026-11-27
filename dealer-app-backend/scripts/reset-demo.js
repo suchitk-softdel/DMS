@@ -46,7 +46,13 @@ if (keepUsers) {
   const skipped = []
   let kept = 0
   db.transaction(() => {
-    for (const user of savedUsers) {
+    for (const saved of savedUsers) {
+      // Accounts saved from a database older than the two-role change.
+      const user = {
+        ...saved,
+        roleId: ['principal', 'salesRep', 'technician'].includes(saved.roleId) ? 'dealer' : saved.roleId,
+        email: { 'principal@demo.com': 'dealer@demo.com', 'principal2@demo.com': 'dealer2@demo.com' }[saved.email] ?? saved.email,
+      }
       const missing = [['Role', user.roleId], ['Dealer', user.dealerId], ['Manufacturer', user.manufacturerId]].filter(([t, id]) => !exists(t, id))
       // Another (demo) account already using this email under a different id.
       const clash = db.prepare('SELECT id FROM "User" WHERE email = ? AND id <> ?').get(user.email, user.id)

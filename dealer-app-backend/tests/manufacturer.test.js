@@ -72,7 +72,7 @@ describe('Who can see and do what', () => {
   })
 
   test('only the manufacturer can open Order Approvals', async () => {
-    for (const email of ['principal@demo.com', 'sales@demo.com', 'tech@demo.com']) {
+    for (const email of ['dealer@demo.com', 'sales@demo.com', 'tech@demo.com']) {
       const dealer = await signIn(email)
       assert.equal((await dealer.get('/manufacturer/orders')).status, 403, email)
       assert.equal((await dealer.get('/manufacturer/orders/summary')).status, 403, email)
@@ -156,7 +156,7 @@ describe('Network Copilot (manufacturer)', () => {
   })
 
   test('a dealer user still only sees its own data (no "by dealer")', async () => {
-    const principal = await signIn('principal@demo.com')
+    const principal = await signIn('dealer@demo.com')
     const answer = await ask(principal, 'revenue by dealer last year')
     assert.ok(!answer.table || answer.table.columns[0] !== 'Dealer')
     assert.ok(!answer.controls?.find((c) => c.key === 'groupBy')?.options.some((o) => o.value === 'dealer'))
@@ -192,7 +192,7 @@ describe('Order Approvals', () => {
   })
 
   test('dealer requests -> manufacturer quotes -> dealer accepts -> dealer fulfils', async () => {
-    const dealer = await signIn('principal@demo.com')
+    const dealer = await signIn('dealer@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     const order = await newSubmittedOrder(dealer)
 
@@ -268,7 +268,7 @@ describe('Order Approvals', () => {
 
 describe('Dealer claim insights (on Order Approvals)', () => {
   test('only the manufacturer can see them; rates are claims per 100 installed units', async () => {
-    const dealer = await signIn('principal@demo.com')
+    const dealer = await signIn('dealer@demo.com')
     assert.equal((await dealer.get('/manufacturer/claim-insights')).status, 403)
 
     const desk = await signIn('manufacturer@demo.com')

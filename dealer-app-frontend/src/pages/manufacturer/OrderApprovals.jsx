@@ -7,7 +7,9 @@ import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
 import { useNavigate } from 'react-router-dom'
+import DealerMap from '@/components/orders/DealerMap'
 import KpiGrid from '@/components/patterns/KpiGrid'
+import SectionCard from '@/components/patterns/SectionCard'
 import PageHeader from '@/components/ui/PageHeader'
 import { ORDER_DETAILS_PATH } from '@/constants/modules'
 import { formatCurrency } from '@/lib/format'
@@ -95,6 +97,11 @@ export default function OrderApprovals() {
               ? 'No orders waiting for approval.'
               : `${plural(waiting.count, 'order')} waiting for approval · ${formatCurrency(waiting.value, { compact: true })} · oldest ${plural(waiting.oldestDays, 'day')}`}
           </Alert>
+        )}
+        {summary && (
+          <SectionCard title="Dealer locations" subtitle="Each pin is a dealer at its latitude and longitude. Click a pin for details.">
+            <DealerMap dealers={summary.locations} />
+          </SectionCard>
         )}
       </Stack>
     </>
