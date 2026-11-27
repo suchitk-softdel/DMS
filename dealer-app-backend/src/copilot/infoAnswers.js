@@ -3,6 +3,7 @@
 // shows the evidence behind the answer (SRS FR-COP-3).
 
 import { MODULES } from '../constants/domain.js'
+import { stockStatus } from '../services/inventoryService.js'
 import { CATEGORY_LABELS } from './vocabulary.js'
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -41,24 +42,30 @@ export function stockAnswer(rows, filters) {
   const onHand = items.reduce((sum, r) => sum + r.onHand, 0)
   const onOrder = items.reduce((sum, r) => sum + r.onOrder, 0)
   const value = items.reduce((sum, r) => sum + r.onHand * r.product.unitPrice, 0)
-  const isLow = (r) => r.onHand + r.onOrder <= r.reorderPoint
-  const low = items.filter(isLow)
+  // Same rule as the Inventory and Place Orders screens (stockStatus): out = 0
+  // on hand, low = on hand at or below the reorder point. Units on order don't
+  // count until they are received.
+  const out = items.filter((r) => stockStatus(r) === 'out')
+  const low = items.filter((r) => stockStatus(r) === 'low')
 
   let text
   if (filters.sku && items[0]) {
     const r = items[0]
     text = `${r.product.sku} (${r.product.name}): ${number(r.onHand)} on hand and ${number(r.onOrder)} on order. Reorder point: ${number(r.reorderPoint)}.`
-    if (isLow(r)) text += ' It is at or below its reorder point, so it should be reordered.'
+    const status = stockStatus(r)
+    if (status === 'out') text += ' It is out of stock.'
+    else if (status === 'low') text += ' It is low on stock (at or below its reorder point), so it should be reordered.'
   } else {
     // "26 furnaces in stock" / "276 units in stock"
     text = `You have ${number(onHand)} ${filters.category ? what : onHand === 1 ? 'unit' : 'units'} in stock, worth ${money(value)} at dealer price, with ${number(onOrder)} more on order.`
-    text += low.length
-      ? ` ${plural(low.length, 'product')} ${low.length === 1 ? 'is' : 'are'} at or below the reorder point: ${low.slice(0, 4).map((r) => r.product.sku).join(', ')}.`
-      : ' Every product is above its reorder point.'
+    const list = (rows) => `${rows.slice(0, 4).map((r) => r.product.sku).join(', ')}${rows.length > 4 ? ` and ${rows.length - 4} more` : ''}`
+    if (out.length) text += ` ${plural(out.length, 'product')} ${out.length === 1 ? 'is' : 'are'} out of stock: ${list(out)}.`
+    if (low.length) text += ` ${plural(low.length, 'product')} ${low.length === 1 ? 'is' : 'are'} low on stock (at or below the reorder point): ${list(low)}.`
+    if (!out.length && !low.length) text += ' Every product is above its reorder point.'
   }
 
-  // Lowest stock (compared with the reorder point) first.
-  const margin = (r) => r.onHand + r.onOrder - r.reorderPoint
+  // Lowest stock (on hand compared with the reorder point) first.
+  const margin = (r) => r.onHand - r.reorderPoint
   const sorted = [...items].sort((a, b) => margin(a) - margin(b))
   return {
     text,

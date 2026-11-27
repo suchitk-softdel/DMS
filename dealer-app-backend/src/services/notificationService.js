@@ -45,7 +45,7 @@ async function manufacturerNotifications(user, now) {
     title: `${o.id} quote ${o.status} by ${o.dealer.name}`,
     detail: o.status === 'accepted' ? `${money(o.total)} · order confirmed` : `Reason: ${o.declineReason}`,
     at: o.dealerRespondedAt,
-    link: `/order-approvals?order=${o.id}`,
+    link: `/order-details?order=${o.id}`,
   }))
   return {
     count: count + answers.length,
@@ -57,7 +57,7 @@ async function manufacturerNotifications(user, now) {
         title: `${o.id} waiting for approval`,
         detail: `${o.dealer.name} · ${money(o.total)} · ${days === 0 ? 'today' : `${plural(days, 'day')} ago`}`,
         at: o.createdAt,
-        link: `/order-approvals?order=${o.id}`,
+        link: `/order-details?order=${o.id}`,
       }
     })].slice(0, MAX_ITEMS),
   }

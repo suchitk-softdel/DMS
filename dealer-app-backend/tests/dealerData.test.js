@@ -403,7 +403,7 @@ describe('Notifications (/notifications)', () => {
     assert.ok(!(await ids(sales)).includes('aging-claims'))
     // Manufacturer: only order-desk items.
     const desks = (await desk.get('/notifications')).body.items
-    assert.ok(desks.every((n) => /^(approve|answered)-/.test(n.id) && n.link.startsWith('/order-approvals')))
+    assert.ok(desks.every((n) => /^(approve|answered)-/.test(n.id) && n.link.startsWith('/order-details')))
   })
 
   test('a new order request reaches the manufacturer, and the rejection reaches the dealer', async () => {

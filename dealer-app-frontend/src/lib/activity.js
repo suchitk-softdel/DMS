@@ -6,7 +6,6 @@ const ACTIVITY = {
   order: { color: 'primary.main', text: (e) => `Order ${formatCurrency(e.amount, { compact: true })} placed` },
   claimSubmitted: { color: 'warning.main', text: () => 'Claim submitted' },
   claimResolved: { color: 'brand.tealDark', text: (e) => `Claim ${e.stage}` },
-  trainingCompleted: { color: 'secondary.main', text: () => 'Training completed' },
 }
 
 // events: [{ date, type, ref, amount, stage? }] -> ActivityTimeline items

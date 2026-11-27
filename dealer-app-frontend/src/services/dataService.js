@@ -127,7 +127,7 @@ export function getDealerById(dealerId) {
 // from modules the user's role can't open.
 // -> { dealer, kpis: { revenueYtd?, healthScore?, openOrders?, pendingClaims? },
 //      insight: { kind, message, evidence: [string], action: { label, module } } | null,
-//      activity: [{ date, type: order|claimSubmitted|claimResolved|trainingCompleted, ref, amount, stage? }] }
+//      activity: [{ date, type: order|claimSubmitted|claimResolved, ref, amount, stage? }] }
 // ---------------------------------------------------------------------------
 
 export function getHome() {

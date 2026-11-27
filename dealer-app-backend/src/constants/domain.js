@@ -58,14 +58,15 @@ export const CLAIM_TRANSITIONS = Object.freeze({
 // a warranty registration, and only these can have warranty claims.
 export const EQUIPMENT_CATEGORIES = Object.freeze(['airConditioner', 'heatPump', 'furnace', 'airHandler'])
 
-// Health Score component weights (FR-D360-3). They must add up to 1.
+// Health Score component weights (FR-D360-3). The score uses them relative to
+// each other (normalised), so they need not add up to 1. Training Completion
+// is not part of the score (training isn't used in the app).
 // FR-D360-6 asks for these to be configurable without a code change; until
 // that admin setting exists they live here.
 export const HEALTH_SCORE_WEIGHTS = Object.freeze({
   revenueGrowth: 0.3,
   orderVelocity: 0.25,
   warrantyCompliance: 0.25,
-  trainingCompletion: 0.2,
 })
 
 // A claim open longer than this is "aging" (FR-WAR-5, default 10 days).

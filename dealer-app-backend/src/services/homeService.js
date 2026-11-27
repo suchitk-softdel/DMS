@@ -136,11 +136,11 @@ async function insight(dealerId, can, now) {
 }
 
 // ---------------------------------------------------------------------------
-// Recent Activity (FR-HOME-5): latest orders, claims and training completions.
+// Recent Activity (FR-HOME-5): latest orders and claims.
 // ---------------------------------------------------------------------------
 
 // Also the Dealer 360 timeline (FR-D360-5), with a larger `limit`.
-// The defaults (limit 6) take 3 orders, 3 claims, 2 resolutions, 2 trainings.
+// The defaults (limit 6) take 3 orders, 3 claims and 2 resolutions.
 export async function recentActivity(dealerId, can, limit = ACTIVITY_LIMIT) {
   const half = Math.ceil(limit / 2)
   const third = Math.ceil(limit / 3)
@@ -187,21 +187,6 @@ export async function recentActivity(dealerId, can, limit = ACTIVITY_LIMIT) {
     )
   }
 
-  if (can(MODULES.INCENTIVES)) {
-    sources.push(
-      prisma.trainingProgress
-        .findMany({
-          where: { user: { dealerId }, completedAt: { not: null } },
-          orderBy: { completedAt: 'desc' },
-          take: third,
-          select: { completedAt: true, course: { select: { title: true } } },
-        })
-        .then((rows) =>
-          rows.map((row) => ({ date: row.completedAt, type: 'trainingCompleted', ref: row.course.title, amount: null })),
-        ),
-    )
-  }
-
   const events = (await Promise.all(sources)).flat()
   return events.sort((a, b) => b.date - a.date).slice(0, limit)
 }
@@ -210,7 +195,7 @@ export async function recentActivity(dealerId, can, limit = ACTIVITY_LIMIT) {
 
 // user: req.user from requireAuth ({ dealerId, permissions, ... }).
 // -> { dealer, kpis: { revenueYtd?, healthScore?, openOrders?, pendingClaims? }, insight,
-//      activity: [{ date, type: order|claimSubmitted|claimResolved|trainingCompleted, ref, amount, stage? }] }
+//      activity: [{ date, type: order|claimSubmitted|claimResolved, ref, amount, stage? }] }
 export async function getHomeSummary(user, now = new Date()) {
   const { dealerId } = user
   const can = (module) => user.permissions.includes(module)

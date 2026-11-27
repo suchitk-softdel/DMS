@@ -78,25 +78,10 @@ async function warrantyCompliance(dealerId, asOf) {
   }
 }
 
-// Share of assigned courses that the dealership's users have completed.
-async function trainingCompletion(dealerId, asOf) {
-  const rows = await prisma.trainingProgress.findMany({
-    where: { user: { dealerId } },
-    select: { completedAt: true },
-  })
-  if (rows.length === 0) return { score: null, evidence: 'No training assigned yet.' }
-  const completed = rows.filter((row) => row.completedAt && row.completedAt <= asOf).length
-  return {
-    score: Math.round((completed / rows.length) * 100),
-    evidence: `${completed} of ${rows.length} assigned courses completed across the team.`,
-  }
-}
-
 const COMPONENTS = [
   { key: 'revenueGrowth', label: 'Revenue Growth', compute: revenueGrowth },
   { key: 'orderVelocity', label: 'Order Velocity', compute: orderVelocity },
   { key: 'warrantyCompliance', label: 'Warranty Compliance', compute: warrantyCompliance },
-  { key: 'trainingCompletion', label: 'Training Completion', compute: trainingCompletion },
 ]
 
 // Component weights set by the dealer's manufacturer (FR-D360-6), or the

@@ -121,25 +121,6 @@ async function agingClaimsRule(dealerId, now) {
   }
 }
 
-async function trainingRule(dealerId) {
-  const rows = await prisma.trainingProgress.findMany({
-    where: { user: { dealerId } },
-    select: { completedAt: true, userId: true },
-  })
-  const open = rows.filter((row) => !row.completedAt)
-  if (!open.length) return null
-  const people = new Set(open.map((row) => row.userId))
-  const done = rows.length - open.length
-  return {
-    key: 'training',
-    component: 'trainingCompletion',
-    title: `Help ${plural(people.size, 'team member')} finish training`,
-    detail: `${plural(open.length, 'assigned course is', 'assigned courses are')} not finished yet. Completed courses raise the Training Completion part of your Health Score.`,
-    evidence: [`${done} of ${rows.length} assigned courses completed (${Math.round((done / rows.length) * 100)}%)`],
-    action: null, // no Training screen in the app any more
-  }
-}
-
 async function stockOutRule(dealerId, now) {
   const { items } = await forecastDemand(dealerId, now)
   const short = items.filter((item) => item.shortfall > 0)
@@ -156,7 +137,7 @@ async function stockOutRule(dealerId, now) {
   }
 }
 
-const RULES = [agingClaimsRule, trainingRule, stockOutRule]
+const RULES = [agingClaimsRule, stockOutRule]
 // A stock-out loses sales within weeks, so it is never pushed out of the list
 // by a larger but slower score gap.
 const URGENT_MIN_POINTS = 10

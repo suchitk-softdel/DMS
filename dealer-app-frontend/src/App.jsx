@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import { Route, Routes } from 'react-router-dom'
 import PageLoader from '@/components/common/PageLoader'
-import { COPILOT_PATH, MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
+import { CLAIM_INSIGHTS_PATH, COPILOT_PATH, MODULE_PATHS, MODULES, ORDER_DETAILS_PATH, PUBLIC_PATHS } from '@/constants/modules'
 import MainLayout from '@/layouts/MainLayout'
 import ProtectedRoute from '@/routes/ProtectedRoute'
 import { verifySession } from '@/store/slices/authSlice'
@@ -20,6 +20,8 @@ const PlaceOrders = lazy(() => import('@/pages/dealer/PlaceOrders'))
 const Inventory = lazy(() => import('@/pages/dealer/Inventory'))
 const Warranty = lazy(() => import('@/pages/dealer/Warranty'))
 const OrderApprovals = lazy(() => import('@/pages/manufacturer/OrderApprovals'))
+const OrderDetails = lazy(() => import('@/pages/manufacturer/OrderDetails'))
+const ClaimInsights = lazy(() => import('@/pages/manufacturer/ClaimInsights'))
 
 // Permission-controlled pages, each guarded by its module key.
 const MODULE_ROUTES = [
@@ -31,6 +33,8 @@ const MODULE_ROUTES = [
   { path: MODULE_PATHS[MODULES.WARRANTY], moduleKey: MODULES.WARRANTY, Page: Warranty },
   // Manufacturer login only.
   { path: MODULE_PATHS[MODULES.ORDER_APPROVALS], moduleKey: MODULES.ORDER_APPROVALS, Page: OrderApprovals },
+  { path: ORDER_DETAILS_PATH, moduleKey: MODULES.ORDER_APPROVALS, Page: OrderDetails },
+  { path: CLAIM_INSIGHTS_PATH, moduleKey: MODULES.ORDER_APPROVALS, Page: ClaimInsights },
 ]
 
 export default function App() {

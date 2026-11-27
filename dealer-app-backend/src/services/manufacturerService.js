@@ -77,19 +77,26 @@ export async function listNetworkOrders(user, { queue = 'pending', dealerId, sea
 }
 
 // -> { manufacturer, pending: { count, value, oldestDays }, approvedRecent, rejectedRecent,
-//      counts: { pending, approved, rejected, fulfilled }, dealers: [{ id, name, pending }] }
+//      counts: { pending, approved, accepted, closed, fulfilled },
+//      network: { revenue: { value, orders }, pipeline: { value, orders }, dealers, activeDealers, claims },
+//      dealers: [{ id, name, pending }] }
 export async function getApprovalSummary(user, now = new Date()) {
   const where = networkWhere(user.manufacturerId)
   const since = new Date(now.getTime() - RECENT_DAYS * DAY_MS)
-  const [manufacturer, dealers, pending, oldest, groups, approvedRecent, rejectedRecent, byDealer] = await Promise.all([
+  const [manufacturer, dealers, pending, oldest, groups, approvedRecent, rejectedRecent, byDealer, revenue, pipeline, claims] = await Promise.all([
     prisma.manufacturer.findUnique({ where: { id: user.manufacturerId }, select: { id: true, name: true } }),
-    prisma.dealer.findMany({ where: { manufacturerId: user.manufacturerId }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.dealer.findMany({ where: { manufacturerId: user.manufacturerId }, orderBy: { name: 'asc' }, select: { id: true, name: true, status: true } }),
     prisma.order.aggregate({ where: { ...where, status: 'submitted' }, _count: { _all: true }, _sum: { total: true } }),
     prisma.order.findFirst({ where: { ...where, status: 'submitted' }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
     prisma.order.groupBy({ by: ['status'], where, _count: { _all: true } }),
     prisma.order.count({ where: { ...where, status: { in: ['approved', 'fulfilled'] }, reviewedAt: { gte: since } } }),
     prisma.order.count({ where: { ...where, status: { in: ['rejected', 'declined'] }, updatedAt: { gte: since } } }),
     prisma.order.groupBy({ by: ['dealerId'], where: { ...where, status: 'submitted' }, _count: { _all: true } }),
+    // Revenue: orders the dealers confirmed at the manufacturer's price (accepted or fulfilled).
+    prisma.order.aggregate({ where: { ...where, status: { in: ['accepted', 'fulfilled'] } }, _count: { _all: true }, _sum: { total: true } }),
+    // Pipeline: quoted orders, waiting for the dealer to accept.
+    prisma.order.aggregate({ where: { ...where, status: 'approved' }, _count: { _all: true }, _sum: { total: true } }),
+    prisma.claim.count({ where: { dealer: { manufacturerId: user.manufacturerId } } }),
   ])
   const byStatus = Object.fromEntries(groups.map((g) => [g.status, g._count._all]))
   const pendingByDealer = Object.fromEntries(byDealer.map((g) => [g.dealerId, g._count._all]))
@@ -111,7 +118,15 @@ export async function getApprovalSummary(user, now = new Date()) {
       closed: (byStatus.rejected ?? 0) + (byStatus.declined ?? 0),
       fulfilled: byStatus.fulfilled ?? 0,
     },
-    dealers: dealers.map((d) => ({ ...d, pending: pendingByDealer[d.id] ?? 0 })),
+    // Network figures for the tiles at the top of Order Approvals.
+    network: {
+      revenue: { value: round2(revenue._sum.total ?? 0), orders: revenue._count._all },
+      pipeline: { value: round2(pipeline._sum.total ?? 0), orders: pipeline._count._all },
+      dealers: dealers.length,
+      activeDealers: dealers.filter((d) => d.status === 'active').length,
+      claims,
+    },
+    dealers: dealers.map(({ status: _status, ...d }) => ({ ...d, pending: pendingByDealer[d.id] ?? 0 })),
   }
 }
 

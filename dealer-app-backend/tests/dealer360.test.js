@@ -119,12 +119,12 @@ describe('Health Score breakdown and weights (FR-D360-3, FR-D360-6)', () => {
     const before = await computeHealthScore('d-1001', NOW)
     assert.deepEqual(
       Object.fromEntries(before.components.map((c) => [c.key, c.weight])),
-      { revenueGrowth: 0.3, orderVelocity: 0.25, warrantyCompliance: 0.25, trainingCompletion: 0.2 },
+      { revenueGrowth: 0.3, orderVelocity: 0.25, warrantyCompliance: 0.25 },
     )
 
     // A Manufacturer Administrator puts all the weight on warranty compliance.
     const where = (component) => ({ manufacturerId_component: { manufacturerId: 'm-01', component } })
-    for (const [component, weight] of [['revenueGrowth', 0], ['orderVelocity', 0], ['warrantyCompliance', 1], ['trainingCompletion', 0]]) {
+    for (const [component, weight] of [['revenueGrowth', 0], ['orderVelocity', 0], ['warrantyCompliance', 1]]) {
       await prisma.healthScoreWeight.update({ where: where(component), data: { weight } })
     }
     const after = await computeHealthScore('d-1001', NOW)
@@ -133,7 +133,7 @@ describe('Health Score breakdown and weights (FR-D360-3, FR-D360-6)', () => {
     assert.notEqual(after.score, before.score)
 
     // Back to the defaults for the other tests.
-    for (const [component, weight] of Object.entries({ revenueGrowth: 0.3, orderVelocity: 0.25, warrantyCompliance: 0.25, trainingCompletion: 0.2 })) {
+    for (const [component, weight] of Object.entries({ revenueGrowth: 0.3, orderVelocity: 0.25, warrantyCompliance: 0.25 })) {
       await prisma.healthScoreWeight.update({ where: where(component), data: { weight } })
     }
     assert.equal((await computeHealthScore('d-1001', NOW)).score, before.score)
@@ -144,7 +144,7 @@ describe('Recommendations (FR-D360-4)', () => {
   test('each is tied to a component and carries evidence', async () => {
     for (const dealer of dealers) {
       const { recommendations, health } = await load(dealer.id)
-      assert.ok(recommendations.length > 0 && recommendations.length <= 4, dealer.id)
+      assert.ok(recommendations.length <= 4, dealer.id) // none when nothing needs action
       const keys = new Set(health.components.map((c) => c.key))
       for (const rec of recommendations) {
         assert.ok(keys.has(rec.component.key), `${dealer.id}: ${rec.key}`)
@@ -168,16 +168,6 @@ describe('Recommendations (FR-D360-4)', () => {
       if (!rec) continue // may be outranked by more important actions
       assert.ok(rec.title.startsWith(`Resolve ${aging.length} aging claim`), `${dealer.id}: ${rec.title}`)
       for (const line of rec.evidence) assert.ok(aging.some((c) => line.startsWith(c.id)), `${dealer.id}: ${line}`)
-    }
-  })
-
-  test('training: course counts match the training records', async () => {
-    for (const dealer of dealers) {
-      const rows = await prisma.trainingProgress.findMany({ where: { user: { dealerId: dealer.id } }, select: { completedAt: true } })
-      const done = rows.filter((r) => r.completedAt).length
-      const rec = (await load(dealer.id)).recommendations.find((r) => r.key === 'training')
-      if (!rec) continue
-      assert.ok(rec.evidence[0].startsWith(`${done} of ${rows.length} assigned courses completed`), `${dealer.id}: ${rec.evidence[0]}`)
     }
   })
 
