@@ -52,7 +52,7 @@ before(async () => {
   await new Promise((resolve) => server.once('listening', resolve))
   base = `http://localhost:${server.address().port}/api`
   ;[principal, sales, tech, principal2, desk] = await Promise.all(
-    ['principal@demo.com', 'sales@demo.com', 'tech@demo.com', 'principal2@demo.com', 'manufacturer@demo.com'].map(signIn),
+    ['dealer@demo.com', 'sales@demo.com', 'tech@demo.com', 'dealer2@demo.com', 'manufacturer@demo.com'].map(signIn),
   )
 })
 
@@ -89,18 +89,16 @@ describe('Place Orders: product list (GET /place-orders)', () => {
     assert.ok(Array.isArray(res.body.recent))
   })
 
-  test('is open to the principal and the sales rep, not the technician or the manufacturer', async () => {
+  test('is open to every dealer user, not the manufacturer', async () => {
     assert.equal((await sales.get('/place-orders')).status, 200)
-    assert.equal((await tech.get('/place-orders')).status, 403)
+    assert.equal((await tech.get('/place-orders')).status, 200)
     assert.equal((await desk.get('/place-orders')).status, 403)
   })
 
-  test('the module is in the principal and sales rep roles only', async () => {
+  test('the module is in the Dealer role only', async () => {
     const roles = await (await fetch(`${base}/roles`)).json()
     const byId = Object.fromEntries(roles.map((r) => [r.id, r.permissions]))
-    assert.ok(byId.principal.includes('placeOrders'))
-    assert.ok(byId.salesRep.includes('placeOrders'))
-    assert.ok(!byId.technician.includes('placeOrders'))
+    assert.ok(byId.dealer.includes('placeOrders'))
     assert.ok(!byId.manufacturer.includes('placeOrders'))
   })
 })
@@ -200,10 +198,9 @@ describe('Place Orders: selling (POST /place-orders)', () => {
     assert.equal((await principal.post('/place-orders', { productId: 'no-such-product', quantity: 1, sellingPrice: 10 })).status, 404)
   })
 
-  test('the technician and the manufacturer cannot sell', async () => {
+  test('the manufacturer cannot sell', async () => {
     const product = await productInStock(1)
     const body = { productId: product.productId, quantity: 1, sellingPrice: product.basePrice + 10 }
-    assert.equal((await tech.post('/place-orders', body)).status, 403)
     assert.equal((await desk.post('/place-orders', body)).status, 403)
   })
 

@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 import { MODULES } from '@/constants/modules'
 import ProtectedRoute from '@/routes/ProtectedRoute'
-import { DEALER_USER, MANUFACTURER_USER, makeStore, renderWithApp, TECHNICIAN_USER } from '@/test/utils'
+import { DEALER_USER, MANUFACTURER_USER, makeStore, renderWithApp, LIMITED_USER } from '@/test/utils'
 
 const extraRoutes = [
   { path: '/login', element: <div>Login page</div> },
@@ -30,7 +30,7 @@ describe('ProtectedRoute', () => {
   })
 
   test('module not in the role: Unauthorized', () => {
-    renderGuard({ moduleKey: MODULES.ORDERS }, { user: TECHNICIAN_USER })
+    renderGuard({ moduleKey: MODULES.ORDERS }, { user: LIMITED_USER })
     expect(screen.getByText('Unauthorized page')).toBeInTheDocument()
   })
 
@@ -50,7 +50,7 @@ describe('ProtectedRoute', () => {
   })
 
   test('dealer-only page is open to dealers', () => {
-    renderGuard({ dealerOnly: true }, { user: TECHNICIAN_USER })
+    renderGuard({ dealerOnly: true }, { user: LIMITED_USER })
     expect(screen.getByText('Secret page')).toBeInTheDocument()
   })
 

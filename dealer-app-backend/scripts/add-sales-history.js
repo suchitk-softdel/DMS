@@ -58,7 +58,7 @@ async function main() {
       select: { id: true, productId: true, quantity: true, unitPrice: true, order: { select: { id: true, dealerId: true, createdAt: true } } },
     }),
     prisma.user.findMany({
-      where: { dealerId: { not: null }, roleId: { in: ['principal', 'salesRep'] } },
+      where: { dealerId: { not: null }, roleId: 'dealer' },
       orderBy: { id: 'asc' },
       select: { id: true, dealerId: true },
     }),

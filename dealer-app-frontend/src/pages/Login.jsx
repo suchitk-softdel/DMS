@@ -22,7 +22,7 @@ import {
 
 // Shown to help testers; remove once real authentication exists.
 const DEMO_ACCOUNTS = [
-  { email: 'principal@demo.com', label: 'Dealer' },
+  { email: 'dealer@demo.com', label: 'Dealer' },
   { email: 'manufacturer@demo.com', label: 'Manufacturer' },
 ]
 const DEMO_PASSWORD = 'demo123'

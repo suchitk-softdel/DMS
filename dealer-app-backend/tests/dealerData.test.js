@@ -58,9 +58,9 @@ async function signIn(email) {
 
 const dealerIdOf = async (email) => (await prisma.user.findUnique({ where: { email } })).dealerId
 
-let principal // Summit Comfort, every dealer module
-let sales // Summit Comfort, no Dealer 360, no Warranty
-let tech // Summit Comfort, Home, Warranty, Incentives
+let principal // Summit Comfort (dealer@demo.com), role Dealer: every dealer module
+let sales // Summit Comfort staff, role Dealer
+let tech // Summit Comfort staff, role Dealer
 let principal2 // Coastal Climate (another dealer)
 let desk // manufacturer order desk
 before(async () => {
@@ -68,18 +68,18 @@ before(async () => {
   await new Promise((resolve) => server.once('listening', resolve))
   base = `http://127.0.0.1:${server.address().port}/api`
   ;[principal, sales, tech, principal2, desk] = await Promise.all(
-    ['principal@demo.com', 'sales@demo.com', 'tech@demo.com', 'principal2@demo.com', 'manufacturer@demo.com'].map(signIn),
+    ['dealer@demo.com', 'sales@demo.com', 'tech@demo.com', 'dealer2@demo.com', 'manufacturer@demo.com'].map(signIn),
   )
 })
 
 describe('Session: login, /me and logout', () => {
   test('login needs both email and password', async () => {
-    assert.equal((await login('principal@demo.com', '')).status, 400)
+    assert.equal((await login('dealer@demo.com', '')).status, 400)
     assert.equal((await login('', 'demo123')).status, 400)
   })
 
   test('a wrong password is refused without a session cookie', async () => {
-    const res = await login('principal@demo.com', 'wrong-password')
+    const res = await login('dealer@demo.com', 'wrong-password')
     assert.equal(res.status, 401)
     assert.equal(res.headers.get('set-cookie'), null)
   })
@@ -87,7 +87,7 @@ describe('Session: login, /me and logout', () => {
   test('/me returns the signed-in user without the permission list', async () => {
     const { status, body } = await principal.get('/auth/me')
     assert.equal(status, 200)
-    assert.equal(body.email, 'principal@demo.com')
+    assert.equal(body.email, 'dealer@demo.com')
     assert.equal(body.id, principal.user.id)
     assert.ok(!('permissions' in body))
     assert.ok(!('passwordHash' in body) && !('password' in body), 'no password data')
@@ -98,7 +98,7 @@ describe('Session: login, /me and logout', () => {
   })
 
   test('logout answers 204 and clears the session cookie', async () => {
-    const own = await signIn('principal@demo.com') // own session, so the shared one stays signed in
+    const own = await signIn('dealer@demo.com') // own session, so the shared one stays signed in
     const res = await own.post('/auth/logout')
     assert.equal(res.status, 204)
     const cleared = res.headers.get('set-cookie')
@@ -168,17 +168,16 @@ describe('Sales (/sales, /sales/monthly)', () => {
 
   test("a dealer only gets its own dealership's sales", async () => {
     const [mine, theirs] = await Promise.all([principal.get('/sales/monthly'), principal2.get('/sales/monthly')])
-    const dealerId = await dealerIdOf('principal@demo.com')
+    const dealerId = await dealerIdOf('dealer@demo.com')
     const units = await prisma.sale.aggregate({ where: { dealerId }, _sum: { units: true } })
     assert.equal(mine.body.reduce((s, m) => s + m.units, 0), units._sum.units)
     assert.notDeepEqual(mine.body, theirs.body)
   })
 
-  test('needs the Dealer 360 module: sales rep, technician and manufacturer get 403', async () => {
-    for (const client of [sales, tech, desk]) {
-      assert.equal((await client.get('/sales')).status, 403, client.user.email)
-      assert.equal((await client.get('/sales/monthly')).status, 403, client.user.email)
-    }
+  test('every dealer user can open it; the manufacturer gets 403', async () => {
+    for (const client of [sales, tech]) assert.equal((await client.get('/sales')).status, 200, client.user.email)
+    assert.equal((await desk.get('/sales')).status, 403)
+    assert.equal((await desk.get('/sales/monthly')).status, 403)
   })
 })
 
@@ -186,7 +185,7 @@ describe('Warranty KPI summary (/claims/summary)', () => {
   test('stage counts match the claims in the database', async () => {
     const { status, body } = await principal.get('/claims/summary')
     assert.equal(status, 200)
-    const dealerId = await dealerIdOf('principal@demo.com')
+    const dealerId = await dealerIdOf('dealer@demo.com')
     const groups = await prisma.claim.groupBy({ by: ['stage'], where: { dealerId }, _count: { _all: true } })
     for (const g of groups) assert.equal(body.counts[g.stage], g._count._all, g.stage)
     assert.equal(body.openClaims, body.counts.submitted + body.counts.underReview)
@@ -216,14 +215,14 @@ describe('Warranty KPI summary (/claims/summary)', () => {
 
   test("each dealer gets its own dealership's numbers", async () => {
     const { body } = await principal2.get('/claims/summary')
-    const dealerId = await dealerIdOf('principal2@demo.com')
+    const dealerId = await dealerIdOf('dealer2@demo.com')
     const open = await prisma.claim.count({ where: { dealerId, stage: { in: ['submitted', 'underReview'] } } })
     assert.equal(body.openClaims, open)
   })
 
-  test('technician can open it; sales rep and manufacturer cannot', async () => {
+  test('every dealer user can open it; the manufacturer cannot', async () => {
     assert.equal((await tech.get('/claims/summary')).status, 200)
-    assert.equal((await sales.get('/claims/summary')).status, 403)
+    assert.equal((await sales.get('/claims/summary')).status, 200)
     assert.equal((await desk.get('/claims/summary')).status, 403)
   })
 })
@@ -248,7 +247,7 @@ describe('Incentives (/incentives)', () => {
   })
 
   test('progress is per dealership', async () => {
-    const dealerId = await dealerIdOf('principal2@demo.com')
+    const dealerId = await dealerIdOf('dealer2@demo.com')
     const { body } = await principal2.get('/incentives')
     for (const p of body) {
       const row = await prisma.incentiveProgress.findFirst({ where: { dealerId, programId: p.id } })
@@ -256,7 +255,7 @@ describe('Incentives (/incentives)', () => {
     }
   })
 
-  test('open to principal, sales rep and technician; not to the manufacturer', async () => {
+  test('open to every dealer user; not to the manufacturer', async () => {
     for (const client of [sales, tech]) assert.equal((await client.get('/incentives')).status, 200, client.user.email)
     assert.equal((await desk.get('/incentives')).status, 403)
   })
@@ -311,7 +310,7 @@ describe('Sales Coach opportunities (/opportunities)', () => {
   test("lists the dealer's opportunities by decision date, with the customer", async () => {
     const { status, body } = await principal.get('/opportunities')
     assert.equal(status, 200)
-    const dealerId = await dealerIdOf('principal@demo.com')
+    const dealerId = await dealerIdOf('dealer@demo.com')
     assert.equal(body.length, await prisma.opportunity.count({ where: { dealerId } }))
     const dates = body.map((o) => new Date(o.decisionDate).getTime())
     assert.deepEqual(dates, [...dates].sort((a, b) => a - b))
@@ -337,9 +336,9 @@ describe('Sales Coach opportunities (/opportunities)', () => {
     assert.ok(theirs.every((o) => !mineIds.has(o.id)))
   })
 
-  test('open to principal and sales rep; not to technician or manufacturer', async () => {
+  test('open to every dealer user; not to the manufacturer', async () => {
     assert.equal((await sales.get('/opportunities')).status, 200)
-    assert.equal((await tech.get('/opportunities')).status, 403)
+    assert.equal((await tech.get('/opportunities')).status, 200)
     assert.equal((await desk.get('/opportunities')).status, 403)
   })
 })
@@ -349,12 +348,12 @@ describe('Roles (/roles)', () => {
     const res = await fetch(`${base}/roles`) // no session cookie
     assert.equal(res.status, 200)
     const roles = await res.json()
-    assert.deepEqual(roles.map((r) => r.id), ['manufacturer', 'principal', 'salesRep', 'technician'])
+    assert.deepEqual(roles.map((r) => r.id).sort(), ['dealer', 'manufacturer'])
     for (const r of roles) assert.ok(Array.isArray(r.permissions) && r.permissions.length > 0, r.id)
     const byId = Object.fromEntries(roles.map((r) => [r.id, r.permissions]))
     assert.deepEqual(byId.manufacturer, ['orderApprovals'])
-    assert.ok(!byId.salesRep.includes('warranty') && !byId.salesRep.includes('dealer360'))
-    assert.ok(!byId.technician.includes('orders'))
+    for (const m of ['home', 'dealer360', 'orders', 'placeOrders', 'inventory', 'warranty']) assert.ok(byId.dealer.includes(m), m)
+    assert.ok(!byId.dealer.includes('orderApprovals'))
   })
 })
 
@@ -397,10 +396,8 @@ describe('Notifications (/notifications)', () => {
 
   test('each role only gets notifications for the modules it can open', async () => {
     const ids = async (client) => (await client.get('/notifications')).body.items.map((n) => n.id)
-    // Technician: no Orders, no Inventory.
-    assert.ok((await ids(tech)).every((id) => !id.startsWith('decided-') && id !== 'stock-out'))
-    // Sales rep: no Warranty.
-    assert.ok(!(await ids(sales)).includes('aging-claims'))
+    // Dealer: no order-desk items (those are the manufacturer's).
+    assert.ok((await ids(principal)).every((id) => !/^(approve|answered)-/.test(id)))
     // Manufacturer: only order-desk items.
     const desks = (await desk.get('/notifications')).body.items
     assert.ok(desks.every((n) => /^(approve|answered)-/.test(n.id) && n.link.startsWith('/order-details')))

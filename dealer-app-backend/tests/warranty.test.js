@@ -100,7 +100,7 @@ describe('Register Warranty', () => {
   let dealer
   let setup
   before(async () => {
-    dealer = await signIn('principal@demo.com')
+    dealer = await signIn('dealer@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     setup = await fulfilledOrder(dealer, desk)
   })
@@ -162,7 +162,7 @@ describe('Submit Claim', () => {
   let dealer
   let unit
   before(async () => {
-    dealer = await signIn('principal@demo.com')
+    dealer = await signIn('dealer@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     const setup = await fulfilledOrder(dealer, desk)
     const { body } = await dealer.post('/registrations', { orderItemId: setup.line.id })
@@ -269,7 +269,7 @@ describe('Live updates (Server-Sent Events)', () => {
   })
 
   test('the dealer and its manufacturer get registration and claim events', async () => {
-    const dealer = await signIn('principal@demo.com')
+    const dealer = await signIn('dealer@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     const dealerLive = await openLive(dealer.cookie)
     const deskLive = await openLive(desk.cookie)
@@ -297,7 +297,7 @@ describe('Live updates (Server-Sent Events)', () => {
   })
 
   test('an investigation reaches the manufacturer only, never the dealer being investigated', async () => {
-    const dealer = await signIn('principal@demo.com')
+    const dealer = await signIn('dealer@demo.com')
     const desk = await signIn('manufacturer@demo.com')
     const dealerLive = await openLive(dealer.cookie)
     const deskLive = await openLive(desk.cookie)

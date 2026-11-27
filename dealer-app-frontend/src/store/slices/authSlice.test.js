@@ -13,7 +13,7 @@ describe('login', () => {
   test('success stores the user', async () => {
     dataService.login.mockResolvedValue(DEALER_USER)
     const store = makeStore()
-    await store.dispatch(login({ email: 'principal@demo.com', password: 'pw' }))
+    await store.dispatch(login({ email: 'dealer@demo.com', password: 'pw' }))
     expect(store.getState().auth).toMatchObject({ user: DEALER_USER, status: 'succeeded', error: null })
   })
 

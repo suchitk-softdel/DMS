@@ -14,13 +14,14 @@ import { theme } from '@/theme/theme'
 
 // Roles as the backend returns them (GET /roles).
 export const ROLES = [
-  { id: 'principal', name: 'Dealer Principal', permissions: ['home', 'dealer360', 'orders', 'placeOrders', 'inventory', 'warranty'] },
-  { id: 'technician', name: 'Service Technician', permissions: ['home', 'warranty'] },
+  { id: 'dealer', name: 'Dealer', permissions: ['home', 'dealer360', 'orders', 'placeOrders', 'inventory', 'warranty'] },
+  // Test-only role with few modules, to check that the menu and guards follow permissions.
+  { id: 'limited', name: 'Limited (test)', permissions: ['home', 'warranty'] },
   { id: 'manufacturer', name: 'Manufacturer', permissions: ['orderApprovals'] },
 ]
 
-export const DEALER_USER = { id: 'u-1', name: 'Demo Dealer', email: 'principal@demo.com', roleId: 'principal', dealerId: 'd-1001' }
-export const TECHNICIAN_USER = { id: 'u-2', name: 'Demo Tech', email: 'tech@demo.com', roleId: 'technician', dealerId: 'd-1001' }
+export const DEALER_USER = { id: 'u-1', name: 'Demo Dealer', email: 'dealer@demo.com', roleId: 'dealer', dealerId: 'd-1001' }
+export const LIMITED_USER = { id: 'u-2', name: 'Demo Limited', email: 'limited@demo.com', roleId: 'limited', dealerId: 'd-1001' }
 export const MANUFACTURER_USER = { id: 'u-3', name: 'Demo Maker', email: 'manufacturer@demo.com', roleId: 'manufacturer', manufacturerId: 'm-1' }
 
 export function makeStore({ user = null, roles = ROLES, rolesStatus = 'succeeded' } = {}) {

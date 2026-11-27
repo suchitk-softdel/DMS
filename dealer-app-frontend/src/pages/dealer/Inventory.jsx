@@ -1,9 +1,12 @@
+import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded'
 import FactoryOutlined from '@mui/icons-material/FactoryOutlined'
+import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined'
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined'
 import PendingActionsOutlined from '@mui/icons-material/PendingActionsOutlined'
 import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined'
 import SearchRounded from '@mui/icons-material/SearchRounded'
+import SpaceDashboardOutlined from '@mui/icons-material/SpaceDashboardOutlined'
 import TrendingDownRounded from '@mui/icons-material/TrendingDownRounded'
 import TrendingFlatRounded from '@mui/icons-material/TrendingFlatRounded'
 import TrendingUpRounded from '@mui/icons-material/TrendingUpRounded'
@@ -724,21 +727,48 @@ export default function Inventory() {
       <AsyncContent loading={loading} error={error} onRetry={reload} skeleton="dashboard">
         {data && selected && (
           <>
+            {/* Pill tabs: the selected one is filled, the others light up on hover. */}
             <Tabs
               value={tab}
               onChange={(_, value) => setTab(value)}
               aria-label="Inventory views"
+              variant="scrollable"
+              scrollButtons={false}
               sx={{
                 mb: 3,
-                borderBottom: `1px solid ${C.border}`,
-                '& .MuiTab-root': { minHeight: 48, textTransform: 'none', fontWeight: 700, fontSize: 15, color: C.muted },
-                '& .MuiTab-root.Mui-selected': { color: C.navy },
-                '& .MuiTabs-indicator': { bgcolor: C.teal, height: 3 },
+                width: 'fit-content',
+                maxWidth: '100%',
+                minHeight: 0,
+                p: 0.75,
+                bgcolor: '#ffffff',
+                borderRadius: '14px',
+                border: `1px solid ${C.border}`,
+                boxShadow: '0 1px 2px rgba(22, 27, 75, 0.04), 0 4px 16px rgba(22, 27, 75, 0.06)',
+                '& .MuiTabs-indicator': { display: 'none' },
+                '& .MuiTabs-flexContainer': { gap: 0.75 },
+                '& .MuiTab-root': {
+                  minHeight: 44,
+                  px: 2.5,
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  color: C.muted,
+                  transition: 'background-color 150ms ease, color 150ms ease, box-shadow 150ms ease',
+                  '&:hover': { bgcolor: C.tealLight, color: C.tealDark },
+                  '& .MuiTab-icon': { fontSize: 20, mr: 1 },
+                },
+                '& .MuiTab-root.Mui-selected': {
+                  bgcolor: C.tealDark,
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(11, 127, 124, 0.35)',
+                },
+                '& .MuiTab-root.Mui-focusVisible': { outline: `2px solid ${C.navy}`, outlineOffset: 2 },
               }}
             >
-              <Tab value="overview" label="Overview" />
-              <Tab value="stock" label="Stock" />
-              <Tab value="sales" label="Sales" />
+              <Tab value="overview" label="Overview" icon={<SpaceDashboardOutlined />} iconPosition="start" />
+              <Tab value="stock" label="Stock" icon={<Inventory2Outlined />} iconPosition="start" />
+              <Tab value="sales" label="Sales" icon={<BarChartRounded />} iconPosition="start" />
             </Tabs>
 
             {tab === 'overview' && (

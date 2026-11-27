@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ApprovalDrawer from '@/components/orders/ApprovalDrawer'
+import OrderDeskInsights from '@/components/orders/OrderDeskInsights'
 import EmptyState from '@/components/patterns/EmptyState'
 import NameWithInitial from '@/components/ui/NameWithInitial'
 import PageHeader from '@/components/ui/PageHeader'
@@ -26,7 +27,7 @@ import StatusChip from '@/components/ui/StatusChip'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { useToast } from '@/lib/toast'
 import { useAsyncData } from '@/lib/useAsyncData'
-import { getApprovalSummary, getNetworkOrders } from '@/services/dataService'
+import { getApprovalSummary, getNetworkOrders, getOrderDeskInsights } from '@/services/dataService'
 
 // Order Details (manufacturer login only): the list of orders dealers send to
 // the manufacturer. The order desk opens an order to approve or reject it with
@@ -78,6 +79,7 @@ export default function OrderDetails() {
   const toast = useToast()
 
   const { data: summary, error: summaryError, reload: reloadSummary } = useAsyncData(getApprovalSummary)
+  const { data: insights, error: insightsError, reload: reloadInsights } = useAsyncData(getOrderDeskInsights)
 
   // Search a moment after typing stops.
   useEffect(() => {
@@ -119,8 +121,9 @@ export default function OrderDetails() {
       )
       setRefresh((n) => n + 1)
       reloadSummary()
+      reloadInsights()
     },
-    [reloadSummary, toast],
+    [reloadInsights, reloadSummary, toast],
   )
 
   const showQueue = (value) => {
@@ -137,6 +140,7 @@ export default function OrderDetails() {
 
       <Stack spacing={3}>
         {summaryError && <Alert severity="error">{summaryError.message}</Alert>}
+        <OrderDeskInsights summary={summary} insights={insights} error={insightsError} onQueue={showQueue} />
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap', rowGap: 2 }}>
           <TextField
             select

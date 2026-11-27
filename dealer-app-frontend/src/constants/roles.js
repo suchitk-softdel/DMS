@@ -1,8 +1,8 @@
-// User classes that sign in to the Dealer App (SRS v1.0 section 2.3).
+// The two login roles of the Dealer App: a dealer (every dealer screen) and
+// the manufacturer (Order Approvals, Order Details, Claim Insights).
 // The Manufacturer Administrator works in separate admin tooling and the
 // AI Copilot is a system actor, so neither is a login role here.
 export const ROLES = Object.freeze({
-  PRINCIPAL: 'principal',
-  SALES_REP: 'salesRep',
-  TECHNICIAN: 'technician',
+  DEALER: 'dealer',
+  MANUFACTURER: 'manufacturer',
 })

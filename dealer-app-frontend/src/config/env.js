@@ -23,6 +23,9 @@ export const env = Object.freeze({
   // Optional .env overrides, e.g. a different API URL per server (see .env.example).
   apiBaseUrl: (import.meta.env.VITE_API_BASE_URL ?? config.apiBaseUrl).replace(/\/+$/, ''),
   useMockData: toBoolean(import.meta.env.VITE_USE_MOCK_DATA, config.useMockData),
+  // Google Maps JavaScript API key for the dealer map (optional; without it
+  // Google shows the map greyed out, marked "for development purposes only").
+  googleMapsApiKey: (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim(),
   showDemoAccounts: config.showDemoAccounts,
   enableReduxDevTools: config.enableReduxDevTools,
 })
