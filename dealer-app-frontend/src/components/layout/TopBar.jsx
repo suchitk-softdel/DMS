@@ -23,7 +23,7 @@ import Typography from '@mui/material/Typography'
 import { useDispatch } from 'react-redux'
 import { useLocation, useNavigate } from 'react-router-dom'
 import UserAvatar from '@/components/ui/UserAvatar'
-import { MODULE_PATHS, MODULES, PUBLIC_PATHS } from '@/constants/modules'
+import { MODULE_PATHS, MODULES, ORDER_DETAILS_PATH, PUBLIC_PATHS } from '@/constants/modules'
 import { usePageHeader } from '@/lib/pageHeader'
 import { usePermissions } from '@/lib/rbac'
 import { useLiveEvents } from '@/lib/live'
@@ -75,11 +75,11 @@ export default function TopBar() {
   const navigate = useNavigate()
   const { user, can } = usePermissions()
   const [query, setQuery] = useState('')
-  // Orders screen for this user: the dealer's Orders or the manufacturer's Order Approvals.
+  // Orders screen for this user: the dealer's Orders or the manufacturer's Order Details.
   const ordersPath = can(MODULES.ORDERS)
     ? MODULE_PATHS[MODULES.ORDERS]
     : can(MODULES.ORDER_APPROVALS)
-      ? MODULE_PATHS[MODULES.ORDER_APPROVALS]
+      ? ORDER_DETAILS_PATH
       : null
 
   // A full order number opens that order; anything else filters the order list.

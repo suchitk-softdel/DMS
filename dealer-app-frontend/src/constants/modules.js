@@ -36,3 +36,9 @@ export const PUBLIC_PATHS = Object.freeze({
 // Destinations in the navigation rail that are not separate modules:
 // - Copilot is available to every role (SRS FR-COP-1), so it has no module key.
 export const COPILOT_PATH = '/copilot'
+// - Claim Insights is the manufacturer's second screen; it uses the same
+//   permission as Order Approvals (the manufacturer login).
+export const CLAIM_INSIGHTS_PATH = '/claim-insights'
+// - Order Details is the manufacturer's order list (approve or reject), with the
+//   same permission. Notification links and the order search open it.
+export const ORDER_DETAILS_PATH = '/order-details'

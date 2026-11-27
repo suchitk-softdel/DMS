@@ -253,11 +253,19 @@ function PricingSummary({ pricing }) {
   )
 }
 
-function InsightRow({ label, value, action, onClick }) {
+// hint: short note in brackets after the value, on how it is worked out.
+function InsightRow({ label, value, hint, action, onClick }) {
   return (
     <Stack direction="row" spacing={2} sx={{ alignItems: 'center', py: 0.75 }}>
       <Typography sx={{ width: { xs: 110, sm: 150 }, flexShrink: 0, fontWeight: 600, color: C.muted, fontSize: 14 }}>{label}</Typography>
-      <Typography sx={{ flexGrow: 1, fontWeight: 700, color: C.navy, minWidth: 0 }}>{value}</Typography>
+      <Typography sx={{ flexGrow: 1, fontWeight: 700, color: C.navy, minWidth: 0 }}>
+        {value}
+        {hint && (
+          <Typography component="span" sx={{ ml: 0.75, fontWeight: 400, fontSize: 13, color: C.muted }}>
+            ({hint})
+          </Typography>
+        )}
+      </Typography>
       {onClick && (
         <Button onClick={onClick} sx={{ minHeight: 44, minWidth: 72, color: C.tealDark, fontWeight: 700, flexShrink: 0 }}>
           {action} →
@@ -267,40 +275,24 @@ function InsightRow({ label, value, action, onClick }) {
   )
 }
 
-function ProductInsights({ insights, onView, onStockFilter }) {
-  const { bestSeller, fastestGrowing, slowMovers, highestMargin, needReorder } = insights
+function ProductInsights({ insights, onView }) {
+  const { bestSeller, fastestGrowing } = insights
   return (
     <SectionCard title="Product insights" subtitle="Last 3 complete months" sx={cardSx}>
       <Stack divider={<Divider flexItem sx={{ borderColor: C.border }} />}>
         <InsightRow
           label="Best seller"
           value={bestSeller ? `${bestSeller.sku} · ${formatNumber(bestSeller.units)} units` : 'No sales yet'}
+          hint={bestSeller ? 'total of the 3 months' : undefined}
           action="View"
           onClick={bestSeller ? () => onView(bestSeller.id) : undefined}
         />
         <InsightRow
           label="Fastest growing"
           value={fastestGrowing ? `${fastestGrowing.sku} · ${fastestGrowing.fromUnits} → ${fastestGrowing.toUnits} a month` : 'No product grew'}
+          hint={fastestGrowing ? 'first month vs last month' : undefined}
           action="View"
           onClick={fastestGrowing ? () => onView(fastestGrowing.id) : undefined}
-        />
-        <InsightRow
-          label="Slow movers"
-          value={`${slowMovers.count} product${slowMovers.count === 1 ? '' : 's'} · ${money(slowMovers.value)} not selling`}
-          action="View"
-          onClick={slowMovers.count ? () => onStockFilter('notSelling') : undefined}
-        />
-        <InsightRow
-          label="Needs reorder"
-          value={`${needReorder.count} product${needReorder.count === 1 ? '' : 's'}, nothing on order`}
-          action="Show"
-          onClick={needReorder.count ? () => onStockFilter('attention') : undefined}
-        />
-        <InsightRow
-          label="Highest margin"
-          value={highestMargin ? `${highestMargin.sku} · ${highestMargin.marginPct}%` : '—'}
-          action="View"
-          onClick={highestMargin ? () => onView(highestMargin.id) : undefined}
         />
       </Stack>
     </SectionCard>
@@ -754,7 +746,7 @@ export default function Inventory() {
                 {alert && <AlertBar alert={alert} onView={viewProduct} />}
                 <KpiGrid items={operationalTiles(data, () => showStock('attention'), () => navigate(MODULE_PATHS[MODULES.ORDERS]))} columns={4} spacing={2.5} />
                 <PricingSummary pricing={data.pricing} />
-                <ProductInsights insights={data.insights} onView={viewProduct} onStockFilter={showStock} />
+                <ProductInsights insights={data.insights} onView={viewProduct} />
               </Stack>
             )}
 

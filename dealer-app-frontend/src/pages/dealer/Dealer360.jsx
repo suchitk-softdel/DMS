@@ -294,7 +294,7 @@ export default function Dealer360() {
                   {timeline.length > 0 ? (
                     <ActivityTimeline items={timeline} />
                   ) : (
-                    <EmptyState title="No events yet" message="Orders, claims and training will show here." />
+                    <EmptyState title="No events yet" message="Orders and claims will show here." />
                   )}
                 </Card>
               </Grid>

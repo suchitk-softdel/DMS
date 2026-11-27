@@ -95,7 +95,7 @@ function buildKpis({ revenueYtd, healthScore, openOrders, pendingClaims }) {
       accent: 'error.main',
       icon: ReportProblemOutlined,
       trend: pendingClaims.aging
-        ? { text: `${pendingClaims.aging} aging > ${pendingClaims.agingDays} days`, tone: 'negative', direction: 'down' }
+        ? { text: `${pendingClaims.aging} waiting over ${pendingClaims.agingDays} days`, tone: 'negative' }
         : { text: 'None aging', tone: 'positive' },
     })
   }
@@ -158,7 +158,7 @@ export default function Home() {
             {activity.length > 0 ? (
               <ActivityTimeline items={activity} />
             ) : (
-              <EmptyState title="No recent activity" message="New orders, claims and training will show here." />
+              <EmptyState title="No recent activity" message="New orders and claims will show here." />
             )}
           </Card>
         </Stack>

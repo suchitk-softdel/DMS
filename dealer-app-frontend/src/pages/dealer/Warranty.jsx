@@ -59,7 +59,7 @@ function buildKpis(summary) {
       accent: 'warning.main',
       icon: ReportProblemOutlined,
       trend: summary.aging
-        ? { text: `${summary.aging} aging > ${summary.agingDays} days`, tone: 'negative', direction: 'down' }
+        ? { text: `${summary.aging} waiting over ${summary.agingDays} days`, tone: 'negative' }
         : { text: 'None aging', tone: 'positive' },
     },
     {
@@ -84,8 +84,11 @@ function buildKpis(summary) {
 // FR-WAR-3: one short line per claim: Claim ID, Amount and Age (days in the
 // current stage; paid date once reimbursed). The SKU and product show on hover.
 // isNew: arrived through a live update a moment ago (teal outline + "New").
+// Every waiting claim is shown in red; the days are bold once it is aging
+// (more than agingDays in its stage). Resolved claims have no colour.
 function ClaimCard({ claim, agingDays, isNew = false }) {
   const aging = WAITING.has(claim.stage) && claim.ageDays > agingDays
+  const color = WAITING.has(claim.stage) ? 'error.main' : null
   return (
     <Card
       variant="outlined"
@@ -98,7 +101,7 @@ function ClaimCard({ claim, agingDays, isNew = false }) {
         display: 'flex',
         alignItems: 'baseline',
         gap: 1.5,
-        ...(aging && { borderColor: 'error.main', borderLeftWidth: 4 }),
+        ...(color && { borderColor: color, borderLeftWidth: 4 }),
         ...(isNew && { borderColor: 'primary.main', boxShadow: (t) => `0 0 0 2px ${t.palette.primary.main}33`, transition: 'box-shadow 300ms' }),
       }}
     >
@@ -112,7 +115,7 @@ function ClaimCard({ claim, agingDays, isNew = false }) {
       <Typography
         variant="caption"
         title={claim.stage === 'reimbursed' ? 'Paid on' : 'Days in this stage'}
-        sx={{ minWidth: 44, textAlign: 'right', color: aging ? 'error.main' : 'text.secondary', fontWeight: aging ? 700 : 400 }}
+        sx={{ minWidth: 44, textAlign: 'right', color: color ?? 'text.secondary', fontWeight: aging ? 700 : 600 }}
       >
         {claim.stage === 'reimbursed' ? formatDayMonth(claim.resolvedAt ?? claim.stageChangedAt) : `${claim.ageDays}d`}
       </Typography>

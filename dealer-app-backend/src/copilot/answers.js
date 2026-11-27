@@ -411,13 +411,15 @@ export function healthAnswer(health) {
   const scored = health.components.filter((c) => c.score !== null)
   const weakest = [...scored].sort((a, b) => a.score - b.score)[0]
   const strongest = [...scored].sort((a, b) => b.score - a.score)[0]
+  // Share of the score, as on Dealer 360 (weights are normalised).
+  const totalWeight = health.components.reduce((sum, c) => sum + c.weight, 0) || 1
   return {
     text: `Your Health Score is ${health.score} out of 100. Strongest area: ${strongest.label} (${strongest.score}). Biggest opportunity: ${weakest.label} (${weakest.score}). ${weakest.evidence}`,
     table: {
       columns: ['Component', 'Weight', 'Score', 'Why'],
-      rows: health.components.map((c) => [c.label, `${Math.round(c.weight * 100)}%`, c.score ?? '-', c.evidence]),
+      rows: health.components.map((c) => [c.label, `${Math.round((c.weight / totalWeight) * 100)}%`, c.score ?? '-', c.evidence]),
     },
-    evidence: ['Weighted score of revenue growth, order velocity, warranty compliance and training completion'],
+    evidence: ['Weighted score of revenue growth, order velocity and warranty compliance'],
     understood: 'Health Score',
     tags: ['Health Score', 'today'],
     highlight: { value: `${health.score} / 100`, caption: 'Dealer Health Score' },
@@ -773,7 +775,7 @@ export function networkHealthAnswer(rows) {
       columns: ['Dealer', 'Region', 'Score', 'Weakest area'],
       rows: [...scored, ...rows.filter((r) => r.score === null)].map((r) => [r.name, r.region, r.score ?? '-', r.weakest ? `${r.weakest.label} (${r.weakest.score})` : '-']),
     },
-    evidence: ['Each dealer\'s Health Score: revenue growth, order velocity, warranty compliance and training completion'],
+    evidence: ['Each dealer\'s Health Score: revenue growth, order velocity and warranty compliance'],
     understood: 'Health Score · all dealers',
     tags: ['Health Score', 'all dealers', 'today'],
     actions: [],

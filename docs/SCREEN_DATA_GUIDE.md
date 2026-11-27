@@ -10,18 +10,30 @@ This guide explains every number, chart and message shown in the Dealers App: wh
 
 ## 1. The basic rule: what counts as revenue
 
+The app has **two kinds of order**. They are easy to mix up:
+
+| | **Orders** (dealer → manufacturer) | **Place Orders** (dealer → customer) |
+|---|---|---|
+| What it is | The dealer **buys** stock from the manufacturer | The dealer **sells** stock to its customer |
+| Price | Base price (`Product.unitPrice`), quoted by the manufacturer | The dealer's own selling price, which must be above the base price |
+| Effect on stock | When **Fulfilled**: on hand **+qty**, on order −qty | On save: on hand **−qty** |
+| Is it revenue? | **No**, it is the dealer's purchase | **Yes**, this is the dealer's revenue |
+| Table | `Order`, `OrderItem` | `DealerSale` |
+
 | Rule | Detail |
 |---|---|
-| **Revenue = fulfilled orders only** | An order counts as a sale only when the dealer marks it **Fulfilled** (installed). Requested, quoted, accepted, rejected and declined orders are not revenue. |
-| **Order total = sum of its lines** | Each line is product × quantity × unit price. The unit price is the manufacturer's catalogue price, set when the manufacturer approves the request. |
-| **Month = order date** | A fulfilled order counts in the month it was created. |
-| **Sales summary table** | Fulfilled order lines are grouped into the `Sale` table (dealer × product × month: units, revenue, cost). It is rebuilt immediately after every order change (`aggregationService.js`), so charts always match the orders. |
+| **Revenue = sales to customers** | Revenue = Σ quantity × selling price of the dealer's sales (`DealerSale`, entered on Place Orders). |
+| **Cost = base price** | Cost of a sale = quantity × base price at the time of the sale. **Profit = revenue − cost.** |
+| **Month = sale date** | A sale counts in the month it was made. |
+| **Sales summary table** | Sales are grouped into the `Sale` table (dealer × product × month: units, revenue, cost). It is rebuilt immediately after every sale (`aggregationService.js`), so tiles and charts always match the sales. |
+| **Base price vs selling price** | **Base price** = what the dealer pays the manufacturer (`Product.unitPrice`). **Selling price** = what the dealer charges its customer. |
 
 ```
-Order lines (fulfilled)  ──►  Sale table (per month)  ──►  Revenue tiles, trend charts, forecast
-Orders table (live)      ──►  Open orders, approvals, notifications
-Claims table (live)      ──►  Pending claims, aging alerts, warranty compliance
-Training progress        ──►  Training completion, incentives
+Place Orders (DealerSale) ──►  Sale table (per month)  ──►  Revenue tiles, trend charts, forecast, inventory sales
+Orders table (live)       ──►  Open orders, approvals, notifications; Fulfilled adds to stock
+Inventory table (live)    ──►  On hand, on order, low / out of stock
+Claims table (live)       ──►  Pending claims, aging alerts, warranty compliance, claim insights
+Training progress         ──►  Incentives (training hours)
 ```
 
 ---
@@ -45,7 +57,7 @@ Each tile is shown only if the user's role can open the module it comes from. Fo
 
 | Item | Calculation | Example |
 |---|---|---|
-| Big number | Sum of fulfilled orders from **1 Jan this year to today** | **$6,149,473** |
+| Big number | Sum of sales to customers (quantity × selling price) from **1 Jan this year to today** | **$6,149,473** |
 | "▲ 11.2% vs last year" | Compared with the **same dates last year** (1 Jan – 19 Nov 2025): (this year ÷ last year − 1) × 100 | $6,149,473 vs $5,531,878 → **+11.2%** |
 | Small trend line | Revenue for each of the **last 12 complete months** (Nov 2025 – Oct 2026). The current month is left out so an unfinished month never looks like a drop. | 12 monthly values |
 
@@ -55,8 +67,8 @@ Who sees it: Dealer Principal only.
 
 | Item | Calculation | Example |
 |---|---|---|
-| Big number | The Dealer Health Score (0–100), explained in [section 4](#4-health-score-how-77-is-calculated) | **77** |
-| "▼ 4 pts this month" | Score today minus the score calculated **as of the 1st of this month** | 77 − 81 = **−4** |
+| Big number | The Dealer Health Score (0–100), explained in [section 4](#4-health-score-how-it-is-calculated) | **89** |
+| "▼ 4 pts this month" | Score today minus the score calculated **as of the 1st of this month** | Shown as ▲ or ▼ points |
 
 Who sees it: Dealer Principal only.
 
@@ -99,9 +111,8 @@ How the forecast works is explained in [section 5](#5-demand-forecast-stock-out-
 
 These are fixed buttons. Each one appears only if the role can open the screen it leads to:
 - **+ Create Order** opens the new order request.
-- **Place Reorder** opens the Inventory product list.
-- **Register Warranty** and **Submit Claim** open the Warranty board.
-- There is no reorder, registration or claim form: Inventory and Warranty are view only.
+- **Register Warranty** opens the Warranty page with the registration form already open.
+- **Submit Claim** opens the Warranty page with the claim form already open.
 
 ### 2.5 Recent Activity
 
@@ -109,7 +120,6 @@ The latest 6 events, newest first, taken from:
 - **Orders:** the 3 newest orders that are not drafts (order ID and amount)
 - **Claims filed:** the 3 newest claims
 - **Claims resolved:** the 2 newest approved, reimbursed or rejected claims
-- **Training completed:** the 2 newest course completions
 
 Each source is included only if the role can open that module.
 
@@ -123,9 +133,9 @@ Backend: `GET /api/dealer360` → `src/services/dealer360Service.js`. Screen: `p
 
 | Tile | Calculation | Example |
 |---|---|---|
-| **Revenue (12 months)** | Fulfilled orders in the **last 12 months** (20 Nov 2025 – today) | **$6,931,664** |
+| **Revenue (12 months)** | Sales to customers in the **last 12 months** (20 Nov 2025 – today) | **$6,931,664** |
 | **Growth** | Last 12 months vs the **12 months before**: (current ÷ previous − 1) × 100. Small text: change since the 1st of the month. | $6,931,664 vs $6,095,458 → **+13.7%** |
-| **Health Score** | Same as on Home, with change this month | **77**, −4 pts |
+| **Health Score** | Same as on Home, with change this month | **89** |
 | **Territory Coverage** | Stored on the dealer record: the share of the assigned territory the dealer serves | **82%** |
 
 **Why Revenue YTD (Home) and Revenue 12 months (Dealer 360) differ:** they cover different periods. YTD runs from 1 Jan to today; 12 months is a rolling year. Both are correct.
@@ -134,24 +144,23 @@ A **new dealer** (Lakeside, joined Sep 2025) has no full previous year, so Growt
 
 ### 3.2 Revenue trend chart
 
-- Monthly fulfilled revenue for the **last 24 months**. The 6 / 12 / 24 month buttons show part of the same data, with no new request.
+- Monthly revenue (sales to customers) for the **last 24 months**. The 6 / 12 / 24 month buttons show part of the same data, with no new request.
 - The second line is the **same month last year**, for comparison.
 - The **current month is marked as partial** (it is not over yet). That is why November looks low: $246,625 so far vs $653,675 for all of Nov 2025.
 - Months before a dealer joined show **no data** (not zero).
 
 ### 3.3 Health Score panel
 
-Shows the 4 components with their weight, score and evidence (see [section 4](#4-health-score-how-77-is-calculated)).
+Shows the 3 components with their weight, score and evidence (see [section 4](#4-health-score-how-it-is-calculated)).
 
 ### 3.4 Recommendations
 
-There are 3 in-house rules. Each is tied to one Health Score component and shows its evidence:
+There are 2 in-house rules. Each is tied to one Health Score component and shows its evidence:
 
 | Rule | Fires when | Component it improves |
 |---|---|---|
 | **Reorder products** | The forecast shows a shortfall in the next 30 days | Revenue Growth (marked urgent) |
 | **Resolve aging claims** | Claims have waited more than 10 days | Warranty Compliance |
-| **Help team finish training** | Assigned courses are not completed | Training Completion |
 
 **Ranking:** by how many Health Score points the component is missing, calculated as (100 − component score) × weight. A stock-out is urgent (it loses sales within weeks), so it always counts as at least 10 points.
 
@@ -161,33 +170,31 @@ Today's example:
 |---|---|---|
 | 1 | Reorder FN-H96-80 and FN-S80-80 | urgent, counted as 10 |
 | 2 | Resolve 3 aging claims (CLM-20063: 15 days, $2,358 …) | (100 − 64) × 0.25 = **9** |
-| 3 | Help 10 team members finish training (37 of 67 courses done) | (100 − 55) × 0.20 = **9** |
 
-At most 4 recommendations are shown.
+At most 4 recommendations are shown. When nothing needs action, the panel shows "Nothing to act on".
 
 ### 3.5 Timeline
 
-This is the same source as Home's Recent Activity, but it shows 10 events (orders, claims filed and resolved, training completed).
+This is the same source as Home's Recent Activity, but it shows 10 events (orders, claims filed and resolved).
 
 ---
 
-## 4. Health Score: how 77 is calculated
+## 4. Health Score: how it is calculated
 
-File: `src/services/healthScoreService.js`. **Score = weighted average of 4 components, each scored 0–100.**
+File: `src/services/healthScoreService.js`. **Score = weighted average of 3 components, each scored 0–100.** Training Completion is **not** part of the score: training isn't used in the app.
 
-| Component | Weight | Rule | Summit today | Score |
-|---|---|---|---|---|
-| **Revenue Growth** | 30% | Last 12 months vs the previous 12. 0% change = 50; each 1% = 2.5 points; +20% or more = 100; −20% or less = 0 | +13.7% → 50 + 13.7 × 2.5 | **84** |
-| **Order Velocity** | 25% | Orders in the last 90 days vs the **same 90 days last year** (same season), same scale. Drafts, rejected and declined orders are not counted. | 46 orders, +35.3% | **100** |
-| **Warranty Compliance** | 25% | Share of the last 12 months' claims that were **not rejected and not left open more than 10 days** | 14 of 22 | **64** |
-| **Training Completion** | 20% | Share of assigned courses the team has completed | 37 of 67 | **55** |
+| Component | Weight (stored) | Share of the score | Rule |
+|---|---|---|---|
+| **Revenue Growth** | 0.30 | **38%** | Last 12 months vs the previous 12. 0% change = 50; each 1% = 2.5 points; +20% or more = 100; −20% or less = 0 |
+| **Order Velocity** | 0.25 | **31%** | Orders in the last 90 days vs the **same 90 days last year** (same season), same scale. Drafts, rejected and declined orders are not counted. |
+| **Warranty Compliance** | 0.25 | **31%** | Share of the last 12 months' claims that were **not rejected and not left open more than 10 days** |
 
 ```
-Score = 84 × 0.30 + 100 × 0.25 + 64 × 0.25 + 55 × 0.20
-      = 25.2 + 25 + 16 + 11 = 77.2 → 77
+Score = (Revenue × 0.30 + Velocity × 0.25 + Warranty × 0.25) ÷ 0.80
+Summit (d-1001), 27 Nov 2026: (100 × 0.30 + 100 × 0.25 + 65 × 0.25) ÷ 0.80 = 89
 ```
 
-- **Weights are not in the code.** They are stored per manufacturer in the `HealthScoreWeight` table and can be changed without a code change (SRS FR-D360-6).
+- **Weights are not in the code.** They are stored per manufacturer in the `HealthScoreWeight` table and can be changed without a code change (SRS FR-D360-6). They are used relative to each other, so they don't need to add up to 1.
 - **New dealers are not penalised.** A component without enough history is left out, and the other weights are scaled up.
 - **"Change this month"** runs the same calculation as of the 1st of the month and subtracts the result.
 
@@ -230,27 +237,151 @@ Backend: `GET /api/orders`, `GET /api/orders/summary` → `orderService.js`, `or
 Dealer sends request (quantities)  → Requested   → Open Orders +1, "awaiting approval" +1
 Manufacturer approves & quotes     → Quoted      → prices filled from catalogue, dealer gets a bell notice
 Dealer accepts (or declines)       → Accepted    → still open
-Dealer marks fulfilled             → Fulfilled   → becomes REVENUE: Sale table rebuilt, warranty
-                                                   registrations created, Health Score / charts update
+Dealer marks fulfilled (received)  → Fulfilled   → stock: on hand +qty, on order −qty (Inventory updates);
+                                                   equipment units can now be registered for warranty
 ```
+
+An order can only move forward along these steps (`ORDER_TRANSITIONS` in `constants/domain.js`). For example, a Fulfilled order can't go back to Accepted. **Buying from the manufacturer is not revenue.** Revenue comes from Place Orders (see section 7A).
+
+**Insights at the top of Orders** (`orderInsightService.js`):
+
+| Insight | Calculation |
+|---|---|
+| Quotes to accept | Orders in Quoted: count, total value, and the oldest one with how many days it has waited |
+| Waiting for manufacturer | Orders in Requested: count and the oldest one |
+| To receive | Orders in Accepted: count, value and the oldest one |
+| Last 30 days | Orders placed in the last 30 days vs the 30 days before (count and value; unpriced requests aren't counted in the value) |
+| Approval | Manufacturer decisions in the last 90 days: approval rate = (decided − rejected) ÷ decided; average days from sending to the decision |
 
 ---
 
 ## 7. Inventory page
 
-Backend: `GET /api/inventory` → `inventoryService.js`. Screen: `pages/dealer/Inventory.jsx`. Principal and Sales Rep.
+Backend: `GET /api/inventory/overview` → `inventoryService.js` (`getInventoryOverview`). Screen: `pages/dealer/Inventory.jsx`, 3 tabs: Overview, Stock, Sales. Only the logged-in dealer's own stock is returned.
 
-**Project decision:** this is only the dealer's product list with stock. It is **not connected to orders**, so there is no reorder button.
+### 7.1 Stock fields (table `Inventory`, one row per dealer × product)
 
-| What you see | Where it comes from |
+| Field | Meaning | What changes it |
+|---|---|---|
+| **On hand** (`onHand`) | Units in the dealer's stock now | **+qty** when an Order is marked Fulfilled; **−qty** when a sale is made on Place Orders |
+| **On order** (`onOrder`) | Units bought from the manufacturer, not yet received | **−qty** when an Order is marked Fulfilled (never below 0). It is **not** increased when an order is sent or accepted: it comes from the demo data. |
+| **Reorder point** (`reorderPoint`) | The minimum level the dealer wants to keep; at or below it, the product needs reordering | Set per dealer and product in the data. A product first received through an order starts at 0. |
+
+### 7.2 How stock status is calculated
+
+Rule (`stockStatus` in `inventoryService.js`, the same rule on Inventory and Place Orders):
+
+```
+if on hand = 0                    → OUT OF STOCK  (grey/red)
+else if on hand ≤ reorder point   → LOW STOCK     (amber)
+else                              → IN STOCK / OK (green)
+```
+
+| Example | On hand | Reorder point | Status |
+|---|---|---|---|
+| FN-S80-80 | 0 | any | **Out of stock** (nothing to sell) |
+| FN-H96-80 | 4 | 12 | **Low stock** (4 ≤ 12) |
+| FN-H96-80 | 12 | 12 | **Low stock** (equal counts as low) |
+| AC-16-36 | 20 | 12 | **In stock** (20 > 12) |
+
+- Only **on hand** decides the status. Units **on order** don't make a product "OK"; the "Low / out of stock" tile shows how many of them have nothing on order.
+- **Out of stock means it can't be sold:** Place Orders hides the Sell button and the backend refuses the sale.
+
+### 7.3 Prices used
+
+| Term | Calculation |
 |---|---|
-| **Subtitle** ("40 products · 8 low stock · 1 out of stock") | Counted from the list below |
-| **Price** | The manufacturer's catalogue price (`Product` table) |
-| **On hand, On order, Reorder point** | The dealer's stock record per product (`Inventory` table, as of 15 Nov 2026 in the demo data) |
-| **Stock label** | **Out of stock** (red): 0 on hand. **Low stock** (amber): on hand at or below the reorder point. **In stock** (green): everything else. |
-| Search and filters | Search by SKU or name; filter by category and stock level |
+| **Base price** | `Product.unitPrice`: what the dealer pays the manufacturer |
+| **Selling price** | The dealer's real price: revenue ÷ units of its sales of that product in the last 12 months (this month included). Not sold in that time → base price × the dealer's average markup (total revenue ÷ total cost). No sales at all → base price. |
+| **Margin %** | (selling price − base price) ÷ selling price × 100 |
 
-Example: FN-H96-80 has 4 on hand and a reorder point of 12, so it is **Low stock**. FN-S80-80 has 0 on hand, so it is **Out of stock**. These are the same two furnaces as in the Home AI insight.
+### 7.4 Tab 1: Overview
+
+**Alert bar:** shown only when a product that is selling will **run out within 30 days** and has **nothing on order**. The best seller is picked first; otherwise the one running out soonest.
+
+```
+Sold per day = units sold last complete month ÷ days in that month
+Days left    = on hand ÷ sold per day   (rounded down)
+```
+
+Example: 4 on hand, 10 sold last month (31 days) → 0.32 per day → **12 days left**.
+
+**4 tiles:**
+
+| Tile | Calculation | On click |
+|---|---|---|
+| **Low / out of stock** | Number of products with status Low or Out. Small text: how many of them have nothing on order. | Stock tab, filter "Low or out" |
+| **Incoming stock** | Σ on order (units). Small text: number of products on order and their value at base price. | Orders page |
+| **Open orders** | Orders awaiting approval + quotes to accept + accepted orders waiting to be received | Orders page |
+| **Avg. approval time** | Average days from sending an order to the manufacturer's decision, for orders decided in the last 90 days | — |
+
+**Pricing summary:**
+
+| Figure | Calculation |
+|---|---|
+| **Stock value** | Σ on hand × selling price. Small text: Σ on hand × base price (what the stock cost). |
+| **Potential margin** | Stock value − stock at base price: the profit if all stock is sold at the usual price. % = margin ÷ stock value. |
+| **Incoming** | Σ on order × base price |
+| **Selling price range** | Lowest and highest selling price across products, plus the average |
+
+**Product insights** (last **3 complete months**; the current month is left out because a part month would look like a drop):
+
+| Row | Rule | Button |
+|---|---|---|
+| **Best seller** | Most units sold, total of the 3 months | View: opens the product |
+| **Fastest growing** | Biggest % rise in units sold, first month vs last month (month 2 not used; first month must have at least 2 units) | View: opens the product |
+
+### 7.5 Tab 2: Stock
+
+| Control | What it does |
+|---|---|
+| **Chart** | On hand for each product |
+| **Category pills** | Each category with its stock value; click to show that category only |
+| **Level filter** | All · **Low or out** (status ≠ OK) · **Healthy** (status OK) · **Not selling** (0 sold in 3 months and on hand > 0) |
+| **Sort** | Most / Least on hand, or A–Z by SKU |
+| **Search** | SKU or product name |
+| **Product details** | On hand, on order, price per unit, status chip and the product's sales |
+
+### 7.6 Tab 3: Sales
+
+| Control | What it does |
+|---|---|
+| **Period** | Current month (so far) · 3 · 6 · 12 months (complete months) |
+| **Units / Revenue** | Monthly chart for all products, from the `Sale` table (Place Orders sales) |
+| **Top sellers** | Products ranked for the chosen period; click to open in the Stock tab |
+
+---
+
+## 7A. Place Orders page (dealer sells to customer)
+
+Backend: `GET /api/place-orders`, `POST /api/place-orders` → `placeOrderService.js`. Screen: `pages/dealer/PlaceOrders.jsx`.
+
+| What you see | Calculation |
+|---|---|
+| **"2 of 3 products available to sell"** | Products with on hand > 0 ÷ all products |
+| **Available** | On hand from `Inventory` |
+| **Base price** | `Product.unitPrice` |
+| **Last selling price** | The price of the dealer's latest sale of that product; it is pre-filled in the form |
+| **Status** | The same rule as Inventory (section 7.2) |
+| **Sell button** | Shown only when available > 0; out-of-stock rows show "Not available" |
+
+**Rules when selling** (checked on screen, then again on the server):
+
+| Rule | Message |
+|---|---|
+| Quantity is a whole number, 1 or more (max 500 per sale) | "Enter a whole number of 1 or more." |
+| Quantity ≤ on hand | "Only 4 available." |
+| Product not out of stock | "… is out of stock and can't be sold." |
+| Selling price **>** base price (equal is refused) | "Must be higher than the base price ($1,000.00)." |
+
+**Shown before saving:** Order total = qty × selling price. **Your profit** = qty × (selling price − base price).
+
+**What happens on save:**
+1. In **one transaction**, stock is checked and on hand is reduced. If another sale took the units in the meantime, it is refused ("The stock changed. Please try again."), so stock can never go below 0.
+2. The sale is saved with the base price **at that moment**, so later price changes don't change old profit.
+3. The `Sale` summary is rebuilt, so **revenue on Home, Dealer 360, Inventory and the Copilot updates immediately**.
+4. An audit log entry is written (who sold what).
+5. Recent sales shows the latest 10: date, product, qty, price, total, profit, sold by.
 
 ---
 
@@ -258,7 +389,48 @@ Example: FN-H96-80 has 4 on hand and a reorder point of 12, so it is **Low stock
 
 Backend: `GET /api/claims` and `GET /api/claims/summary` → `claimService.js`. Screen: `pages/dealer/Warranty.jsx`. Principal and Technician.
 
-**View only:** the dealer tracks its claims; the manufacturer decides them (approve, reject, reimburse). The dealer has no buttons to move a claim.
+The dealer **registers units** and **submits claims**. The decision (approve, reject, reimburse) belongs to the manufacturer; the dealer can't move a claim. The board updates **live**: when anyone registers a unit or submits a claim, every open Warranty screen of that dealer refreshes (`GET /api/live`).
+
+### Warranty basics
+
+| Term | Rule |
+|---|---|
+| **Which products have a warranty** | Equipment only: air conditioners, heat pumps, furnaces, air handlers (`EQUIPMENT_CATEGORIES`). Parts and accessories don't. |
+| **Warranty length** | Per product (`Product.warrantyYears`, 1 year by default); can be changed in the data without a code change |
+| **Warranty end** | Install date + warranty years |
+| **Serial number** | Next number in the SN series (SN5000001, SN5000002 …), assigned by the system |
+
+### Register warranty
+
+Calls:
+- `GET /registrations/pending` when the form opens
+- `GET /registrations/next-serial` when a unit is picked
+- `POST /registrations` on save
+
+| Step | Rule |
+|---|---|
+| Units listed | Equipment lines of **Fulfilled** orders where registered < quantity ("1 of 3 registered") |
+| Dealer enters | **Only the unit.** Serial number and install date are filled in by the system and can't be edited. |
+| Install date | Today; warranty runs from today |
+| Server checks | The line belongs to this dealer · the order is Fulfilled · the product is equipment · not all units are registered yet |
+| Serial number | Picked and saved in **one transaction**, so two registrations at the same time never get the same number. The number in the form is a preview; the saved one is shown in the confirmation. |
+| After save | Audit log entry, live update, message "Warranty registered · serial number … · covered until …" |
+
+### Submit claim
+
+`POST /api/claims` with the registered unit, amount and description.
+
+| Rule | Refused with |
+|---|---|
+| Unit must be registered to this dealer | "Registered unit not found for this dealership." |
+| Warranty not expired (install date + years ≥ today) | "The warranty for SN… expired on …" |
+| Amount ≤ the product's base price (and between $1 and $100,000) | "Claim amount can't be more than the price of …" |
+| Only one open claim per unit (Submitted, Under Review or Approved) | "Unit SN… already has an open claim (CLM-…)." |
+| Description required, max 500 characters | — |
+
+Product, customer and order are taken from the registration, so a claim is always linked correctly. A new claim starts in **Submitted** with the next number (CLM-20064 …). It is audited and sent as a live update.
+
+**Claim stages** can only move forward: Submitted → Under Review → Approved → Reimbursed, or Under Review → Rejected (`CLAIM_TRANSITIONS`).
 
 ### Tiles
 
@@ -297,6 +469,40 @@ Only orders from **this manufacturer's own dealers** are shown.
 - **Reject** needs a reason, which the dealer sees on the order.
 - Only a Requested order can be decided, so two people can't decide the same order twice.
 
+### 9.1 Dealer claim insights (unusual warranty claims)
+
+Backend: `GET /api/manufacturer/claim-insights` → `claimInsightService.js`. Shown on its own **Claim Insights** tab in the manufacturer menu, below Order Approvals.
+
+Every dealer is compared with the **whole network** of this manufacturer. Rates are **per 100 installed (registered) units**, so a big dealer is not flagged just for being big.
+
+```
+Claim rate     = claims ÷ registered units × 100
+Network rate   = all claims ÷ all registered units × 100
+Rate vs network = dealer rate ÷ network rate
+```
+
+| Flag | Fires when | Weight |
+|---|---|---|
+| **High claim rate** | ≥ 3 claims **and** rate ≥ **1.5×** the network | 3 |
+| **High recent activity** | ≥ 3 claims in the last 90 days **and** the 90-day rate ≥ **2×** the network's 90-day rate | 2 |
+| **Repeat claims** | Any unit with **more than one** claim | 2 |
+| **Claims soon after install** | ≥ 2 claims filed within **30 days** of install **and** they are ≥ **25%** of the dealer's claims | 1 |
+| **High claim amounts** | ≥ 3 claims **and** average amount ≥ **1.25×** the network average | 1 |
+| **Many rejected claims** | ≥ 2 rejected **and** ≥ **25%** of decided claims rejected | 1 |
+
+**Risk score = sum of the weights of the flags that fire.**
+
+| Score | Status |
+|---|---|
+| 4 or more | 🔴 **Investigate** |
+| 1–3 | 🟠 **Watch** |
+| 0 | 🟢 **Normal** |
+
+- Dealers are sorted by score, then by claim rate. Each flag shows its reason with the numbers (for example "3 units with more than one claim").
+- **Dealer details:** claims per 100 units vs the average, total claims vs units sold, last 90 days, and the latest 8 claims (repeat claims marked, days after install).
+- **Flag for investigation / close investigation:** the manufacturer can add an optional note (max 300 characters). It is stored in the audit log (who, when, note). The latest entry decides whether an investigation is open. Only dealers of this manufacturer's own network can be flagged.
+- The thresholds are in `RULES` in `claimInsightService.js`; changing them changes who gets flagged.
+
 ---
 
 ## 10. Notification bell
@@ -334,7 +540,10 @@ Question → understand it (in-house classifier + business dictionary)
 
 | Question | Answer |
 |---|---|
-| "Is this data hard-coded?" | No. Every number is calculated live from the database when the page opens. Create and fulfil an order and the revenue, charts and Health Score change. |
+| "Is this data hard-coded?" | No. Every number is calculated live from the database when the page opens. Sell a product on Place Orders and the stock, revenue and charts change. |
+| "How is out of stock / low stock decided?" | Out = 0 on hand. Low = on hand at or below the product's reorder point. Otherwise in stock. Units on order don't count until they are received. |
+| "Can a dealer sell below cost?" | No. The selling price must be higher than the base price, checked on screen and on the server. |
+| "Can a dealer sell more than it has?" | No. The quantity is checked against on hand, and the stock update is done in one transaction, so two sales at the same time can't oversell. |
 | "Why are YTD and 12-month revenue different?" | Different periods: 1 Jan → today vs a rolling 12 months. |
 | "Why does November look low on the chart?" | The month isn't over yet. It is marked as partial. |
 | "Why is Open Orders 6?" | Open means not finished: Requested + Quoted + Accepted. An order leaves this count only when it is fulfilled, rejected or declined. |
@@ -356,7 +565,10 @@ Question → understand it (in-house classifier + business dictionary)
 | Sales summary | `src/services/aggregationService.js`, `salesService.js` | n/a |
 | Orders | `src/services/orderService.js`, `orderInsightService.js` | `pages/dealer/Orders.jsx`, `components/orders/` |
 | Inventory | `src/services/inventoryService.js` | `pages/dealer/Inventory.jsx` |
-| Warranty | `src/services/claimService.js` | `pages/dealer/Warranty.jsx` |
+| Place Orders | `src/services/placeOrderService.js` | `pages/dealer/PlaceOrders.jsx` |
+| Warranty | `src/services/claimService.js` | `pages/dealer/Warranty.jsx`, `components/warranty/` |
 | Order Approvals | `src/services/manufacturerService.js` | `pages/manufacturer/OrderApprovals.jsx` |
+| Claim insights | `src/services/claimInsightService.js` | `components/orders/DealerClaimInsights.jsx` |
+| Business constants (stages, equipment, aging days) | `src/constants/domain.js` | `constants/modules.js` |
 | Notifications | `src/services/notificationService.js` | `components/layout/TopBar.jsx` |
 | Copilot | `src/copilot/`, `src/services/copilotService.js` | `pages/dealer/Copilot.jsx` |

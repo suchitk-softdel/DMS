@@ -123,6 +123,10 @@ function SellDialog({ product, onSold, onClose }) {
             <Grid size={6}>
               <Figure label="Your profit" value={money(qty * (sellingPrice - product.basePrice))} />
             </Grid>
+            {/* Margin = (selling price - base price) / selling price, as on Inventory. */}
+            <Grid size={12}>
+              <Figure label="Margin" value={`${(((sellingPrice - product.basePrice) / sellingPrice) * 100).toFixed(1)}%`} />
+            </Grid>
           </Grid>
         )}
         {error && (
